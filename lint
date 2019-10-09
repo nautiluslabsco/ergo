@@ -1,0 +1,29 @@
+#!/bin/bash
+
+mod=${1//\./\/}
+
+echo "Formatting code (black) $mod ..."
+black -S --line-length 512 $mod
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Sorting imports (isort) $mod ..."
+isort $mod/*.py
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Linting (pylint) $mod ..."
+find $mod -iname "*.py" | xargs pylint -d too-few-public-methods -d missing-docstring -d unused-argument -d no-self-use -d unused-variable -d line-too-long
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Linting (flake8) $mod ..."
+flake8 --ignore=E501 $mod
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Type Checking $mod ..."
+mypy $mod
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Complexity check $mod ..."
+xenon --max-absolute A --max-modules A --max-average A $mod
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Done."
