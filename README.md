@@ -1,1 +1,1 @@
-Appliancy - Event Driven Lambdas
+Appliancy - Event Driven Methods
