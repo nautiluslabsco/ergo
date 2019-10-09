@@ -1,0 +1,8 @@
+flake8
+mypy-extensions==0.4.1
+mypy==0.670
+pylint
+isort==4.3.17
+radon==3.0.1
+black==19.3b0
+xenon==0.5.5
