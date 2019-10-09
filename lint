@@ -1,6 +1,6 @@
 #!/bin/bash
-
-mod=${1//\./\/}
+mod=${1:-./src}
+# mod=${mod//\./\/}
 
 echo "Formatting code (black) $mod ..."
 black -S --line-length 512 $mod
