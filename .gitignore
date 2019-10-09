@@ -160,6 +160,7 @@ dependency-reduced-pom.xml
 #######################################
 
 venv*/
+.venv*/
 
 #######################################
 # Languages                           #
@@ -280,7 +281,7 @@ error_log
 
 # SASS
 .sass-cache
-
+.mypy_cache/
 
 #######################################
 # File backups                        #
