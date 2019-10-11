@@ -1,14 +1,14 @@
 from distutils.core import setup
 setup(
-  name = 'active', # How you named your package folder (MyLib)
-  packages = ['active'], # Chose the same as "name"
-  version = '0.0.5-alpha', # Start with a small number and increase it with every change you make
+  name = 'activ', # How you named your package folder (MyLib)
+  packages = ['activ'], # Chose the same as "name"
+  version = '0.0.6-alpha', # Start with a small number and increase it with every change you make
   license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Simple Microservice Application Runtime Toolkit', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
-  author_email = 'active@mattian.com', # Type in your E-Mail
+  author_email = 'activ@mattian.com', # Type in your E-Mail
   url = 'https://github.com/mattian7741/zulu', # Provide either the link to your github or to your website
-  download_url = 'https://github.com/mattian7741/zulu/archive/v0.0.5-alpha.tar.gz', # github release url
+  download_url = 'https://github.com/mattian7741/zulu/archive/v0.0.6-alpha.tar.gz', # github release url
   keywords = ['EXECUTE', 'MICROSERVICE', 'LAMBDA'], # Keywords that define your package best
   install_requires=[ # dependencies
       ],
@@ -24,7 +24,7 @@ setup(
   ],
   entry_points={
     'console_scripts': [
-      'active=active.__main__:run'
+      'activ=activ.__main__:run'
     ]
   }
 
