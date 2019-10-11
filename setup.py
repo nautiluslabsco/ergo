@@ -1,14 +1,41 @@
+#!/usr/bin/env python
+import os
+import sys
+
 from distutils.core import setup
+from setuptools.command.install import install
+
+
+def from_file(file_name):
+  """print long description"""
+  with open(file_name) as f:
+    return f.read()
+
+class VerifyVersionCommand(install):
+  """Custom command to verify that the git tag matches our version"""
+  description = 'verify that the git tag matches our version'
+
+  def run(self):
+    tag = os.getenv('CIRCLE_TAG')
+
+    if tag != VERSION:
+      info = "Git tag: {0} does not match the version of this app: {1}".format(
+        tag, VERSION
+      )
+      sys.exit(info)
+
+VERSION = from_file('VERSION').strip()
+
 setup(
   name = 'ergo', # How you named your package folder (MyLib)
   packages = ['ergo'], # Chose the same as "name"
-  version = '0.0.12-alpha', # Start with a small number and increase it with every change you make
+  version = VERSION, # Start with a small number and increase it with every change you make
   license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Simple Microservice Application Runtime Toolkit', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
   author_email = 'ergo@mattian.com', # Type in your E-Mail
   url = 'https://github.com/mattian7741/zulu', # Provide either the link to your github or to your website
-  download_url = 'https://github.com/mattian7741/zulu/archive/v0.0.12-alpha.tar.gz', # github release url
+  download_url = f'https://github.com/mattian7741/ergologic/archive/v{VERSION}.tar.gz', # github release url
   keywords = ['EXECUTE', 'MICROSERVICE', 'LAMBDA'], # Keywords that define your package best
   install_requires=[ # dependencies
       ],
@@ -22,10 +49,16 @@ setup(
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
   ],
+  long_description=from_file('README.md'),
+  long_description_content_type='text/markdown',
+  python_requires='>=3',
   entry_points={
     'console_scripts': [
       'ergo=ergo.__main__:run'
     ]
+  },
+  cmdclass={
+    'verify': VerifyVersionCommand,
   }
-
 )
+

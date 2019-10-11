@@ -1,1 +1,1 @@
-SMART - Simple Microservice Application Runtime Toolkit
+ERGO - Execution Runtime
