@@ -1,3 +1,0 @@
-[console_scripts]
-hamba = hamba.__main__:run
-

@@ -1,9 +1,0 @@
-README.md
-setup.cfg
-setup.py
-hamba/__main__.py
-hamba.egg-info/PKG-INFO
-hamba.egg-info/SOURCES.txt
-hamba.egg-info/dependency_links.txt
-hamba.egg-info/entry_points.txt
-hamba.egg-info/top_level.txt

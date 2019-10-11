@@ -238,6 +238,7 @@ venv*/
 
 # Python
 *.pyc
+*.egg-info
 
 # Scala - sbt specific
 .cache
