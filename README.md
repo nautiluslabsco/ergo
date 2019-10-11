@@ -1,1 +1,1 @@
-Appliancy - Event Driven Methods
+SMART - Simple Microservice Application Runtime Toolkit
