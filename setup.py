@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'hamba', # How you named your package folder (MyLib)
   packages = ['hamba'], # Chose the same as "name"
-  version = '0.0.1-alpha', # Start with a small number and increase it with every change you make
+  version = '0.0.2-alpha', # Start with a small number and increase it with every change you make
   license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Runtime execution framework to run plain functions as production services', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
