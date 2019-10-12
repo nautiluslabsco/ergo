@@ -20,9 +20,8 @@ class VerifyVersionCommand(install):
   def run(self):
     # tag = os.getenv('CIRCLE_TAG')
     tag = subprocess.check_output(["git", "describe", "--tags"]).decode('ascii').strip()
-    print(tag)
+
     if tag != VERSION:
-      print('should make it here')
       info = "Git tag: {0} does not match the version of this app: {1}".format(
         tag, VERSION
       )
