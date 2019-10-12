@@ -11,6 +11,8 @@ def from_file(file_name):
   with open(file_name) as f:
     return f.read()
 
+VERSION = from_file('VERSION').strip()
+
 class VerifyVersionCommand(install):
   """Custom command to verify that the git tag matches our version"""
   description = 'verify that the git tag matches our version'
@@ -24,7 +26,6 @@ class VerifyVersionCommand(install):
       )
       sys.exit(info)
 
-VERSION = from_file('VERSION').strip()
 
 setup(
   name = 'ergo', # How you named your package folder (MyLib)
