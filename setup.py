@@ -31,7 +31,7 @@ setup(
   packages = ['ergo'], # Chose the same as "name"
   version = VERSION, # Start with a small number and increase it with every change you make
   license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
-  description = 'Simple Microservice Application Runtime Toolkit', # Give a short description about your library
+  description = 'Execution Runtime Graph Orchestration', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
   author_email = 'ergo@mattian.com', # Type in your E-Mail
   url = 'https://github.com/mattian7741/zulu', # Provide either the link to your github or to your website
