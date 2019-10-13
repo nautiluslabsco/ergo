@@ -37,12 +37,15 @@ class FunctionHost:
         if not matches:
             raise Exception(f'Unable to inject invalid referenced function {self._reference}')
 
-        path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
+        path_to_source_file = matches.group(1)
+        if not matches.group(1):
+            path_to_source_file = os.getcwd()
+        elif matches.group(1)[0] != '/':
+            path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
         source_file_name = matches.group(2)
         source_file_extension = matches.group(3)
         class_name = ''
         method_name = matches.group(4)
-
         sys.path.insert(0, path_to_source_file)
 
         spec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
@@ -50,3 +53,5 @@ class FunctionHost:
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
         self._func = getattr(module, method_name)
+
+
