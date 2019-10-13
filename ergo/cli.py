@@ -1,7 +1,7 @@
 import click
 import json
 from typing import List
-from src.function_host import FunctionHost
+from ergo.src.function_host import FunctionHost
 
 @click.group()
 def main():
