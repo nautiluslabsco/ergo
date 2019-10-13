@@ -30,7 +30,7 @@ class VerifyVersionCommand(install):
 
 setup(
   name = 'ergo', # How you named your package folder (MyLib)
-  packages = ['ergo', 'ergo.src'], # Chose the same as "name"
+  packages = ['src'], # Chose the same as "name"
   version = VERSION, # Start with a small number and increase it with every change you make
   license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Execution Runtime Graph Orchestration', # Give a short description about your library
@@ -57,7 +57,7 @@ setup(
   python_requires='>=3',
   entry_points={
     'console_scripts': [
-      'ergo=ergo.cli:main'
+      'ergo=src.cli:main'
     ]
   },
   cmdclass={
