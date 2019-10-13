@@ -32,17 +32,17 @@ setup(
   name = 'ergo', # How you named your package folder (MyLib)
   packages = ['src'], # Chose the same as "name"
   version = VERSION, # Start with a small number and increase it with every change you make
-  license='MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
-  description = 'Execution Runtime Graph Orchestration', # Give a short description about your library
+  license = 'MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
+  description = 'Exo Runtime Gamut Orchestration', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
   author_email = 'ergo@mattian.com', # Type in your E-Mail
-  url = 'https://github.com/mattian7741/ergologic', # Provide either the link to your github or to your website
-  download_url = f'https://github.com/mattian7741/ergologic/archive/v{VERSION}.tar.gz', # github release url
+  url = 'https://github.com/mattian7741/ergo', # Provide either the link to your github or to your website
+  download_url = f'https://github.com/mattian7741/ergo/archive/v{VERSION}.tar.gz', # github release url
   keywords = ['execute', 'microservice', 'lambda'], # Keywords that define your package best
-  install_requires=[ # dependencies
+  install_requires = [ # dependencies
     'Click',
   ],
-  classifiers=[
+  classifiers = [
     'Development Status :: 3 - Alpha', # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
     'Intended Audience :: Developers', # Define that your audience are developers
     'Topic :: Software Development :: Build Tools',
@@ -52,15 +52,15 @@ setup(
     'Programming Language :: Python :: 3.5',
     'Programming Language :: Python :: 3.6',
   ],
-  long_description=from_file('README.md'),
-  long_description_content_type='text/markdown',
-  python_requires='>=3',
-  entry_points={
+  long_description = from_file('README.md'),
+  long_description_content_type = 'text/markdown',
+  python_requires = '>=3',
+  entry_points = {
     'console_scripts': [
       'ergo=src.cli:main'
     ]
   },
-  cmdclass={
+  cmdclass = {
     'verify': VerifyVersionCommand,
   }
 )

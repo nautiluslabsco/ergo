@@ -1,6 +1,7 @@
 import importlib.util
 import os
 import re
+import sys
 from importlib.abc import Loader
 from typing import Any
 
@@ -30,13 +31,22 @@ class FunctionHost:
         data_out.append(result)
 
     def inject(self,) -> None:
-        pattern = r'^([^\.]+)\.([^\.]+):([^:]+)$'
+        # [path/to/file/[file.extension[:[class.]method]]]
+        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+)$' # (path/to/file/)(file).(extension):(method)
         matches = re.match(pattern, self._reference)
         if not matches:
             raise Exception(f'Unable to inject invalid referenced function {self._reference}')
-        meta = [f'{os.getcwd()}/{matches.group(1)}.{matches.group(2)}', matches.group(1), matches.group(3)]
-        spec = importlib.util.spec_from_file_location(meta[1], meta[0])
+
+        path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
+        source_file_name = matches.group(2)
+        source_file_extension = matches.group(3)
+        class_name = ''
+        method_name = matches.group(4)
+
+        sys.path.insert(0, path_to_source_file)
+
+        spec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
         module = importlib.util.module_from_spec(spec)
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
-        self._func = getattr(module, meta[2])
+        self._func = getattr(module, method_name)
