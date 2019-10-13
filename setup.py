@@ -36,9 +36,9 @@ setup(
   description = 'Execution Runtime Graph Orchestration', # Give a short description about your library
   author = 'Matthew Hansen', # Type in your name
   author_email = 'ergo@mattian.com', # Type in your E-Mail
-  url = 'https://github.com/mattian7741/zulu', # Provide either the link to your github or to your website
+  url = 'https://github.com/mattian7741/ergologic', # Provide either the link to your github or to your website
   download_url = f'https://github.com/mattian7741/ergologic/archive/v{VERSION}.tar.gz', # github release url
-  keywords = ['EXECUTE', 'MICROSERVICE', 'LAMBDA'], # Keywords that define your package best
+  keywords = ['execute', 'microservice', 'lambda'], # Keywords that define your package best
   install_requires=[ # dependencies
     'Click',
   ],
