@@ -1,2 +1,3 @@
 - [ ] BUG: use of absolute folder for reference doesn't work
-- [ ] 
+- [ ] restructure project to avoid repetition of ergo.
+- [ ] add a test to verify ergo run product 4.3 3.2 is working
