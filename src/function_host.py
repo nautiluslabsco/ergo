@@ -32,7 +32,7 @@ class FunctionHost:
 
     def inject(self,) -> None:
         # [path/to/file/[file.extension[:[class.]method]]]
-        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+)$' # (path/to/file/)(file).(extension):(method)
+        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$' # (path/to/file/)(file).(extension):(method)
         matches = re.match(pattern, self._reference)
         if not matches:
             raise Exception(f'Unable to inject invalid referenced function {self._reference}')
@@ -44,14 +44,19 @@ class FunctionHost:
             path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
         source_file_name = matches.group(2)
         source_file_extension = matches.group(3)
-        class_name = ''
-        method_name = matches.group(4)
         sys.path.insert(0, path_to_source_file)
 
         spec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
         module = importlib.util.module_from_spec(spec)
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
-        self._func = getattr(module, method_name)
+
+        scope = module
+        if matches.group(4):
+            class_name = matches.group(4)[:-1]
+            scope = getattr(scope, class_name)
+
+        method_name = matches.group(5)
+        self._func = getattr(scope, method_name)
 
 
