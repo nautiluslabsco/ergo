@@ -6,7 +6,7 @@ from importlib.abc import Loader
 from typing import Any
 
 
-class FunctionHost:
+class FunctionInvocable(object):
     def __init__(self, reference: str) -> None:
         self._func: Any = None
         self._reference: str = reference

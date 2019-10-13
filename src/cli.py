@@ -1,7 +1,8 @@
 import click
 import json
 from typing import List
-from src.function_host import FunctionHost
+from src.flask_http_invoker import FlaskHttpInvoker
+from src.function_invocable import FunctionInvocable
 
 @click.group()
 def main():
@@ -16,8 +17,13 @@ def stdio(reference: str):
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
 @click.argument('argv', nargs=-1)
 def run(reference: str, argv: List):
-	# data_in: Dict[str, Any] = json.loads(argv)
-	host = FunctionHost(reference)
+	host = FunctionInvocable(reference)
 	result = []
 	host.invoke(argv, result) # 32.4
 	click.echo(str(result))
+
+@main.command()
+@click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
+def http(reference: str):
+	host = FlaskHttpInvoker(FunctionInvocable(reference))
+	host.start()
