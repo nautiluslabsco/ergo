@@ -1,0 +1,2 @@
+- [ ] BUG: use of absolute folder for reference doesn't work
+- [ ] 
