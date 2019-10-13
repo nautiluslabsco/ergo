@@ -40,7 +40,8 @@ setup(
   download_url = f'https://github.com/mattian7741/ergologic/archive/v{VERSION}.tar.gz', # github release url
   keywords = ['EXECUTE', 'MICROSERVICE', 'LAMBDA'], # Keywords that define your package best
   install_requires=[ # dependencies
-      ],
+    'Click',
+  ],
   classifiers=[
     'Development Status :: 3 - Alpha', # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
     'Intended Audience :: Developers', # Define that your audience are developers
@@ -56,7 +57,7 @@ setup(
   python_requires='>=3',
   entry_points={
     'console_scripts': [
-      'ergo=ergo.__main__:run'
+      'ergo=ergo.cli:main'
     ]
   },
   cmdclass={
