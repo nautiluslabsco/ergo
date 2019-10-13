@@ -13,6 +13,7 @@ class FlaskHttpInvoker(HttpInvoker):
             try:
                 self._invocable.invoke(data_in, data_out)
             except Exception as err:
+                print(err)
                 abort(400)
 
             return str(data_out)
