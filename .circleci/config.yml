@@ -82,23 +82,23 @@ jobs:
           key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
           paths:
             - "venv"
-      - run: #
+      - run:
           name: verify git tag vs. version
           command: |
             python3 -m venv venv
             . venv/bin/activate
             python setup.py verify
-      - run: #
+      - run: # $PYPI_PASSWORD set in CircleCi > Settings > Environment variables
           name: init .pypirc
           command: |
             echo -e "[pypi]" >> ~/.pypirc
             echo -e "username = mattian7741" >> ~/.pypirc
             echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
-      - run: #
+      - run:
           name: create packages
           command: |
             make package
-      - run: #
+      - run:
           name: upload to pypi
           command: |
             . venv/bin/activate
@@ -107,7 +107,7 @@ jobs:
 workflows:
   build_and_deploy:
     jobs:
-      - build: #
+      - build:
           filters:
             tags:
               only: /.*/
@@ -127,7 +127,7 @@ workflows:
           version: "3.7"
           requires:
             - build
-      - deploy: #
+      - deploy:
           requires:
             - build
           filters:
