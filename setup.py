@@ -33,7 +33,7 @@ class VerifyVersionCommand(install):
   def run(self):
     tag = os.getenv('CIRCLE_TAG')
     # tag = subprocess.check_output(["git", "describe", "--tags"]).decode('ascii').strip()
-
+    print(f'tag is {tag} and version is {VERSION}')
     if tag != VERSION:
       info = "Git tag: {0} does not match the version of this app: {1}".format(
         tag, VERSION
