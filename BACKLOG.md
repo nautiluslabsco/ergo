@@ -2,3 +2,4 @@
 - [x] restructure project to avoid repetition of ergo.
 - [ ] add a test to verify ergo run product 4.3 3.2 is working
 - [ ] improved automation around versioning
+- [ ] https://github.com/levlaz/circleci.py
