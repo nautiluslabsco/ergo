@@ -11,7 +11,7 @@ def from_file(file_name):
   with open(file_name) as f:
     return f.read()
 
-VERSION = subproces.check_output(["ergo", "version"]).decode('ascii').strip()
+VERSION = subprocess.check_output(["ergo", "version"]).decode('ascii').strip()
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
