@@ -6,11 +6,12 @@ bleach==3.1.0
 certifi==2019.9.11
 chardet==3.0.4
 Click==7.0
+codecov==2.0.15
 colorama==0.4.1
 coverage==4.5.4
 docutils==0.15.2
 entrypoints==0.3
--e git+git@github.com:mattian7741/ergo.git@fa0b7403e2b815c7f71e61c6fcff0bb6121804ea#egg=ergo
+-e git+git@github.com:mattian7741/ergo.git@87b6f805b2130326734ca15cbeb827a6d5a2d846#egg=ergo
 falcon==2.0.0
 flake8==3.7.8
 flake8-polyfill==1.0.2
