@@ -2,7 +2,7 @@ version: 2.1
 jobs:
   build:
     docker:
-      - image: circleci/python:3.6
+      - image: circleci/python:3.7
     steps:
       - checkout
       - restore_cache:
@@ -61,13 +61,13 @@ jobs:
             sudo pip3 install circleci
   integration:
     docker:
-      - image: circleci/python:3.6
+      - image: circleci/python:3.7
     steps:
       - run: It works!
       - run: echo $RUN_EXTRA_TESTS
   deploy:
     docker:
-      - image: circleci/python:3.6
+      - image: circleci/python:3.7
     steps:
       - checkout
       - restore_cache:
