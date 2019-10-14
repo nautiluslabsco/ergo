@@ -11,9 +11,9 @@ def from_file(file_name):
   with open(file_name) as f:
     return f.read()
 
-VERSION = subprocess.check_output(["ergo", "version"]).decode('ascii').strip()
+VERSION = from_file('VERSION').strip()
 
-class VerifyVersionCommand(install):
+class VerifyVersionCommandx(install):
     """Custom command to verify that the git tag matches our version"""
     description = 'verify that the git tag matches our version'
 
@@ -26,13 +26,13 @@ class VerifyVersionCommand(install):
             )
             sys.exit(info)
 
-class VerifyVersionCommandx(install):
+class VerifyVersionCommand(install):
   """Custom command to verify that the git tag matches our version"""
   description = 'verify that the git tag matches our version'
 
   def run(self):
-    # tag = os.getenv('CIRCLE_TAG')
-    tag = subprocess.check_output(["git", "describe", "--tags"]).decode('ascii').strip()
+    tag = os.getenv('CIRCLE_TAG')
+    # tag = subprocess.check_output(["git", "describe", "--tags"]).decode('ascii').strip()
 
     if tag != VERSION:
       info = "Git tag: {0} does not match the version of this app: {1}".format(
