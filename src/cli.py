@@ -41,12 +41,13 @@ def version(scope: Optional[str] = None):
         print('no previous version')
         exit(0)
 
-    if not scope:
-        print(tag)
-        exit(0)
-
     pattern: str = r'([0-9]+)\.([0-9]+)\.([0-9]+)(\-alpha)?(\-.*)?'
     matches = re.match(pattern, tag)
+
+    if not scope:
+        print(f'{matches.group(1)}.{matches.group(2)}.{matches.group(3)}{matches.group(4)}')
+        exit(0)
+
 
     verdict: Dict[str, [int, str]] = {
         'major': int(matches.group(1)),
