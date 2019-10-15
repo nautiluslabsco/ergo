@@ -5,35 +5,56 @@ from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 import subprocess
 import re
+import os
+import datetime
 import cmd # https://docs.python.org/3/library/cmd.html
 
+from colors import *
+
 class ErgoCli(object):
+  def quit(self):
+    return True
+
   def run(self, reference: str, argv: List = []):
     host = FunctionInvocable(reference)
     result = []
     host.invoke(argv, result)
     return str(result)
+
+  def http(self, reference: str):
+    host = FlaskHttpInvoker(FunctionInvocable(reference))
+    host.start()
+
+
 cli = ErgoCli()
 
+def from_file(file_name):
+  """print long description"""
+  with open(file_name) as f:
+    return f.read().strip()
 
+def fd(seconds):
+  return datetime.datetime.fromtimestamp(seconds).strftime('%b %d %Y, %H:%M:%S.%f')[:-3]
+
+def get_version_path():
+  return os.path.dirname(os.path.abspath(__file__)) + "/../VERSION"
 
 class ErgoShell(cmd.Cmd):
-  intro = 'Welcome to the ergo shell. Type help or ? to list commands.\n'
-  prompt = 'ergo ∴ '
+  intro = color(f'ergo {from_file(get_version_path())} ({fd(os.path.getmtime(get_version_path()))})\nType help or ? to list commands.', fg='#ffffff')
+  prompt = f'{color("ergo", fg="#ffb000")} {color("∴", fg="#ffb000")} '
 
-  @staticmethod
-  def parse(arg):
-      'Convert a series of zero or more numbers to an argument tuple'
-      return list(map(str, arg.split()))
+  def do_quit(self, arg):
+    return cli.quit()
 
   def do_exit(self, arg):
-    'Exit'
-    print('ergo shell terminated')
-    return True
+    return cli.quit()
 
   def do_run(self, arg):
-    args = ErgoShell.parse(arg)
+    args = arg.split()
     print(cli.run(args[0], args[1:]))
+
+  def do_http(self, arg):
+    cli.http(arg)
 
 @click.group()
 def main():
@@ -57,8 +78,7 @@ def run(reference: str, argv: List):
 @main.command()
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
 def http(reference: str):
-  host = FlaskHttpInvoker(FunctionInvocable(reference))
-  host.start()
+  cli.http(reference)
 
 @main.command()
 @click.argument('scope', type=click.STRING, required=False) # major, minor, patch
