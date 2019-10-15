@@ -7,19 +7,33 @@ import subprocess
 import re
 import cmd # https://docs.python.org/3/library/cmd.html
 
+class ErgoCli(object):
+  def run(self, reference: str, argv: List = []):
+    host = FunctionInvocable(reference)
+    result = []
+    host.invoke(argv, result)
+    return str(result)
+cli = ErgoCli()
+
+
 
 class ErgoShell(cmd.Cmd):
-  intro = 'Welcome to the ergo shell.   Type help or ? to list commands.\n'
+  intro = 'Welcome to the ergo shell. Type help or ? to list commands.\n'
   prompt = 'ergo ∴ '
 
-  def do_something_with_an_argument(self, arg):
-    'Does something with an argument'
-    print(arg)
+  @staticmethod
+  def parse(arg):
+      'Convert a series of zero or more numbers to an argument tuple'
+      return list(map(str, arg.split()))
 
   def do_exit(self, arg):
     'Exit'
-    print('Ergo Shell Terminated')
+    print('ergo shell terminated')
     return True
+
+  def do_run(self, arg):
+    args = ErgoShell.parse(arg)
+    print(cli.run(args[0], args[1:]))
 
 @click.group()
 def main():
@@ -38,17 +52,13 @@ def stdio(reference: str):
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
 @click.argument('argv', nargs=-1)
 def run(reference: str, argv: List):
-  host = FunctionInvocable(reference)
-  result = []
-  host.invoke(argv, result) # 32.4
-  click.echo(str(result))
+  click.echo(cli.run(reference, argv))
 
 @main.command()
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
 def http(reference: str):
   host = FlaskHttpInvoker(FunctionInvocable(reference))
   host.start()
-
 
 @main.command()
 @click.argument('scope', type=click.STRING, required=False) # major, minor, patch
