@@ -25,7 +25,6 @@ class ErgoCli(object):
     host = FlaskHttpInvoker(FunctionInvocable(reference))
     host.start()
 
-
 cli = ErgoCli()
 
 def from_file(file_name):
@@ -41,7 +40,14 @@ def get_version_path():
 
 class ErgoShell(cmd.Cmd):
   intro = color(f'ergo {from_file(get_version_path())} ({fd(os.path.getmtime(get_version_path()))})\nType help or ? to list commands.', fg='#ffffff')
-  prompt = f'{color("ergo", fg="#ffb000")} {color("∴", fg="#ffb000")} '
+  prompt = f'{color("ergo", fg="#33ff33")} {color("∴", fg="#33ff33")} '
+
+  def onecmd(self, line):
+      try:
+          return super().onecmd(line)
+      except Exception as err:
+          print(f'*** {err}')
+          return False # don't stop
 
   def do_quit(self, arg):
     return cli.quit()
