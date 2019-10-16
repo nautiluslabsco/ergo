@@ -8,6 +8,7 @@ import re
 import os
 import datetime
 import cmd # https://docs.python.org/3/library/cmd.html
+from click_default_group import DefaultGroup # https://pypi.org/project/click-default-group/
 
 from colors import *
 
@@ -62,7 +63,7 @@ class ErgoShell(cmd.Cmd):
   def do_http(self, arg):
     cli.http(arg)
 
-@click.group()
+@click.group(cls=DefaultGroup, default='shell', default_if_no_args=True)
 def main():
   pass
 
