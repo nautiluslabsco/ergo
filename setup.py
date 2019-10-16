@@ -5,13 +5,14 @@ import sys
 from distutils.core import setup
 from setuptools.command.install import install
 import subprocess
+from src.version import get_version
 
 def from_file(file_name):
   """print long description"""
   with open(file_name) as f:
     return f.read()
 
-VERSION = from_file('VERSION').strip()
+VERSION = get_version()
 
 class VerifyVersionCommandx(install):
     """Custom command to verify that the git tag matches our version"""
@@ -42,8 +43,6 @@ class VerifyVersionCommand(install):
 setup(
   name = 'ergo', # How you named your package folder (MyLib)
   packages = ['src'], # Chose the same as "name"
-  package_data={'': ['VERSION']},
-  include_package_data=True,
   version = VERSION, # Start with a small number and increase it with every change you make
   license = 'MIT', # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Exo Runtime Gamut Orchestration', # Give a short description about your library

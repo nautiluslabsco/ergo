@@ -9,8 +9,8 @@ import os
 import datetime
 import cmd # https://docs.python.org/3/library/cmd.html
 from click_default_group import DefaultGroup # https://pypi.org/project/click-default-group/
-
 from colors import *
+from src.version import get_version
 
 class ErgoCli(object):
   def quit(self):
@@ -37,10 +37,10 @@ def fd(seconds):
   return datetime.datetime.fromtimestamp(seconds).strftime('%b %d %Y, %H:%M:%S.%f')[:-3]
 
 def get_version_path():
-  return os.path.dirname(os.path.abspath(__file__)) + "/../VERSION"
+  return os.path.dirname(os.path.abspath(__file__)) + "/version.py"
 
 class ErgoShell(cmd.Cmd):
-  intro = color(f'ergo {from_file(get_version_path())} ({fd(os.path.getmtime(get_version_path()))})\nType help or ? to list commands.', fg='#ffffff')
+  intro = color(f'ergo {get_version()} ({fd(os.path.getmtime(get_version_path()))})\nType help or ? to list commands.', fg='#ffffff')
   prompt = f'{color("ergo", fg="#33ff33")} {color("∴", fg="#33ff33")} '
 
   def onecmd(self, line):
