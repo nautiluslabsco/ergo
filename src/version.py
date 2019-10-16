@@ -1,4 +1,4 @@
-VERSION = '0.3.13-alpha'
+VERSION = '0.3.14-alpha'
 
 def get_version():
 	return VERSION

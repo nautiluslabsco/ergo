@@ -18,5 +18,5 @@ class FlaskHttpInvoker(HttpInvoker):
 
             return str(data_out)
 
-        app.run()
+        app.run(port=self._port)
         return 0
