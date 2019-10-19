@@ -1,5 +1,6 @@
 from typing import Dict
 
+
 class HttpInvoker(object):
     def __init__(self, invocable: 'HttpInvoker') -> None:
         super().__init__()

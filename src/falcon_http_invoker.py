@@ -1,6 +1,9 @@
-from src.http_invoker import HttpInvoker
-from falcon import Request, Response  # type: ignore
 from typing import Any
+
+from falcon import Request, Response  # type: ignore
+
+from src.http_invoker import HttpInvoker
+
 
 class FalconHttpInvoker(HttpInvoker):  # type: ignore
     def __init__(self, invocable: Any):

@@ -1,25 +1,27 @@
-from flask import Flask, request, abort
+from flask import Flask, abort, request
+
 from src.http_invoker import HttpInvoker
 
+
 class FlaskHttpInvoker(HttpInvoker):
-  def start(self) -> int:
-    app = Flask(__name__)
+    def start(self) -> int:
+        app = Flask(__name__)
 
-    @app.route(self.route)
-    def handler() -> str:
-      data_out: List[Any] = []
-      data_in: List[Any] = request.args
-      # data_in(f'route: {str(request.url_rule)}')
-      try:
-        self._invocable.invoke(data_out, data_in)
-      except Exception as err:
-        print(err)
-        abort(400)
+        @app.route(self.route)
+        def handler() -> str:
+            data_out: List[Any] = []
+            data_in: List[Any] = request.args
+            # data_in(f'route: {str(request.url_rule)}')
+            try:
+                self._invocable.invoke(data_out, data_in)
+            except Exception as err:
+                print(err)
+                abort(400)
 
-      return str(data_out)
+            return str(data_out)
 
-    app.run(host='0.0.0.0', port=self._port)
-    return False
+        app.run(host='0.0.0.0', port=self._port)
+        return False
 
 
 # from werkzeug.serving import make_server

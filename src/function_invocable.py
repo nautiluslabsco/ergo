@@ -32,7 +32,7 @@ class FunctionInvocable(object):
 
     def inject(self,) -> None:
         # [path/to/file/[file.extension[:[class.]method]]]
-        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$' # (path/to/file/)(file).(extension):(method)
+        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
         matches = re.match(pattern, self._reference)
         if not matches:
             raise Exception(f'Unable to inject invalid referenced function {self._reference}')
@@ -58,5 +58,3 @@ class FunctionInvocable(object):
 
         method_name = matches.group(5)
         self._func = getattr(scope, method_name)
-
-
