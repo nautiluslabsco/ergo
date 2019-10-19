@@ -4,8 +4,8 @@ class HttpInvoker(object):
     def __init__(self, invocable: 'HttpInvoker') -> None:
         super().__init__()
         self._invocable = invocable
-        self._route: str = '/multiply'
-        self._port: int = 8080
+        self._route: str = '/'
+        self._port: int = 80
 
     @property
     def route(self) -> str:

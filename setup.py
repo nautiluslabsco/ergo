@@ -73,7 +73,7 @@ setup(
   python_requires = '>=3',
   entry_points = {
     'console_scripts': [
-      'ergo=src.cli:main'
+      'ergo=src.ergo_click:main'
     ]
   },
   cmdclass = {

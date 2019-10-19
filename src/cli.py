@@ -11,16 +11,22 @@ import cmd # https://docs.python.org/3/library/cmd.html
 from click_default_group import DefaultGroup # https://pypi.org/project/click-default-group/
 from colors import *
 from src.version import get_version
+import traceback
+import sys
 
 class ErgoCli(object):
   def quit(self):
     return True
-
-  def run(self, reference: str, argv: List = []):
-    host = FunctionInvocable(reference)
+  
+  def run(arg: str):
+    argv = arg
+    if type(arg) is tuple:
+      argv = ''.join(list(arg))
+    argv = argv.split()
     result = []
-    host.invoke(argv, result)
-    return str(result)
+    host = FunctionInvocable(argv[0])
+    host.invoke(argv[1:], result)
+    print(str(result))
 
   def http(self, reference: str):
     host = FlaskHttpInvoker(FunctionInvocable(reference))
@@ -39,29 +45,29 @@ def fd(seconds):
 def get_version_path():
   return os.path.dirname(os.path.abspath(__file__)) + "/version.py"
 
+
 class ErgoShell(cmd.Cmd):
   intro = color(f'ergo {get_version()} ({fd(os.path.getmtime(get_version_path()))})\nType help or ? to list commands.', fg='#ffffff')
   prompt = f'{color("ergo", fg="#33ff33")} {color("∴", fg="#33ff33")} '
 
+  def __init__(self, cli, *args, **kwargs):
+    super().__init__(args, kwargs)
+    self._cli = cli
+
   def onecmd(self, line):
       try:
-          return super().onecmd(line)
+          cmd = line.split(' ', 2)
+          # method = globals()['_%s' % cmd[0]]
+          method = getattr(self._cli, cmd[0])
+          method(str(cmd[1])) #super().onecmd(line)
+          return False
       except Exception as err:
-          print(f'*** {err}')
-          return False # don't stop
-
-  def do_quit(self, arg):
-    return cli.quit()
-
-  def do_exit(self, arg):
-    return cli.quit()
-
-  def do_run(self, arg):
-    args = arg.split()
-    print(cli.run(args[0], args[1:]))
-
-  def do_http(self, arg):
-    cli.http(arg)
+          try:
+            return super().onecmd(line)
+          except:
+            print(f'*** {err}')
+            traceback.print_exc(file=sys.stdout)
+            return False # don't stop
 
 @click.group(cls=DefaultGroup, default='shell', default_if_no_args=True)
 def main():
@@ -69,7 +75,9 @@ def main():
 
 @main.command()
 def shell():
-  ErgoShell().cmdloop()
+  # setattr(ErgoShell, 'do_run', ErgoCli.run)
+  es = ErgoShell(cli)
+  es.cmdloop()
 
 @main.command()
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
@@ -77,10 +85,11 @@ def stdio(reference: str):
   pass
 
 @main.command()
-@click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
-@click.argument('argv', nargs=-1)
-def run(reference: str, argv: List):
-  click.echo(cli.run(reference, argv))
+@click.argument('arg', nargs=-1)
+def run(arg: str):
+  return cli.run(arg)
+
+
 
 @main.command()
 @click.argument('reference', type=click.STRING) # a function referenced by <module>[.<class>][:<function>]
@@ -103,7 +112,6 @@ def version(scope: Optional[str] = None):
   if not scope:
     print(f'{matches.group(1)}.{matches.group(2)}.{matches.group(3)}{matches.group(4)}')
     exit(0)
-
 
   verdict: Dict[str, [int, str]] = {
     'major': int(matches.group(1)),

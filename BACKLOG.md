@@ -3,3 +3,9 @@
 - [ ] add a test to verify ergo run product 4.3 3.2 is working
 - [ ] improved automation around versioning
 - [ ] https://github.com/levlaz/circleci.py
+
+- [ ] combine ergo dependencies in to single ergo package
+	- [ ] http://www.pyinstaller.org/
+	- [ ] https://anthony-tuininga.github.io/cx_Freeze/
+- [ ] dynamic routing in cli and shell invocation
+	- [ ] https://medium.com/@mgarod/dynamically-add-a-method-to-a-class-in-python-c49204b85bd6

@@ -20,7 +20,7 @@ class FunctionInvocable(object):
     def func(self, arg: Any) -> None:
         self._func = arg
 
-    def invoke(self, data_in: Any, data_out: Any) -> None:
+    def invoke(self, data_out: Any, data_in: Any) -> None:
         result: Any = None
 
         try:
