@@ -15,15 +15,22 @@ find $mod -iname "*.py" | xargs pylint -d too-few-public-methods -d missing-docs
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Linting (flake8) $mod ..."
+# flake8 --ignore=E501 --use-flake8-tabs $mod
 flake8 --ignore=E501 $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
-echo "Type Checking $mod ..."
-mypy $mod
+echo "Assessing style (pycodestyle) $mod ..."
+pycodestyle --first $mod
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
+echo "Type Checking (mypy) $mod ..."
+mypy --strict $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Complexity check $mod ..."
 xenon --max-absolute A --max-modules A --max-average A $mod
+if [ $? -ne 0 ]; then { echo "Warning." ; } fi
+xenon --max-absolute B --max-modules A --max-average A $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Done."

@@ -3,34 +3,38 @@ import os
 import re
 import sys
 from importlib.abc import Loader
-from typing import Any
+from typing import Callable, Optional
+
+from src.payload import Payload
+from src.types import TYPE_RETURN
 
 
-class FunctionInvocable(object):
+class FunctionInvocable:
     def __init__(self, reference: str) -> None:
-        self._func: Any = None
+        self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
         self._reference: str = reference
         self.inject()
 
     @property
-    def func(self) -> Any:
+    def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore
         return self._func
 
     @func.setter
-    def func(self, arg: Any) -> None:
+    def func(self, arg: Callable[..., TYPE_RETURN]) -> None:  # type: ignore
         self._func = arg
 
-    def invoke(self, data_out: Any, data_in: Any) -> None:
-        result: Any = None
-
+    def invoke(self, data_out: Payload, data_in: Payload) -> None:
+        result: TYPE_RETURN = None
+        if not self._func:
+            raise Exception('Cannot executeNo injected function')
         try:
-            result = self._func(*data_in)
+            result = self._func(*data_in.list())
         except Exception as err:
             raise Exception(f'Referenced function {self._reference} threw an exception: {str(err)}')
 
-        data_out.append(result)
+        data_out.set('result', result)
 
-    def inject(self,) -> None:
+    def inject(self) -> None:
         # [path/to/file/[file.extension[:[class.]method]]]
         pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
         matches = re.match(pattern, self._reference)

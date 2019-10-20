@@ -1,7 +1,7 @@
-VERSION = '0.3.17-alpha'
+VERSION = '0.3.18-alpha'
 
 
-def get_version():
+def get_version() -> str:
     return VERSION
 
 

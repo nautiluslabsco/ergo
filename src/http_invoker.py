@@ -1,8 +1,8 @@
-from typing import Dict
+from src.function_invocable import FunctionInvocable
 
 
-class HttpInvoker(object):
-    def __init__(self, invocable: 'HttpInvoker') -> None:
+class HttpInvoker:
+    def __init__(self, invocable: FunctionInvocable) -> None:
         super().__init__()
         self._invocable = invocable
         self._route: str = '/'

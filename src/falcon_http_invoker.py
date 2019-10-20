@@ -1,15 +1,16 @@
-from typing import Any
+# pylint: disable-all
+# flake8: noqa
+# type: ignore
+from typing import Any, List
 
-from falcon import Request, Response  # type: ignore
+from falcon import Request, Response, abort
 
 from src.http_invoker import HttpInvoker
 
 
-class FalconHttpInvoker(HttpInvoker):  # type: ignore
+class FalconHttpInvoker(HttpInvoker):
     def __init__(self, invocable: Any):
         HttpInvoker.__init__(self, invocable)
-
-        self.add_route(self.route, self)
 
     def on_get(self, request: Request, response: Response) -> None:
         data_out: List[Any] = []
@@ -18,6 +19,7 @@ class FalconHttpInvoker(HttpInvoker):  # type: ignore
         try:
             self._invocable.invoke(data_in, data_out)
         except Exception as err:
+            print(str(err))
             abort(400)
 
         response.body = str(data_out)

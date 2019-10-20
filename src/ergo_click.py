@@ -1,4 +1,4 @@
-from typing import List
+from typing import Tuple
 
 import click
 from click_default_group import \
@@ -7,35 +7,29 @@ from click_default_group import \
 from src.ergo_cli import ErgoCli
 from src.ergo_cmd import ErgoCmd
 
-ergo_cli = ErgoCli()
+ERGO_CLI = ErgoCli()
 
 
 @click.group(cls=DefaultGroup, default='shell', default_if_no_args=True)
-def main():
+def main() -> bool:
     pass
 
 
 @main.command()
-def shell():
-    ErgoCmd(ergo_cli).cmdloop()
+def shell() -> bool:
+    ErgoCmd(ERGO_CLI).cmdloop()
+    return False
 
 
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def run(ref: str, arg: List[str]):
-    return ergo_cli.run(ref, arg)
+def run(ref: str, arg: Tuple[str]) -> bool:
+    return ERGO_CLI.run(ref, *list(arg))
 
 
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def http(ref: str, arg: List[str]):
-    return ergo_cli.http(ref, arg)
-
-
-@main.command()
-@click.argument('ref', type=click.STRING)
-@click.argument('arg', nargs=-1)
-def stop(ref: str, arg: List[str]):
-    return ergo_cli.stop(ref, arg)
+def http(ref: str, arg: Tuple[str]) -> bool:
+    return ERGO_CLI.http(ref, *list(arg))

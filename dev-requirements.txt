@@ -1,6 +1,11 @@
+pycodestyle
 black
 isort
 pylint
 mypy
+flake8
+flake8-quotes
+flake8-tabs
+xenon
 coverage
 codecov

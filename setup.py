@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 import os
-import sys
-
-from distutils.core import setup
-from setuptools.command.install import install
 import subprocess
+import sys
+from distutils.core import setup
+
+from setuptools.command.install import install
+
 from src.version import get_version
+
 
 def from_file(file_name):
   """print long description"""
@@ -80,4 +82,3 @@ setup(
     'verify': VerifyVersionCommand,
   }
 )
-

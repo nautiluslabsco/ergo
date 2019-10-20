@@ -1,6 +1,7 @@
-from flask import Flask, abort, request
+from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
+from src.payload import Payload
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -9,14 +10,14 @@ class FlaskHttpInvoker(HttpInvoker):
 
         @app.route(self.route)
         def handler() -> str:
-            data_out: List[Any] = []
-            data_in: List[Any] = request.args
+            data_out: Payload = Payload()
+            data_in: Payload = Payload(dict(request.args))
             # data_in(f'route: {str(request.url_rule)}')
-            try:
-                self._invocable.invoke(data_out, data_in)
-            except Exception as err:
-                print(err)
-                abort(400)
+            # try:
+            self._invocable.invoke(data_out, data_in)
+            # except Exception as err:
+            #     print(err)
+            #     abort(400)
 
             return str(data_out)
 
