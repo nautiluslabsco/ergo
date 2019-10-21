@@ -1,3 +1,4 @@
+"""Summary."""
 import importlib.util
 import os
 import re
@@ -12,20 +13,50 @@ from src.types import TYPE_RETURN
 
 
 class FunctionInvocable:
+    """Summary."""
+
     def __init__(self, reference: str) -> None:
+        """Summary.
+
+        Args:
+            reference (str): Description
+
+        """
         self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
         self._reference: str = reference
         self.inject()
 
     @property
     def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore
+        """Summary.
+
+        Returns:
+            Optional[Callable[..., TYPE_RETURN]]: Description
+
+        """
         return self._func
 
     @func.setter
     def func(self, arg: Callable[..., TYPE_RETURN]) -> None:  # type: ignore
+        """Summary.
+
+        Args:
+            arg (Callable[..., TYPE_RETURN]): Description
+
+        """
         self._func = arg
 
     def invoke(self, data_out: Payload, data_in: Payload) -> None:
+        """Summary.
+
+        Args:
+            data_out (Payload): Description
+            data_in (Payload): Description
+
+        Raises:
+            Exception: Description
+
+        """
         result: TYPE_RETURN = None
         if not self._func:
             raise Exception('Cannot executeNo injected function')
@@ -37,6 +68,12 @@ class FunctionInvocable:
         data_out.set('result', result)
 
     def inject(self) -> None:
+        """Summary.
+
+        Raises:
+            Exception: Description
+
+        """
         # [path/to/file/[file.extension[:[class.]method]]]
         pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
         matches: Optional[Match[str]] = re.match(pattern, self._reference)

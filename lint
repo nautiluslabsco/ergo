@@ -2,6 +2,10 @@
 mod=${1:-./src}
 # mod=${mod//\./\/}
 
+echo "Formatting code (autopep) $mod ..."
+autopep8 --in-place --aggressive --aggressive --recursive .
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+
 echo "Formatting code (black) $mod ..."
 black -S --line-length 512 $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi

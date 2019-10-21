@@ -1,3 +1,4 @@
+"""Summary."""
 import datetime
 import os
 
@@ -11,21 +12,50 @@ from src.version import get_version
 
 
 def format_date(sec: float) -> str:
+    """Summary.
+
+    Args:
+        sec (float): Description
+
+    Returns:
+        str: Description
+
+    """
     dtf: str = '%b %d %Y, %H:%M:%S.%f'
     return datetime.datetime.fromtimestamp(sec).strftime(dtf)[:-3]
 
 
 def get_version_path() -> str:
+    """Summary.
+
+    Returns:
+        str: Description
+
+    """
     return os.path.dirname(os.path.abspath(__file__)) + '/version.py'
 
 
 class ErgoCli:
+    """Summary."""
+
     @property
     def prompt(self) -> str:
+        """Summary.
+
+        Returns:
+            str: Description
+
+        """
         return f'{color("ergo", fg="#33ff33")} {color("∴", fg="#33ff33")} '
 
     @property
     def intro(self) -> str:
+        """Summary.
+
+        Returns:
+            str: Description
+
+        """
         version: str = get_version()
         timestamp: str = format_date(os.path.getmtime(get_version_path()))
         intro: str = f'ergo {version} ({timestamp})\nType help or ? to list commands.'
@@ -33,6 +63,19 @@ class ErgoCli:
         return str(color(intro, fg='#ffffff'))
 
     def run(self, ref: str, *args: str) -> int:
+        """Summary.
+
+        Args:
+            ref (str): Description
+            *args (str): Description
+
+        Returns:
+            int: Description
+
+        Raises:
+            err: Description
+
+        """
         try:
             result: Payload = Payload()
             host: FunctionInvocable = FunctionInvocable(ref)
@@ -44,6 +87,16 @@ class ErgoCli:
         return 0
 
     def http(self, ref: str, *args: str) -> int:
+        """Summary.
+
+        Args:
+            ref (str): Description
+            *args (str): Description
+
+        Returns:
+            int: Description
+
+        """
         host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(ref))
         host.start()
         return 0

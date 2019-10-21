@@ -1,7 +1,19 @@
-VERSION = '0.3.19-alpha'
+"""Summary.
+
+Attributes:
+    VERSION (str): Description
+
+"""
+VERSION = '0.3.20-alpha'
 
 
 def get_version() -> str:
+    """Summary.
+
+    Returns:
+        str: Description
+
+    """
     return VERSION
 
 

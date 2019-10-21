@@ -8,5 +8,6 @@ flake8-quotes
 flake8-tabs
 flake8-docstrings
 xenon
+autopep8
 coverage
 codecov
