@@ -91,7 +91,6 @@ class FunctionInvocable:
 
         spec: ModuleSpec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
         module: ModuleType = importlib.util.module_from_spec(spec)
-        print(type(module))
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
 

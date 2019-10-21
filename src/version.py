@@ -4,7 +4,7 @@ Attributes:
     VERSION (str): Description
 
 """
-VERSION = '0.3.20-alpha'
+VERSION = '0.3.21-alpha'
 
 
 def get_version() -> str:
