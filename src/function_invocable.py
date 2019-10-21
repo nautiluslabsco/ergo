@@ -3,7 +3,9 @@ import os
 import re
 import sys
 from importlib.abc import Loader
-from typing import Callable, Optional
+from importlib.machinery import ModuleSpec
+from types import ModuleType
+from typing import Callable, Match, Optional
 
 from src.payload import Payload
 from src.types import TYPE_RETURN
@@ -36,29 +38,30 @@ class FunctionInvocable:
 
     def inject(self) -> None:
         # [path/to/file/[file.extension[:[class.]method]]]
-        pattern = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
-        matches = re.match(pattern, self._reference)
+        pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
+        matches: Optional[Match[str]] = re.match(pattern, self._reference)
         if not matches:
             raise Exception(f'Unable to inject invalid referenced function {self._reference}')
 
-        path_to_source_file = matches.group(1)
+        path_to_source_file: str = matches.group(1)
         if not matches.group(1):
             path_to_source_file = os.getcwd()
         elif matches.group(1)[0] != '/':
             path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
-        source_file_name = matches.group(2)
-        source_file_extension = matches.group(3)
+        source_file_name: str = matches.group(2)
+        source_file_extension: str = matches.group(3)
         sys.path.insert(0, path_to_source_file)
 
-        spec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
-        module = importlib.util.module_from_spec(spec)
+        spec: ModuleSpec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
+        module: ModuleType = importlib.util.module_from_spec(spec)
+        print(type(module))
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
 
-        scope = module
+        scope: ModuleType = module
         if matches.group(4):
-            class_name = matches.group(4)[:-1]
+            class_name: str = matches.group(4)[:-1]
             scope = getattr(scope, class_name)
 
-        method_name = matches.group(5)
+        method_name: str = matches.group(5)
         self._func = getattr(scope, method_name)

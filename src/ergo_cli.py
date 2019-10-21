@@ -5,6 +5,7 @@ from colors import color
 
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
+from src.http_invoker import HttpInvoker
 from src.payload import Payload
 from src.version import get_version
 
@@ -31,18 +32,18 @@ class ErgoCli:
 
         return str(color(intro, fg='#ffffff'))
 
-    def run(self, ref: str, *args: str) -> bool:
+    def run(self, ref: str, *args: str) -> int:
         try:
             result: Payload = Payload()
-            host = FunctionInvocable(ref)
+            host: FunctionInvocable = FunctionInvocable(ref)
             host.invoke(result, Payload(dict(zip([str(i) for i in range(len(args))], args))))
             print(str(result))
         except Exception as err:
             print(f'*** {err}')
             raise err
-        return False
+        return 0
 
-    def http(self, ref: str, *args: str) -> bool:
-        host = FlaskHttpInvoker(FunctionInvocable(ref))
+    def http(self, ref: str, *args: str) -> int:
+        host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(ref))
         host.start()
-        return False
+        return 0

@@ -1,5 +1,5 @@
 import cmd  # https://docs.python.org/3/library/cmd.html
-from typing import IO, Optional
+from typing import IO, List, Optional
 
 from src.ergo_cli import ErgoCli
 
@@ -22,13 +22,13 @@ class ErgoCmd(cmd.Cmd):
     #     traceback.print_exc(file=sys.stdout)
     #     return False  # don't stop
 
-    def do_exit(self, line: str) -> bool:
-        return True
+    def do_exit(self, line: str) -> int:
+        return 1
 
-    def do_run(self, line: str) -> bool:
-        args = line.split()
+    def do_run(self, line: str) -> int:
+        args: List[str] = line.split()
         return self._cli.run(args[0], *args[1:])
 
-    def do_http(self, line: str) -> bool:
-        args = line.split()
+    def do_http(self, line: str) -> int:
+        args: List[str] = line.split()
         return self._cli.http(args[0], *args[1:])

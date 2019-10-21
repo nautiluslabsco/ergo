@@ -6,7 +6,7 @@ from src.payload import Payload
 
 class FlaskHttpInvoker(HttpInvoker):
     def start(self) -> int:
-        app = Flask(__name__)
+        app: Flask = Flask(__name__)
 
         @app.route(self.route)
         def handler() -> str:
@@ -22,7 +22,7 @@ class FlaskHttpInvoker(HttpInvoker):
             return str(data_out)
 
         app.run(host='0.0.0.0', port=self._port)
-        return False
+        return 0
 
 
 # from werkzeug.serving import make_server

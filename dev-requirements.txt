@@ -6,6 +6,7 @@ mypy
 flake8
 flake8-quotes
 flake8-tabs
+flake8-docstrings
 xenon
 coverage
 codecov
