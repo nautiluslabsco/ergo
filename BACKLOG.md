@@ -1,14 +1,17 @@
-- [ ] define input and output datastructure (instead of list)
-- [ ] make sure variable definitions are typed
+- [ ] Add instructions to README
+- [ ] introduce .ergo configuration
+	- [ ] segment by function reference (main.py:get_mileage)
 - [ ] separate invoker/invocable into input/output combination (think http gateway)
+- [ ] introduce unit tests
+- [x] define input and output datastructure (instead of list)
+- [x] make sure variable definitions are typed
 - [x] BUG: use of absolute folder for reference doesn't work
 - [x] restructure project to avoid repetition of ergo.
 - [ ] add a test to verify ergo run product 4.3 3.2 is working
 - [ ] improved automation around versioning
 - [ ] https://github.com/levlaz/circleci.py
-
-- [ ] combine ergo dependencies in to single ergo package
+- [ ] combine ergo dependencies into single ergo package
 	- [ ] http://www.pyinstaller.org/
 	- [ ] https://anthony-tuininga.github.io/cx_Freeze/
-- [ ] dynamic routing in cli and shell invocation
-	- [ ] https://medium.com/@mgarod/dynamically-add-a-method-to-a-class-in-python-c49204b85bd6
+- [!] dynamic routing in cli and shell invocation
+	- [!] https://medium.com/@mgarod/dynamically-add-a-method-to-a-class-in-python-c49204b85bd6
