@@ -11,7 +11,7 @@ For example; Consider the following python function in the file `math.py`:
 # math.py
 
 def product(x, y):
-    return x * y
+    return float(x) * float(y)
 ```
 
 Ergo provides the tooling to execute this simple function using any one of a number of different patterns (eg. console application, http service, MQ worker, etc.)
@@ -26,5 +26,5 @@ then to make a request against this service
 
 ```
 $ curl -i "http://localhost?4&5"
-[20]
+{'result': 20.0}
 ```
