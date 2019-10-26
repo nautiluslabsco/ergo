@@ -74,7 +74,7 @@ class FunctionInvocable:
             Exception: Description
 
         """
-        # [path/to/file/[file.extension[:[class.]method]]]
+        # [path/to/file/]<file>.<extension>[:[class.]method]]
         pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
         matches: Optional[Match[str]] = re.match(pattern, self._reference)
         if not matches:

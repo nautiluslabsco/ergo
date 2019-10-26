@@ -1,3 +1,6 @@
+- [ ] Githooks
+    - [ ] lint
+    - [ ] version increase verification
 - [ ] Add instructions to README
 - [ ] introduce .ergo configuration
 	- [ ] segment by function reference (main.py:get_mileage)
