@@ -1,6 +1,6 @@
 """Summary."""
 import cmd  # https://docs.python.org/3/library/cmd.html
-from typing import IO, List, Optional
+from typing import IO, Callable, List, Optional, cast
 
 from src.ergo_cli import ErgoCli
 
@@ -26,7 +26,25 @@ class ErgoCmd(cmd.Cmd):
         ErgoCmd.intro = self._cli.intro
         ErgoCmd.prompt = self._cli.prompt
 
-    def do_exit(self, line: str) -> int:
+    def onecmd(self, line: str) -> bool:
+        """Summary.
+
+        Args:
+            line (TYPE): Description
+
+        Returns:
+            TYPE: Description
+
+        """
+        splitline: List[str] = line.split()
+        command: str = splitline[0]
+        if hasattr(self, f'do_{command}') or not hasattr(self._cli, command):
+            return super().onecmd(line)
+
+        args: List[str] = splitline[1:]
+        return cast(Callable[[str], bool], getattr(self._cli, command))(args[0], *args[1:])
+
+    def do_exit(self, line: str) -> bool:
         """Summary.
 
         Args:
@@ -36,30 +54,4 @@ class ErgoCmd(cmd.Cmd):
             int: Description
 
         """
-        return 1
-
-    def do_run(self, line: str) -> int:
-        """Summary.
-
-        Args:
-            line (str): Description
-
-        Returns:
-            int: Description
-
-        """
-        args: List[str] = line.split()
-        return self._cli.run(args[0], *args[1:])
-
-    def do_http(self, line: str) -> int:
-        """Summary.
-
-        Args:
-            line (str): Description
-
-        Returns:
-            int: Description
-
-        """
-        args: List[str] = line.split()
-        return self._cli.http(args[0], *args[1:])
+        return True

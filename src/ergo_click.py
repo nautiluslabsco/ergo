@@ -51,6 +51,36 @@ def run(ref: str, arg: Tuple[str]) -> int:
 
 
 @main.command()
+@click.argument('name', type=click.STRING)
+def init(name: str) -> int:
+    """Summary.
+
+    Args:
+        name (str): Description
+
+    Returns:
+        int: Description
+
+    """
+    return ERGO_CLI.init(name)
+
+
+@main.command()
+@click.argument('name', type=click.STRING)
+def use(name: str) -> int:
+    """Summary.
+
+    Args:
+        name (str): Description
+
+    Returns:
+        int: Description
+
+    """
+    return ERGO_CLI.use(name)
+
+
+@main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
 def http(ref: str, arg: Tuple[str]) -> int:

@@ -86,6 +86,38 @@ class ErgoCli:
             raise err
         return 0
 
+    def use(self, name: str) -> int:
+        """Summary.
+
+        Args:
+            name (str): Description
+
+        Returns:
+            int: Description
+
+        """
+        with open('.ergo/HEAD', 'w') as file:
+            file.write(f'{name}\n')
+
+        return 0
+
+    def init(self, name: str) -> int:
+        """Summary.
+
+        Args:
+            name (str): Description
+
+        Returns:
+            int: Description
+
+        """
+        try:
+            os.makedirs(f'.ergo/{name}')
+        except FileExistsError:
+            pass
+        self.use(name)
+        return 0
+
     def http(self, ref: str, *args: str) -> int:
         """Summary.
 
