@@ -1,4 +1,7 @@
 #!/bin/bash
+
+cp ./lint ./.git/hooks/pre-commit
+
 mod=${1:-./src}
 # mod=${mod//\./\/}
 

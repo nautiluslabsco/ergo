@@ -1,6 +1,8 @@
 - [ ] Githooks
     - [ ] lint
     - [ ] version increase verification
+    - [ ] security scan
+- [ ] Make master branch readonly
 - [ ] Add instructions to README
 - [ ] introduce .ergo configuration
 	- [ ] segment by function reference (main.py:get_mileage)
