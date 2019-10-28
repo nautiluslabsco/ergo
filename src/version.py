@@ -7,7 +7,7 @@ Attributes:
 import subprocess
 import sys
 
-VERSION = '0.3.25-alpha'
+VERSION = '0.3.26-alpha'
 
 
 def get_version() -> str:
@@ -29,8 +29,8 @@ if __name__ == '__main__':
             print('Version must be incremented if with changes to codebase')
             sys.exit(1)
         else:
-            print('not status')
-            sys.exit(0)
+            # print('not status')
+            # sys.exit(0)
+            print(get_version())
     except ValueError:
-        print('version different (not good enough - must be incremented')
-        sys.exit(0)
+        print(get_version())
