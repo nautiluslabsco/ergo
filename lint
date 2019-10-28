@@ -2,8 +2,13 @@
 
 cp ./lint ./.git/hooks/pre-commit
 
+
 mod=${1:-./src}
 # mod=${mod//\./\/}
+
+echo "Verifying version change $mod ..."
+python3 -m src.version
+if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
 echo "Formatting code (autopep) $mod ..."
 autopep8 --in-place --aggressive --aggressive --recursive .
