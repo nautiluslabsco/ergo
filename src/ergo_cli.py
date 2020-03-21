@@ -47,7 +47,7 @@ class ErgoCli:
 
         """
         # return f'{color("ergo", fg="#33ff33")} {color("∴", fg="#33ff33")} '
-        return 'ergo .: '
+        return 'ergox .: '
 
     @property
     def intro(self) -> str:
