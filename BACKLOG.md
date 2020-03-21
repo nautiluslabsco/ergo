@@ -1,6 +1,6 @@
 - [ ] Githooks
     - [ ] lint
-    - [ ] version increase verification
+    - [x] version increase verification
     - [ ] security scan
 - [ ] Make master branch readonly
 - [ ] Add instructions to README
