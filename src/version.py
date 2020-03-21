@@ -19,6 +19,7 @@ def get_version() -> str:
     """
     return VERSION
 
+
 # wtc && match => ok
 # wtc && incr => not ok
 # changes && incr => ok
