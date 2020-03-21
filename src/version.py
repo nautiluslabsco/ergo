@@ -30,7 +30,7 @@ if __name__ == '__main__':
     status: str = subprocess.check_output(['git', 'status']).decode('utf-8')
     try:
         if tag.index(ver) == 0 and 'working tree clean' not in status:  # if version hasn't changed
-            print('Version must be incremented if with changes to codebase')
+            print('Version must be incremented with changes to codebase')
             sys.exit(1)
         else:
             # print('not status')
