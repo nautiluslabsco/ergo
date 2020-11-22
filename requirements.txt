@@ -3,3 +3,4 @@ flask
 falcon
 ansicolors
 click-default-group
+pika

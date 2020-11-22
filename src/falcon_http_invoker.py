@@ -21,7 +21,7 @@ class FalconHttpInvoker(HttpInvoker):
         Args:
             invocable (Any): Description
         """
-        HttpInvoker.__init__(self, invocable)
+        super().__init__(self, invocable)
 
     def on_get(self, request: Request, response: Response) -> None:
         """Summary

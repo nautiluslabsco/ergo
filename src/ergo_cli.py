@@ -4,6 +4,7 @@ import os
 
 from colors import color
 
+from src.amqp_invoker import AmqpInvoker
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 from src.http_invoker import HttpInvoker
@@ -131,5 +132,20 @@ class ErgoCli:
 
         """
         host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(ref))
+        host.start()
+        return 0
+
+    def amqp(self, ref: str, *args: str) -> int:
+        """Summary.
+
+        Args:
+            ref (str): Description
+            *args (str): Description
+
+        Returns:
+            int: Description
+
+        """
+        host: AmqpInvoker = AmqpInvoker(FunctionInvocable(ref))
         host.start()
         return 0

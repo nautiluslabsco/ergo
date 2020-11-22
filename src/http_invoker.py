@@ -1,10 +1,12 @@
+# unfortunately pylint is not able to recognize abstract subclasses
+# pylint: disable=W0223
+
 """Summary."""
-from abc import ABC, abstractmethod
-
 from src.function_invocable import FunctionInvocable
+from src.invoker import Invoker
 
 
-class HttpInvoker(ABC):
+class HttpInvoker(Invoker):
     """Summary."""
 
     def __init__(self, invocable: FunctionInvocable) -> None:
@@ -14,8 +16,7 @@ class HttpInvoker(ABC):
             invocable (FunctionInvocable): Description
 
         """
-        super().__init__()
-        self._invocable = invocable
+        super().__init__(invocable)
         self._route: str = '/'
         self._port: int = 80
 
@@ -58,13 +59,3 @@ class HttpInvoker(ABC):
 
         """
         self._port = arg
-
-    @abstractmethod
-    def start(self) -> int:
-        """Summary.
-
-        Raises:
-            NotImplementedError: Description
-
-        """
-        raise NotImplementedError()

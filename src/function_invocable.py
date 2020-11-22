@@ -27,6 +27,16 @@ class FunctionInvocable:
         self.inject()
 
     @property
+    def reference(self) -> str:
+        """Summary.
+
+        Returns:
+            str: Description
+
+        """
+        return self._reference
+
+    @property
     def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore
         """Summary.
 
@@ -59,7 +69,7 @@ class FunctionInvocable:
         """
         result: TYPE_RETURN = None
         if not self._func:
-            raise Exception('Cannot executeNo injected function')
+            raise Exception('Cannot execute injected function')
         try:
             result = self._func(*data_in.list())
         except Exception as err:

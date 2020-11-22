@@ -95,3 +95,20 @@ def http(ref: str, arg: Tuple[str]) -> int:
 
     """
     return ERGO_CLI.http(ref, *list(arg))
+
+
+@main.command()
+@click.argument('ref', type=click.STRING)
+@click.argument('arg', nargs=-1)
+def amqp(ref: str, arg: Tuple[str]) -> int:
+    """Summary.
+
+    Args:
+        ref (str): Description
+        arg (Tuple[str]): Description
+
+    Returns:
+        int: Description
+
+    """
+    return ERGO_CLI.amqp(ref, *list(arg))
