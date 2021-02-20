@@ -1,4 +1,6 @@
 """Summary."""
+from typing import List
+
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
@@ -25,11 +27,12 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_out: Payload = Payload()
+            data_out: List[Payload] = []
             data_in: Payload = Payload(dict(request.args))
             # data_in(f'route: {str(request.url_rule)}')
             # try:
-            self._invocable.invoke(data_out, data_in)
+            for result in self._invocable.invoke(data_in):
+                data_out.append(result)
             # except Exception as err:
             #     print(err)
             #     abort(400)

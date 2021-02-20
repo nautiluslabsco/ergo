@@ -20,3 +20,10 @@
 	- [ ] https://anthony-tuininga.github.io/cx_Freeze/
 - [!] dynamic routing in cli and shell invocation
 	- [!] https://medium.com/@mgarod/dynamically-add-a-method-to-a-class-in-python-c49204b85bd6
+- [ ] Transaction management
+    - [ ] signaling end of stream
+    - [ ] stream ordering
+- [ ] Topic wildcarding, sorting, parameterized carryover
+- [ ] Structured logging around low level execution and messages
+- [ ] Augment topics with lowlevel metadata (to:serviceX, from:serviceY, ip_address, etc.)
+- [ ] Support providing a readable name in configuration for rabbit queue

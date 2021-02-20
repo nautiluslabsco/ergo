@@ -12,8 +12,7 @@ from src.http_invoker import HttpInvoker
 
 class FalconHttpInvoker(HttpInvoker):
 
-    """Summary
-    """
+    """Summary"""
 
     def __init__(self, invocable: Any):
         """Summary

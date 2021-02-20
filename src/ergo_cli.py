@@ -2,9 +2,11 @@
 import datetime
 import os
 
+import yaml
 from colors import color
 
 from src.amqp_invoker import AmqpInvoker
+from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 from src.http_invoker import HttpInvoker
@@ -64,11 +66,11 @@ class ErgoCli:
 
         return str(color(intro, fg='#ffffff'))
 
-    def run(self, ref: str, *args: str) -> int:
+    def run(self, config: Config, *args: str) -> int:
         """Summary.
 
         Args:
-            ref (str): Description
+            config (str): Description
             *args (str): Description
 
         Returns:
@@ -79,10 +81,9 @@ class ErgoCli:
 
         """
         try:
-            result: Payload = Payload()
-            host: FunctionInvocable = FunctionInvocable(ref)
-            host.invoke(result, Payload(dict(zip([str(i) for i in range(len(args))], args))))
-            print(str(result))
+            host: FunctionInvocable = FunctionInvocable(config)
+            for result in host.invoke(Payload(dict(zip([str(i) for i in range(len(args))], args)))):
+                print(str(result))
         except Exception as err:
             print(f'*** {err}')
             raise err
@@ -98,9 +99,6 @@ class ErgoCli:
             int: Description
 
         """
-        with open('.ergo/HEAD', 'w') as file:
-            file.write(f'{name}\n')
-
         return 0
 
     def init(self, name: str) -> int:
@@ -120,7 +118,22 @@ class ErgoCli:
         self.use(name)
         return 0
 
-    def http(self, ref: str, *args: str) -> int:
+    def http(self, config: Config, *args: str) -> int:
+        """Summary.
+
+        Args:
+            config (str): Description
+            *args (str): Description
+
+        Returns:
+            int: Description
+
+        """
+        host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(config))
+        host.start()
+        return 0
+
+    def amqp(self, config: Config, *args: str) -> int:
         """Summary.
 
         Args:
@@ -131,11 +144,11 @@ class ErgoCli:
             int: Description
 
         """
-        host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(ref))
+        host: AmqpInvoker = AmqpInvoker(FunctionInvocable(config))
         host.start()
         return 0
 
-    def amqp(self, ref: str, *args: str) -> int:
+    def start(self, ref: str, *args: str) -> int:
         """Summary.
 
         Args:
@@ -146,6 +159,12 @@ class ErgoCli:
             int: Description
 
         """
-        host: AmqpInvoker = AmqpInvoker(FunctionInvocable(ref))
-        host.start()
-        return 0
+        # use safe_load instead load
+        with open(ref) as config_file:
+            conf = yaml.safe_load(config_file)
+            with open(conf.get('namespace')) as namespace_file:
+                namespace = yaml.safe_load(namespace_file)
+                conf.update(namespace)
+                config = Config(conf)
+
+                return {'amqp': self.amqp, 'something_else': self.http}.get(config.protocol, self.http)(config)

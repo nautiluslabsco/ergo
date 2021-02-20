@@ -15,21 +15,30 @@ class AmqpInvoker(Invoker):
 
     def start(self) -> int:
         """Summary."""
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-        channelx = connection.channel()
-        queue_name = self._invocable.reference
-        channelx.queue_declare(queue=queue_name)
+        parameters = pika.URLParameters(self._invocable.config.host)
+        connection = pika.BlockingConnection(parameters)
+        channel = connection.channel()
+        queue_name = self._invocable.config.func
+        channel.queue_declare(queue=queue_name)
+        channel.exchange_declare(self._invocable.config.exchange, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
+
+        channel.queue_bind(exchange=self._invocable.config.exchange, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
 
         def handler(channel, method, properties, body) -> None:  # type: ignore
-            data_out: Payload = Payload()
+            """Summary.
+
+            Args:
+                channel (TYPE): Description
+                method (TYPE): Description
+                properties (TYPE): Description
+                body (TYPE): Description
+            """
             data_in: Payload = Payload(dict(json.loads(body.decode('utf-8'))))
+            for data_out in self._invocable.invoke(data_in):
+                channel.basic_publish(exchange=self._invocable.config.exchange, routing_key=str(self._invocable.config.pubtopic), body=str(data_out))
 
-            self._invocable.invoke(data_out, data_in)
+        channel.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=handler)
 
-            channelx.basic_publish(exchange='primary', routing_key='a.b.c', body=str(data_out))
-
-        channelx.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=handler)
-
-        channelx.start_consuming()
+        channel.start_consuming()
 
         return 0

@@ -10,6 +10,7 @@ import click
 from click_default_group import \
     DefaultGroup  # https://pypi.org/project/click-default-group/
 
+from src.config import Config
 from src.ergo_cli import ErgoCli
 from src.ergo_cmd import ErgoCmd
 
@@ -36,18 +37,18 @@ def shell() -> int:
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def run(ref: str, arg: Tuple[str]) -> int:
+def run(config: Config, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
-        ref (str): Description
+        config (str): Description
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.run(ref, *list(arg))
+    return ERGO_CLI.run(config, *list(arg))
 
 
 @main.command()
@@ -83,24 +84,41 @@ def use(name: str) -> int:
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def http(ref: str, arg: Tuple[str]) -> int:
+def http(config: Config, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
-        ref (str): Description
+        config (str): Description
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.http(ref, *list(arg))
+    return ERGO_CLI.http(config, *list(arg))
 
 
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def amqp(ref: str, arg: Tuple[str]) -> int:
+def amqp(config: Config, arg: Tuple[str]) -> int:
+    """Summary.
+
+    Args:
+        config (str): Description
+        arg (Tuple[str]): Description
+
+    Returns:
+        int: Description
+
+    """
+    return ERGO_CLI.amqp(config, *list(arg))
+
+
+@main.command()
+@click.argument('ref', type=click.STRING)
+@click.argument('arg', nargs=-1)
+def start(ref: str, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
@@ -111,4 +129,4 @@ def amqp(ref: str, arg: Tuple[str]) -> int:
         int: Description
 
     """
-    return ERGO_CLI.amqp(ref, *list(arg))
+    return ERGO_CLI.start(ref, *list(arg))

@@ -1,13 +1,15 @@
 """Summary."""
 import importlib.util
+import inspect
 import os
 import re
 import sys
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
-from typing import Callable, Match, Optional
+from typing import Callable, Generator, Match, Optional
 
+from src.config import Config
 from src.payload import Payload
 from src.types import TYPE_RETURN
 
@@ -15,7 +17,7 @@ from src.types import TYPE_RETURN
 class FunctionInvocable:
     """Summary."""
 
-    def __init__(self, reference: str) -> None:
+    def __init__(self, config: Config) -> None:
         """Summary.
 
         Args:
@@ -23,18 +25,18 @@ class FunctionInvocable:
 
         """
         self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
-        self._reference: str = reference
+        self._config: Config = config
         self.inject()
 
     @property
-    def reference(self) -> str:
+    def config(self) -> Config:
         """Summary.
 
         Returns:
-            str: Description
+            Config: Description
 
         """
-        return self._reference
+        return self._config
 
     @property
     def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore
@@ -56,7 +58,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_out: Payload, data_in: Payload) -> None:
+    def invoke(self, data_in: Payload) -> Generator[Payload, Payload, None]:
         """Summary.
 
         Args:
@@ -67,15 +69,23 @@ class FunctionInvocable:
             Exception: Description
 
         """
-        result: TYPE_RETURN = None
+        data_out: Payload = Payload()
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            result = self._func(*data_in.list())
-        except Exception as err:
-            raise Exception(f'Referenced function {self._reference} threw an exception: {str(err)}')
+            result = None
+            if inspect.isgeneratorfunction(self._func):
+                for result in self._func(*data_in.list()):
+                    data_out.set('result', result)
+                    yield data_out
 
-        data_out.set('result', result)
+            else:
+                result = self._func(*data_in.list())
+                data_out.set('result', result)
+                yield data_out
+
+        except Exception as err:
+            raise Exception(f'Referenced function {self._config.func} threw an exception: {str(err)}') from err
 
     def inject(self) -> None:
         """Summary.
@@ -86,9 +96,9 @@ class FunctionInvocable:
         """
         # [path/to/file/]<file>.<extension>[:[class.]method]]
         pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
-        matches: Optional[Match[str]] = re.match(pattern, self._reference)
+        matches: Optional[Match[str]] = re.match(pattern, self._config.func)
         if not matches:
-            raise Exception(f'Unable to inject invalid referenced function {self._reference}')
+            raise Exception(f'Unable to inject invalid referenced function {self._config.func}')
 
         path_to_source_file: str = matches.group(1)
         if not matches.group(1):

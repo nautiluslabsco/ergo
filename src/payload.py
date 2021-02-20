@@ -1,4 +1,5 @@
 """Summary."""
+import json
 from typing import Dict, List, Optional
 
 
@@ -52,4 +53,4 @@ class Payload:
             str: Description
 
         """
-        return str(self._data)
+        return json.dumps(self._data)

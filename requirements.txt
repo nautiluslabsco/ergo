@@ -4,3 +4,4 @@ falcon
 ansicolors
 click-default-group
 pika
+PyYAML
