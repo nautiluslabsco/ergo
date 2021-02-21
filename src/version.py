@@ -7,7 +7,7 @@ Attributes:
 import subprocess
 import sys
 
-VERSION = '0.3.30-alpha'
+VERSION = '0.4.00-alpha'
 
 
 def get_version() -> str:
@@ -37,8 +37,7 @@ def get_version() -> str:
 #             # print('not status')
 #             # sys.exit(0)
 #             print(get_version())
-#     except ValueError as err:
-#         print(str(err))
+#     except ValueError:
 #         print(get_version())
 
 
@@ -51,8 +50,8 @@ def main() -> None:
     match = False
     try:
         match = tag.index(ver) == 0
-    except ValueError as err:
-        print(str(err))
+    except ValueError:
+        pass
 
     if clean and not match or match and not clean:
         print('Version must be incremented with changes to codebase')
