@@ -45,12 +45,12 @@ xenon --max-absolute B --max-modules A --max-average A $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
 cat > ./.git/hooks/post-commit<< EOF
-printf "git push\n"
+printf "\e[31mgit push\e[0m\n"
 git push
-printf "git tag %s\n" "$VERSION"
+printf "\e[31mgit tag %s\e[0m\n "$VERSION"
 git tag "$VERSION"
 if [ $? -ne 0 ]; then { printf "Error tagging version %s" "$VERSION" ; } fi
-printf "git push --tags\n"
+printf "\e[31mgit push --tags\e[0m\n"
 git push --tags
 if [ $? -ne 0 ]; then { printf "Error tagging version %s" "$VERSION" ; } fi
 EOF
