@@ -2,12 +2,11 @@
 
 cp ./lint ./.git/hooks/pre-commit
 
-
 mod=${1:-./src}
 # mod=${mod//\./\/}
 
 echo "Verifying version change $mod ..."
-VERSION=$(python3 -m src.version)
+VERSION="$(python3 -m src.version)"
 if [ $? -ne 0 ]; then { printf "Failed, aborting. %s" "$VERSION" ; exit 1; } fi
 
 echo "Formatting code (autopep) $mod ..."
@@ -45,8 +44,11 @@ if [ $? -ne 0 ]; then { echo "Warning." ; } fi
 xenon --max-absolute B --max-modules A --max-average A $mod
 if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
 
+cat > ./.git/hooks/post-commit<< EOF
 printf "Tagging version %s" "$VERSION"
 git tag "$VERSION"
 if [ $? -ne 0 ]; then { printf "Error tagging version %s" "$VERSION" ; } fi
+EOF
+chmod +x ./.git/hooks/post-commit
 
-echo "\nDone."
+echo "Done."
