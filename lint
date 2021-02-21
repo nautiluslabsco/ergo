@@ -5,52 +5,52 @@ cp ./lint ./.git/hooks/pre-commit
 mod=${1:-./src}
 # mod=${mod//\./\/}
 
-echo "Verifying version change $mod ..."
+echo "Verifying version change $mod ...\n"
 VERSION="$(python3 -m src.version)"
-if [ $? -ne 0 ]; then { printf "Failed, aborting. %s" "$VERSION" ; exit 1; } fi
+if [ $? -ne 0 ]; then { printf "Failed, aborting.\n%s\n" "$VERSION" ; exit 1; } fi
 
-echo "Formatting code (autopep) $mod ..."
+echo "Formatting code (autopep) $mod ...\n"
 autopep8 --in-place --aggressive --aggressive --recursive .
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Formatting code (black) $mod ..."
+echo "Formatting code (black) $mod ...\n"
 black -S --line-length 512 $mod
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Sorting imports (isort) $mod ..."
+echo "Sorting imports (isort) $mod ...\n"
 isort $mod/*.py
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Linting (pylint) $mod ..."
+echo "Linting (pylint) $mod ...\n"
 find $mod -iname "*.py" | xargs pylint -d too-few-public-methods -d missing-docstring -d unused-argument -d no-self-use -d unused-variable -d line-too-long
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Linting (flake8) $mod ..."
+echo "Linting (flake8) $mod ...\n"
 # flake8 --ignore=E501 --use-flake8-tabs $mod
 flake8 --ignore=E501 $mod
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Assessing style (pycodestyle) $mod ..."
+echo "Assessing style (pycodestyle) $mod ...\n"
 pycodestyle --first $mod
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Type Checking (mypy) $mod ..."
+echo "Type Checking (mypy) $mod ...\n"
 mypy --strict $mod
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
-echo "Complexity check $mod ..."
+echo "Complexity check $mod ...\n"
 xenon --max-absolute A --max-modules A --max-average A $mod
-if [ $? -ne 0 ]; then { echo "Warning." ; } fi
+if [ $? -ne 0 ]; then { echo "Warning.\n" ; } fi
 xenon --max-absolute B --max-modules A --max-average A $mod
-if [ $? -ne 0 ]; then { echo "Failed, aborting." ; exit 1; } fi
+if [ $? -ne 0 ]; then { echo "Failed, aborting.\n" ; exit 1; } fi
 
 cat > ./.git/hooks/post-commit<< EOF
-printf "git push"
+printf "git push\n"
 git push
-printf "git tag %s" "$VERSION"
+printf "git tag %s\n" "$VERSION"
 git tag "$VERSION"
 if [ $? -ne 0 ]; then { printf "Error tagging version %s" "$VERSION" ; } fi
-printf "git push --tags"
+printf "git push --tags\n"
 git push --tags
 if [ $? -ne 0 ]; then { printf "Error tagging version %s" "$VERSION" ; } fi
 EOF
