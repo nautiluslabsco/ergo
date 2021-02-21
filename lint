@@ -53,7 +53,8 @@ if [ $? -ne 0 ]; then { printf "\e[31mError tagging version %s\e[0m\n" "$VERSION
 printf "\e[1mgit push --tags\e[0m\n"
 git push --tags
 if [ $? -ne 0 ]; then { printf "\e[31mError tagging version %s\e[0m\n" "$VERSION" ; } fi
+printf "\e[32mSuccess.\e[0m\n"
 EOF
 chmod +x ./.git/hooks/post-commit
 
-printf "\e[1mDone.\e[0m\n"
+printf "\e[32mSuccess.\e[0m\n"
