@@ -7,7 +7,7 @@ Attributes:
 import subprocess
 import sys
 
-VERSION = '0.4.04-alpha'
+VERSION = '0.4.05-alpha'
 
 
 def get_version() -> str:
@@ -31,7 +31,7 @@ def main() -> None:
     status: str = subprocess.check_output(['git', 'status']).decode('utf-8')
     try:
         if tag.index(ver) == 0 and 'working tree clean' not in status:  # if version hasn't changed
-            print('Version must be incremented with changes to codebase')
+            print(f'Version {VERSION} must be incremented in src/version.py because codebase has changed')
             sys.exit(1)
         else:
             # print('not status')
