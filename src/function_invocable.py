@@ -74,12 +74,12 @@ class FunctionInvocable:
         try:
             result = None
             if inspect.isgeneratorfunction(self._func):
-                for result in self._func(data_in['payload']):
-                    yield {'payload': result}
+                for result in self._func(data_in['body']):
+                    yield {'body': result}
 
             else:
-                result = self._func(data_in['payload'])
-                yield {'payload': result}
+                result = self._func(data_in['body'])
+                yield {'body': result}
 
         except BaseException as err:
 
