@@ -10,8 +10,8 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
-from src.payload import Payload
-from src.types import TYPE_RETURN
+from src.types import TYPE_PAYLOAD, TYPE_RETURN
+from src.util import print_exc_plus
 
 
 class FunctionInvocable:
@@ -58,7 +58,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: Payload) -> Generator[Payload, Payload, None]:
+    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
         """Summary.
 
         Args:
@@ -69,23 +69,21 @@ class FunctionInvocable:
             Exception: Description
 
         """
-        data_out: Payload = Payload()
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
             result = None
             if inspect.isgeneratorfunction(self._func):
-                for result in self._func(*data_in.list()):
-                    data_out.set('result', result)
-                    yield data_out
+                for result in self._func(data_in['payload']):
+                    yield {'payload': result}
 
             else:
-                result = self._func(*data_in.list())
-                data_out.set('result', result)
-                yield data_out
+                result = self._func(data_in['payload'])
+                yield {'payload': result}
 
-        except Exception as err:
-            raise Exception(f'Referenced function {self._config.func} threw an exception: {str(err)}') from err
+        except BaseException as err:
+
+            raise Exception(print_exc_plus()) from err
 
     def inject(self) -> None:
         """Summary.

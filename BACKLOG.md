@@ -1,3 +1,20 @@
+
+- [ ] complex argument and return value mapping
+- [ ] Message timestamps
+- [ ] json validation on sub and pub
+- [ ] Pagination for divergent/split messages
+- [ ] acknowledgments and requeues
+- [ ] fatal error queue after retries and delays (TTL and deadletter)
+- [ ] logging
+- [ ] transactions and correlation id
+- [ ] sub systems (not on the main bus)
+- [ ] improved exception handling
+    - [ ] elegant handling of ergo (vs component) application errors
+- [ ] robust rabbit connection management
+- [ ] kafka log stream source of truth
+- [ ] request response pattern
+- [ ] http gateway
+
 - [ ] Githooks
     - [ ] lint
     - [x] version increase verification
@@ -7,7 +24,8 @@
 - [ ] introduce .ergo configuration
 	- [ ] segment by function reference (main.py:get_mileage)
 - [ ] separate invoker/invocable into input/output combination (think http gateway)
-- [ ] introduce unit tests
+- [ ] introduce unit tests pattern for components
+- [ ] introduce unit tests for ergo codebase itself
 - [x] define input and output datastructure (instead of list)
 - [x] make sure variable definitions are typed
 - [x] BUG: use of absolute folder for reference doesn't work

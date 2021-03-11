@@ -4,7 +4,7 @@ from typing import List
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
-from src.payload import Payload
+from src.types import TYPE_PAYLOAD
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -27,8 +27,8 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_out: List[Payload] = []
-            data_in: Payload = Payload(dict(request.args))
+            data_out: List[TYPE_PAYLOAD] = []
+            data_in: TYPE_PAYLOAD = dict(request.args)
             # data_in(f'route: {str(request.url_rule)}')
             # try:
             for result in self._invocable.invoke(data_in):

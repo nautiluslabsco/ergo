@@ -10,7 +10,6 @@ from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 from src.http_invoker import HttpInvoker
-from src.payload import Payload
 from src.version import get_version
 
 
@@ -82,7 +81,7 @@ class ErgoCli:
         """
         try:
             host: FunctionInvocable = FunctionInvocable(config)
-            for result in host.invoke(Payload(dict(zip([str(i) for i in range(len(args))], args)))):
+            for result in host.invoke(dict(zip([str(i) for i in range(len(args))], args))):
                 print(str(result))
         except Exception as err:
             print(f'*** {err}')
