@@ -10,7 +10,7 @@ VERSION="$(python3 -m src.version)"
 if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\n%s\e[0m\n" "$VERSION" ; exit 1; } fi
 
 printf "\e[1mFormatting code (autopep) $mod ...\e[0m\n"
-autopep8 --in-place --aggressive --aggressive --recursive .
+autopep8 --in-place --aggressive --aggressive --recursive $mod
 if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
 
 printf "\e[1mFormatting code (black) $mod ...\e[0m\n"

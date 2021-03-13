@@ -1,8 +1,52 @@
 """Summary."""
 import sys
+import time
 import traceback
 from types import FrameType, TracebackType
-from typing import List, Optional
+from typing import List, Optional, TypedDict
+from uuid import uuid4
+
+
+class LogStruct(TypedDict):
+    """Summary."""
+
+    ts: float
+    mid: str
+    cid: str
+
+
+def log(rec: List[LogStruct]) -> List[LogStruct]:
+    """Summary.
+
+    Args:
+        rec (List[Dict[str, Any]]): Description
+
+    Returns:
+        List[Dict[str, Any]]: Description
+    """
+    cid: str = uniqueid()
+    if rec:
+        cid = rec[-1].get('cid', cid)
+    rec.append(LogStruct({'ts': timestamp(), 'mid': uniqueid(), 'cid': cid}))
+    return rec
+
+
+def uniqueid() -> str:
+    """Summary.
+
+    Returns:
+        str: Description
+    """
+    return uuid4().hex
+
+
+def timestamp() -> float:
+    """Summary.
+
+    Returns:
+        int: Description
+    """
+    return time.time()
 
 
 def get_stack() -> List[FrameType]:

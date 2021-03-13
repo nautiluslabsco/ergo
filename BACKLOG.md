@@ -1,4 +1,5 @@
 
+- [ ] async/await
 - [ ] complex argument and return value mapping
 - [ ] Message timestamps
 - [ ] json validation on sub and pub
