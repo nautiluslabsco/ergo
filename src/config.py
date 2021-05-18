@@ -20,6 +20,7 @@ class Config:
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
+        self._heartbeat: Optional[int] = config.get('heartbeat')
 
     @property
     def namespace(self) -> Optional[str]:
@@ -83,3 +84,11 @@ class Config:
             TYPE: Description
         """
         return self._protocol
+
+    @property
+    def heartbeat(self) -> Optional[int]:
+        """Summary.
+        Returns:
+            TYPE: Description
+        """
+        return self._heartbeat

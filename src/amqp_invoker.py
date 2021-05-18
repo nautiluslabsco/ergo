@@ -3,19 +3,33 @@ import json
 
 import pika
 
+from typing import Tuple
+from urllib.parse import urlparse
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 
 # content_type: application/json
 # {"x":5,"y":7}
 
+def overwrite_heartbeat(host: str, heartbeat: int) -> str:
+    u, new_param  = urlparse(host), f'heartbeat={heartbeat}'
+    found, params = False, u.query.split('&')
+    for i, old_param in enumerate(params):
+        if 'heartbeat' in old_param:
+            found = True
+            params[i] = new_param
+    if not found:
+        params.append(new_param)
+    return u._replace(query='&'.join(params)).geturl()
+
 
 class AmqpInvoker(Invoker):
     """Summary."""
 
-    def start(self) -> int:
-        """Summary."""
-        parameters = pika.URLParameters(self._invocable.config.host)
+    def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]: 
+        heartbeat = self._invocable.config.heartbeat
+        host = overwrite_heartbeat(self._invocable.config.host, heartbeat) if heartbeat else self._invocable.config.host
+        parameters = pika.URLParameters(host)
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
         queue_name = self._invocable.config.func
@@ -26,6 +40,12 @@ class AmqpInvoker(Invoker):
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
         channel.queue_bind(exchange=self._invocable.config.exchange, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
+        return channel, queue_name, queue_name_error
+
+
+    def start(self) -> int:
+        """Summary."""
+        channel, queue_name, queue_name_error = self.connect()
 
         def handler(channel, method, properties, body) -> None:  # type: ignore
             """Summary.
