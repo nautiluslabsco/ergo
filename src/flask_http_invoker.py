@@ -20,7 +20,7 @@ class FlaskHttpInvoker(HttpInvoker):
         app: Flask = Flask(__name__)
 
         @app.route(self.route)
-        def handler() -> str:
+        def handler() -> str:  # type: ignore
             """Summary.
 
             Returns:

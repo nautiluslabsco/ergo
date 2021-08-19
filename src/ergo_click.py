@@ -4,7 +4,7 @@ Attributes:
     ERGO_CLI (TYPE): Description
 
 """
-from typing import Tuple
+from typing import Optional, Tuple
 
 import click
 from click_default_group import \
@@ -117,16 +117,19 @@ def amqp(config: Config, arg: Tuple[str]) -> int:
 
 @main.command()
 @click.argument('ref', type=click.STRING)
+@click.option('--namespace', '-n', default=None, type=click.STRING)
 @click.argument('arg', nargs=-1)
-def start(ref: str, arg: Tuple[str]) -> int:
+def start(ref: str, namespace: Optional[str], arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
         ref (str): Description
+        namespace (str): Description
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.start(ref, *list(arg))
+    print(f'namespace is: {namespace}')
+    return ERGO_CLI.start(ref, namespace, *list(arg))

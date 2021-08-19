@@ -7,6 +7,9 @@ from src.topic import PubTopic, SubTopic, Topic
 class Config:
     """Summary."""
 
+    # pylint: disable=too-many-instance-attributes
+    # Eight is reasonable in this case.
+
     def __init__(self, config: Dict[str, str]):
         """Summary.
 
@@ -20,7 +23,8 @@ class Config:
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
-        self._heartbeat: Optional[int] = config.get('heartbeat')
+        heartbeat = config.get('heartbeat')
+        self._heartbeat: Optional[int] = int(heartbeat) if heartbeat else None
 
     @property
     def namespace(self) -> Optional[str]:
@@ -59,13 +63,13 @@ class Config:
         return self._func
 
     @property
-    def host(self) -> Optional[str]:
+    def host(self) -> str:
         """Summary.
 
         Returns:
             TYPE: Description
         """
-        return self._host
+        return self._host if self._host else ''
 
     @property
     def exchange(self) -> Optional[str]:
@@ -88,6 +92,7 @@ class Config:
     @property
     def heartbeat(self) -> Optional[int]:
         """Summary.
+
         Returns:
             TYPE: Description
         """

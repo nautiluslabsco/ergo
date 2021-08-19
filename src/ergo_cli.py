@@ -1,6 +1,7 @@
 """Summary."""
 import datetime
 import os
+from typing import Optional
 
 import yaml
 from colors import color
@@ -147,11 +148,12 @@ class ErgoCli:
         host.start()
         return 0
 
-    def start(self, ref: str, *args: str) -> int:
+    def start(self, ref: str, namespace: Optional[str], *args: str) -> int:
         """Summary.
 
         Args:
             ref (str): Description
+            namespace (str): Description
             *args (str): Description
 
         Returns:
@@ -161,9 +163,10 @@ class ErgoCli:
         # use safe_load instead load
         with open(ref) as config_file:
             conf = yaml.safe_load(config_file)
-            with open(conf.get('namespace')) as namespace_file:
-                namespace = yaml.safe_load(namespace_file)
-                conf.update(namespace)
+            namespace_file_name = namespace if namespace else conf.get('namespace')
+            with open(namespace_file_name) as namespace_file:
+                namespace_cfg = yaml.safe_load(namespace_file)
+                conf.update(namespace_cfg)
                 config = Config(conf)
 
                 return {'amqp': self.amqp, 'something_else': self.http}.get(config.protocol, self.http)(config)

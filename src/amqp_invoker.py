@@ -1,32 +1,35 @@
 """Summary."""
 import json
+from typing import Tuple
+from urllib.parse import urlparse
 
 import pika
 
-from typing import Tuple
-from urllib.parse import urlparse
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 
 # content_type: application/json
 # {"x":5,"y":7}
 
+
 def overwrite_heartbeat(host: str, heartbeat: int) -> str:
-    u, new_param  = urlparse(host), f'heartbeat={heartbeat}'
-    found, params = False, u.query.split('&')
+    """Overwrite the heartbeat in a rabbitmq url."""
+    uri, new_param = urlparse(host), f'heartbeat={heartbeat}'
+    found, params = False, uri.query.split('&')
     for i, old_param in enumerate(params):
         if 'heartbeat' in old_param:
             found = True
             params[i] = new_param
     if not found:
         params.append(new_param)
-    return u._replace(query='&'.join(params)).geturl()
+    return uri._replace(query='&'.join(params)).geturl()
 
 
 class AmqpInvoker(Invoker):
     """Summary."""
 
-    def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]: 
+    def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]:
+        """Connect to a rabbit broker."""
         heartbeat = self._invocable.config.heartbeat
         host = overwrite_heartbeat(self._invocable.config.host, heartbeat) if heartbeat else self._invocable.config.host
         parameters = pika.URLParameters(host)
@@ -37,11 +40,11 @@ class AmqpInvoker(Invoker):
         exchange_name = self._invocable.config.exchange
         channel.queue_declare(queue=queue_name)
         channel.queue_declare(queue=queue_name_error)
+        assert isinstance(exchange_name, str)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
-        channel.queue_bind(exchange=self._invocable.config.exchange, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
+        channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
         return channel, queue_name, queue_name_error
-
 
     def start(self) -> int:
         """Summary."""
