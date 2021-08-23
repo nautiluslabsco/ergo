@@ -131,5 +131,4 @@ def start(ref: str, namespace: Optional[str], arg: Tuple[str]) -> int:
         int: Description
 
     """
-    print(f'namespace is: {namespace}')
     return ERGO_CLI.start(ref, namespace, *list(arg))
