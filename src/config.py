@@ -23,8 +23,7 @@ class Config:
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
-        heartbeat = config.get('heartbeat')
-        self._heartbeat: Optional[int] = int(heartbeat) if heartbeat else None
+        self._heartbeat: Optional[str] = config.get('heartbeat')
 
     @property
     def namespace(self) -> Optional[str]:
@@ -69,16 +68,16 @@ class Config:
         Returns:
             TYPE: Description
         """
-        return self._host if self._host else ''
+        return self._host or ''
 
     @property
-    def exchange(self) -> Optional[str]:
+    def exchange(self) -> str:
         """Summary.
 
         Returns:
             TYPE: Description
         """
-        return self._exchange
+        return self._exchange or 'primary'
 
     @property
     def protocol(self) -> str:
@@ -96,4 +95,4 @@ class Config:
         Returns:
             TYPE: Description
         """
-        return self._heartbeat
+        return int(self._heartbeat) if self._heartbeat else None

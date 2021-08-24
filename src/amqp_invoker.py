@@ -12,16 +12,10 @@ from src.types import TYPE_PAYLOAD
 # {"x":5,"y":7}
 
 
-def overwrite_heartbeat(host: str, heartbeat: int) -> str:
-    """Overwrite the heartbeat in a rabbitmq url."""
-    uri, new_param = urlparse(host), f'heartbeat={heartbeat}'
-    found, params = False, uri.query.split('&')
-    for i, old_param in enumerate(params):
-        if 'heartbeat' in old_param:
-            found = True
-            params[i] = new_param
-    if not found:
-        params.append(new_param)
+def set_param(host: str, param_key: str, param_val: str) -> str:
+    """Overwrite a param in a host string w a new value."""
+    uri, new_param = urlparse(host), f'{param_key}={param_val}'
+    params = [p for p in uri.query.split('&') if param_key not in p] + [new_param]
     return uri._replace(query='&'.join(params)).geturl()
 
 
@@ -31,7 +25,7 @@ class AmqpInvoker(Invoker):
     def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]:
         """Connect to a rabbit broker."""
         heartbeat = self._invocable.config.heartbeat
-        host = overwrite_heartbeat(self._invocable.config.host, heartbeat) if heartbeat else self._invocable.config.host
+        host = set_param(self._invocable.config.host, 'heartbeat', str(heartbeat)) or self._invocable.config.host
         parameters = pika.URLParameters(host)
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
@@ -40,7 +34,6 @@ class AmqpInvoker(Invoker):
         exchange_name = self._invocable.config.exchange
         channel.queue_declare(queue=queue_name)
         channel.queue_declare(queue=queue_name_error)
-        assert isinstance(exchange_name, str)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))

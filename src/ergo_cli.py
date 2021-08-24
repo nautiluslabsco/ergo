@@ -163,7 +163,7 @@ class ErgoCli:
         # use safe_load instead load
         with open(ref) as config_file:
             conf = yaml.safe_load(config_file)
-            namespace_file_name = namespace if namespace else conf.get('namespace')
+            namespace_file_name = namespace or conf.get('namespace')
             with open(namespace_file_name) as namespace_file:
                 namespace_cfg = yaml.safe_load(namespace_file)
                 conf.update(namespace_cfg)
