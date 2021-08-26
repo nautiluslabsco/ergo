@@ -25,7 +25,7 @@ class AmqpInvoker(Invoker):
     def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]:
         """Connect to a rabbit broker."""
         heartbeat = self._invocable.config.heartbeat
-        host = set_param(self._invocable.config.host, 'heartbeat', str(heartbeat)) or self._invocable.config.host
+        host = set_param(self._invocable.config.host, 'heartbeat', str(heartbeat)) if heartbeat else self._invocable.config.host
         parameters = pika.URLParameters(host)
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
