@@ -1,5 +1,7 @@
 """Summary."""
 import json
+from typing import Tuple
+from urllib.parse import urlparse
 
 import pika
 
@@ -10,12 +12,21 @@ from src.types import TYPE_PAYLOAD
 # {"x":5,"y":7}
 
 
+def set_param(host: str, param_key: str, param_val: str) -> str:
+    """Overwrite a param in a host string w a new value."""
+    uri, new_param = urlparse(host), f'{param_key}={param_val}'
+    params = [p for p in uri.query.split('&') if param_key not in p] + [new_param]
+    return uri._replace(query='&'.join(params)).geturl()
+
+
 class AmqpInvoker(Invoker):
     """Summary."""
 
-    def start(self) -> int:
-        """Summary."""
-        parameters = pika.URLParameters(self._invocable.config.host)
+    def connect(self) -> Tuple[pika.adapters.blocking_connection.BlockingChannel, str, str]:
+        """Connect to a rabbit broker."""
+        heartbeat = self._invocable.config.heartbeat
+        host = set_param(self._invocable.config.host, 'heartbeat', str(heartbeat)) if heartbeat else self._invocable.config.host
+        parameters = pika.URLParameters(host)
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
         queue_name = self._invocable.config.func
@@ -25,7 +36,12 @@ class AmqpInvoker(Invoker):
         channel.queue_declare(queue=queue_name_error)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
-        channel.queue_bind(exchange=self._invocable.config.exchange, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
+        channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
+        return channel, queue_name, queue_name_error
+
+    def start(self) -> int:
+        """Summary."""
+        channel, queue_name, queue_name_error = self.connect()
 
         def handler(channel, method, properties, body) -> None:  # type: ignore
             """Summary.

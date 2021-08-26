@@ -161,9 +161,10 @@ class ErgoCli:
         # use safe_load instead load
         with open(ref) as config_file:
             conf = yaml.safe_load(config_file)
-            with open(conf.get('namespace')) as namespace_file:
-                namespace = yaml.safe_load(namespace_file)
-                conf.update(namespace)
+            namespace_file_name = args[0] if len(args) > 0 else conf.get('namespace')
+            with open(namespace_file_name) as namespace_file:
+                namespace_cfg = yaml.safe_load(namespace_file)
+                conf.update(namespace_cfg)
                 config = Config(conf)
 
                 return {'amqp': self.amqp, 'something_else': self.http}.get(config.protocol, self.http)(config)
