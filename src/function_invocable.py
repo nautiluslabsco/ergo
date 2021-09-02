@@ -59,26 +59,28 @@ class FunctionInvocable:
         self._func = arg
 
     def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
-        """Summary.
+        """Invoke injected function.
+
+        If func is a generator, will exhaust generator, yielding each response.
+        If an exception occurs will re-raise with a stack trace.
+        Func responses will not be percolated if they return None.
 
         Args:
-            data_out (Payload): Description
-            data_in (Payload): Description
+            data_in (Payload): payload with a 'data' key. Corresponding value will be passed to injected function.
 
         Raises:
-            Exception: Description
+            Exception: caught exception re-raised with a stack trace.
 
         """
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            result = None
             if inspect.isgeneratorfunction(self._func):
-                for result in self._func(data_in['data']):
-                    yield {'data': result, 'log': log(data_in.get('log', []))}
-
+                result_exp = filter(lambda x: x is not None, self._func(data_in['data']))
             else:
-                result = self._func(data_in['data'])
+                result_exp = (r for r in [self._func(data_in['data'])] if r is not None)
+
+            for result in result_exp:
                 yield {'data': result, 'log': log(data_in.get('log', []))}
 
         except BaseException as err:
