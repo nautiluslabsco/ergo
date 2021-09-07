@@ -3,7 +3,12 @@ import sys
 import time
 import traceback
 from types import FrameType, TracebackType
-from typing import List, Optional, TypedDict
+from typing import List, Optional
+
+try:
+    from typing import TypedDict  # >= 3.8
+except ImportError:
+    from mypy_extensions import TypedDict  # <= 3.7
 from uuid import uuid4
 
 
