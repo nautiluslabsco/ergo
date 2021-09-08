@@ -9,7 +9,7 @@ from uuid import uuid4
 if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=C0412
 else:
-    from typing_extensions import TypedDict
+    from typing_extensions import TypedDict  # pragma: no cover
 
 
 class LogStruct(TypedDict):
@@ -66,7 +66,7 @@ def get_stack() -> List[FrameType]:
         if not trcbk.tb_next:
             frm = trcbk.tb_frame
             break
-        trcbk = trcbk.tb_next
+        trcbk = trcbk.tb_next  # pragma: no cover
     stack: List[FrameType] = []
     while frm:
         stack.append(frm)
@@ -74,7 +74,7 @@ def get_stack() -> List[FrameType]:
     return stack
 
 
-def print_exc_plus() -> str:
+def print_exc_plus() -> str:  # pragma: no cover
     """
     Summary.
 

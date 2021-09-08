@@ -1,3 +1,4 @@
+import sys
 import unittest
 import src.util as util
 
@@ -18,3 +19,17 @@ class TestUtil(unittest.TestCase):
         assert len(st) == 0
         exc = util.print_exc_plus()
         assert 'None' in exc
+
+        def f1():
+            def f2():
+                def f3():
+                    try:
+                        raise IndexError('zeke')
+                    except IndexError as e:
+                        return util.get_stack()
+                return f3()
+            return f2()
+
+        frames = f1()
+        for code, frame in zip(['f3', 'f2', 'f1'], frames):
+            assert code in str(frame)
