@@ -32,4 +32,4 @@ class TestUtil(unittest.TestCase):
 
         frames = f1()
         for code, frame in zip(['f3', 'f2', 'f1'], frames):
-            assert code in str(frame)
+            assert code in str(frame), f'code is: {code}, frame is: {frame}'
