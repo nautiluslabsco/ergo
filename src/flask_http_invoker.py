@@ -1,6 +1,6 @@
 """Summary."""
 from typing import List
-
+import json
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
@@ -36,8 +36,7 @@ class FlaskHttpInvoker(HttpInvoker):
             # except Exception as err:
             #     print(err)
             #     abort(400)
-
-            return str(data_out)
+            return json.dumps(data_out)
 
         app.run(host='0.0.0.0', port=self._port)
         return 0
