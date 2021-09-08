@@ -22,5 +22,5 @@ package:
 	python setup.py bdist_wheel
 
 test:
-	coverage run -m unittest discover
+	coverage run -m unittest discover -v
 	coverage html
