@@ -1,15 +1,15 @@
-"""Summary."""
+"""Convenience Funcs for handling errors, logging, and monitoring."""
 import sys
 import time
 import traceback
 from types import FrameType, TracebackType
 from typing import List, Optional
-
-try:
-    from typing import TypedDict  # >= 3.8
-except ImportError:
-    from mypy_extensions import TypedDict  # <= 3.7
 from uuid import uuid4
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict  # pylint: disable=C0412
+else:
+    from typing_extensions import TypedDict
 
 
 class LogStruct(TypedDict):
@@ -37,19 +37,19 @@ def log(rec: List[LogStruct]) -> List[LogStruct]:
 
 
 def uniqueid() -> str:
-    """Summary.
+    """Generate unique id.
 
     Returns:
-        str: Description
+        str: unique hex id
     """
     return uuid4().hex
 
 
 def timestamp() -> float:
-    """Summary.
+    """Create timestamp for current time.
 
     Returns:
-        int: Description
+        int: current time
     """
     return time.time()
 
