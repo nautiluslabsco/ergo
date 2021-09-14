@@ -76,9 +76,9 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             if inspect.isgeneratorfunction(self._func):
-                result_exp = filter(lambda x: x is not None, self._func(data_in['data']))
+                result_exp = self._func(data_in['data'])
             else:
-                result_exp = (r for r in [self._func(data_in['data'])] if r is not None)
+                result_exp = (r for r in [self._func(data_in['data'])])
 
             for result in result_exp:
                 yield {'data': result, 'log': log(data_in.get('log', []))}
