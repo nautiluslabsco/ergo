@@ -58,7 +58,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
+    def invoke(self, data_in) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -75,12 +75,12 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            if inspect.isgeneratorfunction(self._func):
-                result_exp = self._func(data_in['data'])
-            else:
-                result_exp = (r for r in [self._func(data_in['data'])])
+            results = self._func(**data_in)
 
-            for result in result_exp:
+            if not inspect.isgeneratorfunction(self._func):
+                results = [results]
+
+            for result in results:
                 yield {'data': result, 'log': log(data_in.get('log', []))}
 
         except BaseException as err:

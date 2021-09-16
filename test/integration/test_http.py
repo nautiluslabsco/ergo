@@ -1,5 +1,4 @@
 import unittest
-import json
 import requests
 import datetime
 import pytz
@@ -37,34 +36,7 @@ class TestProduct(HTTPTest):
 
     def test(self):
         """tests the example function from the ergo README"""
-        resp = self.session.get("http://localhost?4&5")
-        self.assertEqual(resp.status_code, 200)
-        body = resp.json()
-        self.assertEqual(20, body[0]["data"])
-
-    def test_named_params(self):
         resp = self.session.get("http://localhost", params={"x": 2.5, "y": 3})
-        assert resp.status_code == 200
-        body = resp.json()
-        self.assertEqual(7.5, body[0]["data"])
-
-    def test_data_param(self):
-        resp = self.session.get("http://localhost", params={"data": {"x": 2.5, "y": 3}})
-        assert resp.status_code == 200
-        body = resp.json()
-        self.assertEqual(7.5, body[0]["data"])
-
-
-def product_alt(payload):
-    return product(**json.loads(payload))
-
-
-class TestProductAlt(HTTPTest):
-    target_func = product_alt
-
-    def test_payload(self):
-        payload = json.dumps({"x": 2.5, "y": 3})
-        resp = self.session.get("http://localhost", params={"data": payload})
         assert resp.status_code == 200
         body = resp.json()
         self.assertEqual(7.5, body[0]["data"])

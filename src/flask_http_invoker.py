@@ -4,6 +4,7 @@ import json
 import datetime
 import decimal
 from flask import Flask, request  # , abort
+from markupsafe import escape
 
 from src.http_invoker import HttpInvoker
 from src.types import TYPE_PAYLOAD
