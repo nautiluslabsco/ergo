@@ -11,3 +11,5 @@ xenon
 autopep8
 coverage
 codecov
+pytz
+requests

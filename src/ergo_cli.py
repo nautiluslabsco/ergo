@@ -117,17 +117,18 @@ class ErgoCli:
         self.use(name)
         return 0
 
-    def http(self, config: Config, *args: str) -> int:
+    def http(self, func: str, *args: str) -> int:
         """Summary.
 
         Args:
-            config (str): Description
+            func (str): Description
             *args (str): Description
 
         Returns:
             int: Description
 
         """
+        config = Config({"func": func})
         host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(config))
         host.start()
         return 0

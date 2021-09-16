@@ -161,6 +161,7 @@ dependency-reduced-pom.xml
 
 venv*/
 .venv*/
+.python-version
 
 #######################################
 # Languages                           #
@@ -290,3 +291,11 @@ error_log
 
 *.bak
 *.backup
+
+
+#######################################
+#  Test Reports                       #
+#######################################
+
+htmlcov/
+.coverage
