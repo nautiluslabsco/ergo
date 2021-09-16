@@ -84,18 +84,18 @@ def use(name: str) -> int:
 @main.command()
 @click.argument('ref', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def http(config: Config, arg: Tuple[str]) -> int:
+def http(ref: str, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
-        config (str): Description
+        ref (str): Description
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.http(config, *list(arg))
+    return ERGO_CLI.http(ref, *list(arg))
 
 
 @main.command()
