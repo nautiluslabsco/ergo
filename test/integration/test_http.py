@@ -1,11 +1,11 @@
 import unittest
+import json
 import requests
 import datetime
 import pytz
 import decimal
 import multiprocessing
 from typing import Callable
-from contextlib import contextmanager
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from src.ergo_cli import ErgoCli
@@ -54,6 +54,20 @@ class TestProduct(HTTPTest):
         body = resp.json()
         assert body[0]["data"] == 7.5
 
+
+def product_alt(payload):
+    return product(**json.loads(payload))
+
+
+class TestProductAlt(HTTPTest):
+    target_func = product_alt
+
+    def test_payload(self):
+        payload = json.dumps({"x": 2.5, "y": 3})
+        resp = self.session.get("http://localhost", params={"data": payload})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body[0]["data"] == 7.5
 
 
 def get_data():
