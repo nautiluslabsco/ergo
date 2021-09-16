@@ -40,19 +40,19 @@ class TestProduct(HTTPTest):
         resp = self.session.get("http://localhost?4&5")
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertEqual(body[0]["data"], 20)
+        self.assertEqual(20, body[0]["data"])
 
     def test_named_params(self):
         resp = self.session.get("http://localhost", params={"x": 2.5, "y": 3})
         assert resp.status_code == 200
         body = resp.json()
-        assert body[0]["data"] == 7.5
+        self.assertEqual(7.5, body[0]["data"])
 
     def test_data_param(self):
         resp = self.session.get("http://localhost", params={"data": {"x": 2.5, "y": 3}})
         assert resp.status_code == 200
         body = resp.json()
-        assert body[0]["data"] == 7.5
+        self.assertEqual(7.5, body[0]["data"])
 
 
 def product_alt(payload):
@@ -67,14 +67,16 @@ class TestProductAlt(HTTPTest):
         resp = self.session.get("http://localhost", params={"data": payload})
         assert resp.status_code == 200
         body = resp.json()
-        assert body[0]["data"] == 7.5
+        self.assertEqual(7.5, body[0]["data"])
 
 
 def get_data():
     return {
+        "string": "🌟",
         "date": datetime.date(2021, 9, 15),
         "time": datetime.datetime(2021, 9, 15, 3, 30, tzinfo=pytz.timezone("America/New_York")),
-        "number": decimal.Decimal(0.01234567890123456789)
+        "decimal": decimal.Decimal("0.01234567890123456789"),
+        "float": 0.01234567890123456789,
     }
 
 
@@ -88,8 +90,10 @@ class TestGetData(HTTPTest):
         body = resp.json()
         actual = body[0]["data"]
         expected = {
+            "string": "🌟",
             'date': '2021-09-15',
             'time': '2021-09-15T03:30:00-04:56',
-            'number': '0.0123456789012345684308780136007044347934424877166748046875'
+            'decimal': '0.01234567890123456789',
+            'float': 0.012345678901234568,
         }
-        self.assertEqual(actual, expected)
+        self.assertEqual(expected, actual)
