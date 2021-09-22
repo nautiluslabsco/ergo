@@ -56,8 +56,8 @@ class AmqpInvoker(Invoker):
             data_in['key'] = str(self._invocable.config.subtopic)
             try:
                 for data_out in self._invocable.invoke(data_in):
-                    data_out['key'] = str(self._invocable.config.pubtopic)
-                    channel.basic_publish(exchange=self._invocable.config.exchange, routing_key=str(self._invocable.config.pubtopic), body=json.dumps(data_out))
+                    data_out.set('key', str(self._invocable.config.pubtopic))
+                    channel.basic_publish(exchange=self._invocable.config.exchange, routing_key=str(self._invocable.config.pubtopic), body=str(data_out))
             except Exception as err:  # pylint: disable=broad-except
                 data_in['error'] = str(err)
                 channel.basic_publish(exchange='', routing_key=queue_name_error, body=json.dumps(data_in))

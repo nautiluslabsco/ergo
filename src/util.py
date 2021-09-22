@@ -1,9 +1,14 @@
 """Convenience Funcs for handling errors, logging, and monitoring."""
+import importlib.util
+import os
+import re
 import sys
 import time
 import traceback
-from types import FrameType, TracebackType
-from typing import List, Optional
+from importlib.abc import Loader
+from importlib.machinery import ModuleSpec
+from types import FrameType, ModuleType, TracebackType
+from typing import Any, List, Match, Optional
 from uuid import uuid4
 
 if sys.version_info >= (3, 8):
@@ -104,3 +109,36 @@ def print_exc_plus() -> str:  # pragma: no cover
                 ret = f'{ret}\n<ERROR WHILE PRINTING VALUE>'
 
     return ret
+
+
+def load_source(ref: str) -> Any:
+    pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
+    matches: Optional[Match[str]] = re.match(pattern, ref)
+    if not matches:
+        raise Exception(f'Invalid source reference pattern {ref}, must conform to [path/to/file/]<file>.<extension>[:[class.]method]]')
+
+    path_to_source_file: str = matches.group(1)
+    if not matches.group(1):
+        path_to_source_file = os.getcwd()
+    elif matches.group(1)[0] != '/':
+        path_to_source_file = f'{os.getcwd()}/{matches.group(1)}'
+    source_file_name: str = matches.group(2)
+    source_file_extension: str = matches.group(3)
+    sys.path.insert(0, path_to_source_file)
+
+    spec: ModuleSpec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
+    module: ModuleType = importlib.util.module_from_spec(spec)
+    assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
+    spec.loader.exec_module(module)
+
+    scope: ModuleType = module
+    match = matches.group(4)
+    if match is not None:
+        class_name: str = match[:-1]
+        scope = getattr(scope, class_name)
+
+    method_name = matches.group(5)
+    if method_name is not None:
+        return getattr(scope, method_name)
+    else:
+        return scope # return class_name if no method exists

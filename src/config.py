@@ -17,16 +17,17 @@ class Config:
             config (Dict[str, str]): Description
         """
         self._func: str = config['func']
-        self._namespace: Optional[str] = config.get('namespace', 'local')
+        self._namespace: str = config.get('namespace', 'local')
         self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
         self._subtopic: Topic = SubTopic(config.get('subtopic'))
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
+        self._encoder: Optional[str] = config.get('encoder')
 
     @property
-    def namespace(self) -> Optional[str]:
+    def namespace(self) -> str:
         """Summary.
 
         Returns:
@@ -96,3 +97,14 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
+
+    @property
+    def encoder(self) -> Optional[str]:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._encoder
+
+

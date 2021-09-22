@@ -1,19 +1,21 @@
 """Summary."""
 import json
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 
 class Payload:
     """Summary."""
 
-    def __init__(self, data: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, data: Optional[Dict[str, Any]] = None, encoder=None) -> None:
         """Summary.
 
         Args:
-            data (Optional[Dict[str, str]], optional): Description
+            data (Optional[Dict[str, Any]], optional): Description
+            encoder (Optional[Type[json.JSONEncoder]], optional): Description
 
         """
-        self._data: Dict[str, str] = data or {}
+        self._data: Dict[str, Any] = data or {}
+        self._encoder: Optional[Type[json.JSONEncoder]] = encoder
 
     def get(self, key: str) -> Optional[str]:
         """Summary.
@@ -27,21 +29,21 @@ class Payload:
         """
         return self._data.get(key)
 
-    def set(self, key: str, value: str) -> None:
+    def set(self, key: str, value: Any) -> None:
         """Summary.
 
         Args:
             key (str): Description
-            value (str): Description
+            value (Any): Description
 
         """
         self._data[key] = value
 
-    def list(self) -> List[str]:
+    def list(self) -> List[Any]:
         """Summary.
 
         Returns:
-            List[str]: Description
+            List[Any]: Description
 
         """
         return list(self._data.values())
@@ -50,7 +52,7 @@ class Payload:
         """Summary.
 
         Returns:
-            str: Description
+            str: JSON string representation of data
 
         """
-        return json.dumps(self._data)
+        return json.dumps(self._data, cls=self._encoder)
