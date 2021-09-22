@@ -13,3 +13,5 @@ coverage
 codecov
 pytz
 requests
+docker
+timeout-decorator

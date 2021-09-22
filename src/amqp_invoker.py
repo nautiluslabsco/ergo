@@ -56,7 +56,6 @@ class AmqpInvoker(Invoker):
                 properties (TYPE): Description
                 body (TYPE): Description
             """
-            print("inside handler")
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
             data_in['key'] = str(self._invocable.config.subtopic)
             try:
@@ -69,8 +68,6 @@ class AmqpInvoker(Invoker):
 
         channel.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=handler)
 
-        import click
-        click.echo("consuming")
         channel.start_consuming()
 
         return 0
