@@ -1,0 +1,3 @@
+func: entrypoints.py:product
+subtopic: product_in
+pubtopic: product_out

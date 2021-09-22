@@ -19,6 +19,11 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
     return uri._replace(query='&'.join(params)).geturl()
 
 
+def declare_topic_exchange(channel, exchange_name):
+    channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False,
+                             internal=False, arguments=None)
+
+
 class AmqpInvoker(Invoker):
     """Summary."""
 
@@ -34,8 +39,7 @@ class AmqpInvoker(Invoker):
         exchange_name = self._invocable.config.exchange
         channel.queue_declare(queue=queue_name)
         channel.queue_declare(queue=queue_name_error)
-        channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-
+        declare_topic_exchange(channel, exchange_name)
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
         return channel, queue_name, queue_name_error
 
@@ -52,6 +56,7 @@ class AmqpInvoker(Invoker):
                 properties (TYPE): Description
                 body (TYPE): Description
             """
+            print("inside handler")
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
             data_in['key'] = str(self._invocable.config.subtopic)
             try:
@@ -64,6 +69,8 @@ class AmqpInvoker(Invoker):
 
         channel.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=handler)
 
+        import click
+        click.echo("consuming")
         channel.start_consuming()
 
         return 0
