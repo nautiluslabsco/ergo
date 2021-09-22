@@ -9,9 +9,10 @@ from typing import Callable
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from src.ergo_cli import ErgoCli
+from test.integration.scaffold import ErgoStartTest
 
 
-class HTTPTest(unittest.TestCase):
+class ErgoHTTPTest(unittest.TestCase):
     target_func: Callable
 
     def setUp(self) -> None:
@@ -21,7 +22,7 @@ class HTTPTest(unittest.TestCase):
 
         # HTTP requests need to retry on ConnectionError while the Flask server boots.
         self.session = requests.Session()
-        retries = Retry(connect=10, backoff_factor=0.1)
+        retries = Retry(connect=5, backoff_factor=0.1)
         self.session.mount('http://', HTTPAdapter(max_retries=retries))
 
     def tearDown(self) -> None:
@@ -32,7 +33,7 @@ def product(x, y):
     return float(x) * float(y)
 
 
-class TestProduct(HTTPTest):
+class TestProduct(ErgoHTTPTest):
     target_func = product
 
     def test(self):
@@ -59,7 +60,7 @@ def product_alt(payload):
     return product(**json.loads(payload))
 
 
-class TestProductAlt(HTTPTest):
+class TestProductAlt(ErgoHTTPTest):
     target_func = product_alt
 
     def test_payload(self):
@@ -80,7 +81,7 @@ def get_data():
     }
 
 
-class TestGetData(HTTPTest):
+class TestGetData(ErgoHTTPTest):
     target_func = get_data
 
     def test(self):
@@ -97,3 +98,27 @@ class TestGetData(HTTPTest):
             'float': 0.012345678901234568,
         }
         self.assertEqual(expected, actual)
+
+
+class TestStartProductWorker(ErgoStartTest):
+    manifest = "configs/product.yml"
+    namespace = "configs/http.yml"
+
+    def test(self):
+        """tests the example function from the ergo README"""
+        resp = self.session.get("http://localhost", params={"x": 2.5, "y": 3})
+        assert resp.status_code == 200
+        body = resp.json()
+        self.assertEqual(7.5, body[0]["data"])
+
+
+class TestStartParseWorker(ErgoStartTest):
+    manifest = "configs/parse.yml"
+    namespace = "configs/http.yml"
+
+    def test(self):
+        payload = json.dumps({"return_me": "🌟"})
+        resp = self.session.get("http://localhost", params={"data": payload})
+        assert resp.status_code == 200
+        body = resp.json()
+        self.assertEqual("🌟", body[0]["data"])
