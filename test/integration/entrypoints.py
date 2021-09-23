@@ -1,11 +1,6 @@
 import json
 
 
-def product(data):
-    parsed = json.loads(data)
+def product(payload):
+    parsed = json.loads(payload)
     return float(parsed["x"]) * float(parsed["y"])
-
-
-def parse(data):
-    parsed = json.loads(data)
-    return parsed["return_me"]
