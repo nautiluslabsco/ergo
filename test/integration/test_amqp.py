@@ -83,6 +83,8 @@ def run_product_test(payload):
     add_consumer("product_out", on_pubtopic_message)
     add_consumer("target_functions.py:product_error", on_error_mesage)
 
+    # The ergo consumer may still be booting, so we have to retry publishing the message until it ends up outside
+    # of the dead letter queue.
     channel.confirm_delivery()
     err = None
     for retry in range(5):
@@ -92,7 +94,6 @@ def run_product_test(payload):
                                   body=json.dumps(payload), mandatory=True)  # noqa
             break
         except pika.exceptions.UnroutableError as err:
-            import time
             time.sleep(.5)
     else:
         raise err
