@@ -5,7 +5,7 @@ import docker
 import time
 import timeout_decorator
 from pika import URLParameters
-from src.topic import PubTopic
+from src.topic import PubTopic, SubTopic
 from src.amqp_invoker import declare_topic_exchange
 from test.integration.utils import with_ergo
 
@@ -80,16 +80,16 @@ def run_product_test(payload):
 
         channel.basic_consume(queue=queue_name, on_message_callback=on_message_callback)
 
-    add_consumer("product_out", on_pubtopic_message)
+    add_consumer(str(SubTopic("product.out")), on_pubtopic_message)
     add_consumer("target_functions.py:product_error", on_error_mesage)
 
-    # The ergo consumer may still be booting, so we have to retry publishing the message until it ends up outside
+    # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
     # of the dead letter queue.
     channel.confirm_delivery()
     err = None
     for retry in range(5):
         try:
-            routing_key = str(PubTopic("product_in"))
+            routing_key = str(PubTopic("product.in"))
             channel.basic_publish(exchange="primary", routing_key=routing_key,
                                   body=json.dumps(payload), mandatory=True)  # noqa
             break
@@ -99,3 +99,5 @@ def run_product_test(payload):
         raise err
 
     channel.start_consuming()
+    channel.close()
+    connection.close()
