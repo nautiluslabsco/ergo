@@ -3,10 +3,11 @@ import pika
 import json
 import docker
 import time
+import timeout_decorator
 from pika import URLParameters
 from src.topic import PubTopic
 from src.amqp_invoker import declare_topic_exchange
-from test.integration.scaffold import with_ergo
+from test.integration.utils import with_ergo
 
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
@@ -14,6 +15,9 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 
 @pytest.fixture(scope="session")
 def rabbitmq():
+    """
+    Start a rabbitmq docker container if none is running, and then wait for the broker to finish booting.
+    """
     docker_client = docker.from_env()
     try:
         container, = docker_client.containers.list(filters={"name": "rabbitmq"})
@@ -28,10 +32,12 @@ def rabbitmq():
     print("awaiting broker")
     output = ""
     for retry in range(200):
-        if container.status in ["created", "running"]:
+        try:
             exit_code, output = container.exec_run(["rabbitmqctl", "await_online_nodes", "1"])
             if exit_code == 0:
                 break
+        except docker.errors.APIError:
+            pass
         time.sleep(.5)
     else:
         raise RuntimeError(output)
@@ -39,17 +45,16 @@ def rabbitmq():
 
 
 @with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
-@pytest.mark.timeout(2)
 def test_product_amqp(rabbitmq):
     run_product_test({"x": 4, "y": 5})
 
 
 @with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
-@pytest.mark.timeout(2)
 def test_product_amqp__legacy(rabbitmq):
     run_product_test({"data": '{"x": 4, "y": 5}'})
 
 
+@timeout_decorator.timeout(seconds=2)
 def run_product_test(payload):
     connection = pika.BlockingConnection(URLParameters(AMQP_HOST))
     channel = connection.channel()
@@ -76,7 +81,7 @@ def run_product_test(payload):
         channel.basic_consume(queue=queue_name, on_message_callback=on_message_callback)
 
     add_consumer("product_out", on_pubtopic_message)
-    add_consumer("entrypoints.py:product_error", on_error_mesage)
+    add_consumer("target_functions.py:product_error", on_error_mesage)
 
     channel.confirm_delivery()
     err = None
