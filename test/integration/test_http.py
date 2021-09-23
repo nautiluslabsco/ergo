@@ -4,7 +4,7 @@ import pytz
 import decimal
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from test.integration.scaffold import with_ergo
+from test.integration.utils import with_ergo
 
 
 # HTTP requests need to retry on ConnectionError while the Flask server boots.
