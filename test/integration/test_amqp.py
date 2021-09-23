@@ -41,6 +41,16 @@ def rabbitmq():
 @with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
 @pytest.mark.timeout(2)
 def test_product_amqp(rabbitmq):
+    run_product_test({"x": 4, "y": 5})
+
+
+@with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
+@pytest.mark.timeout(2)
+def test_product_amqp__legacy(rabbitmq):
+    run_product_test({"data": '{"x": 4, "y": 5}'})
+
+
+def run_product_test(payload):
     connection = pika.BlockingConnection(URLParameters(AMQP_HOST))
     channel = connection.channel()
     declare_topic_exchange(channel, "primary")
@@ -72,10 +82,9 @@ def test_product_amqp(rabbitmq):
     err = None
     for retry in range(5):
         try:
-            data = {"data": '{"x": 4, "y": 5}'}
             routing_key = str(PubTopic("product_in"))
             channel.basic_publish(exchange="primary", routing_key=routing_key,
-                                  body=json.dumps(data), mandatory=True)  # noqa
+                                  body=json.dumps(payload), mandatory=True)  # noqa
             break
         except pika.exceptions.UnroutableError as err:
             import time
