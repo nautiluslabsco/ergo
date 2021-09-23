@@ -1,4 +1,3 @@
-import json
 import requests
 import datetime
 import pytz
@@ -21,38 +20,15 @@ def product(x, y):
 @with_ergo("http", f"{__file__}:product")
 def test_product():
     """tests the example function from the ergo README"""
-    resp = session.get("http://localhost?4&5")
+    resp = session.get("http://localhost?x=4&y=5")
     assert resp.status_code == 200
     body = resp.json()
     assert body[0]["data"] == 20
-
-
-@with_ergo("http", f"{__file__}:product")
-def test_product__named_params():
-    """tests the example function from the ergo README"""
-    resp = session.get("http://localhost", params={"x": 4, "y": 5})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body[0]["data"] == 20
-
-
-def product_from_payload(payload):
-    parsed = json.loads(payload)
-    return float(parsed["x"]) * float(parsed["y"])
-
-
-@with_ergo("http", f"{__file__}:product_from_payload")
-def test_product__data_param():
-    payload = json.dumps({"x": 2.5, "y": 3})
-    resp = session.get("http://localhost", params={"data": payload})
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body[0]["data"] == 7.5
 
 
 @with_ergo("start", "test/integration/configs/product.yml", "test/integration/configs/http.yml")
 def test_product__ergo_start():
-    resp = session.get("http://localhost", params={"data": '{"x": 2.5, "y": 3}'})
+    resp = session.get("http://localhost", params={"x": 2.5, "y": 3})
     assert resp.status_code == 200
     body = resp.json()
     assert body[0]["data"] == 7.5

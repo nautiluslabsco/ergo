@@ -2,9 +2,7 @@
 import json
 from typing import Tuple
 from urllib.parse import urlparse
-
 import pika
-
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 
@@ -57,12 +55,16 @@ class AmqpInvoker(Invoker):
                 body (TYPE): Description
             """
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
-            data_in['key'] = str(self._invocable.config.subtopic)
             try:
-                for data_out in self._invocable.invoke(data_in):
+                invoke_args = data_in
+                # TODO(zschubert) delete this block?
+                if list(invoke_args.keys()) == ["data"]:
+                    invoke_args = json.loads(invoke_args["data"])
+                for data_out in self._invocable.invoke(invoke_args):
                     data_out['key'] = str(self._invocable.config.pubtopic)
                     channel.basic_publish(exchange=self._invocable.config.exchange, routing_key=str(self._invocable.config.pubtopic), body=json.dumps(data_out))
             except Exception as err:  # pylint: disable=broad-except
+                data_in['key'] = str(self._invocable.config.subtopic)
                 data_in['error'] = str(err)
                 channel.basic_publish(exchange='', routing_key=queue_name_error, body=json.dumps(data_in))
 
