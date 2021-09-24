@@ -5,8 +5,8 @@ import docker
 import time
 import timeout_decorator
 from pika import URLParameters
-from src.topic import PubTopic, SubTopic
 from src.amqp_invoker import declare_topic_exchange
+from src.config import Config
 from test.integration.utils import with_ergo
 
 
@@ -46,31 +46,47 @@ def rabbitmq():
 
 @with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
 def test_product_amqp(rabbitmq):
-    run_product_test({"x": 4, "y": 5})
+    conf = Config({
+        "func": "test/integration/target_functions.py:product",
+        "exchange": "primary",
+        "subtopic": "product.in",
+        "pubtopic": "product.out",
+    })
+    result = ergo_rpc({"x": 4, "y": 5}, conf)
+    assert result == 20.0
 
 
 @with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
 def test_product_amqp__legacy(rabbitmq):
-    run_product_test({"data": '{"x": 4, "y": 5}'})
+    conf = Config({
+        "func": "test/integration/target_functions.py:product",
+        "exchange": "primary",
+        "subtopic": "product.in",
+        "pubtopic": "product.out",
+    })
+    result = ergo_rpc({"data": '{"x": 4, "y": 5}'}, conf)
+    assert result == 20.0
 
 
 @timeout_decorator.timeout(seconds=2)
-def run_product_test(payload):
+def ergo_rpc(payload, config: Config):
+    ret = {}
+
     connection = pika.BlockingConnection(URLParameters(AMQP_HOST))
     channel = connection.channel()
-    declare_topic_exchange(channel, "primary")
+    declare_topic_exchange(channel, config.exchange)
 
     def on_pubtopic_message(body):
         result = body["data"]
-        assert result == 20.0
+        ret["result"] = result
 
     def on_error_mesage(body):
         error = body["error"]
-        raise Exception(error)
+        ret["error"] = error
 
     def add_consumer(queue_name, consumer):
         channel.queue_declare(queue=queue_name)
-        channel.queue_bind(exchange="primary", queue=queue_name)
+        channel.queue_bind(exchange=config.exchange, queue=queue_name)
         channel.queue_purge(queue_name)
 
         def on_message_callback(chan, method, properties, body):
@@ -80,8 +96,8 @@ def run_product_test(payload):
 
         channel.basic_consume(queue=queue_name, on_message_callback=on_message_callback)
 
-    add_consumer(str(SubTopic("product.out")), on_pubtopic_message)
-    add_consumer("target_functions.py:product_error", on_error_mesage)
+    add_consumer(str(config.pubtopic), on_pubtopic_message)
+    add_consumer(f"{config.func}_error", on_error_mesage)
 
     # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
     # of the dead letter queue.
@@ -89,8 +105,8 @@ def run_product_test(payload):
     err = None
     for retry in range(5):
         try:
-            routing_key = str(PubTopic("product.in"))
-            channel.basic_publish(exchange="primary", routing_key=routing_key,
+            routing_key = str(config.subtopic)
+            channel.basic_publish(exchange=config.exchange, routing_key=routing_key,
                                   body=json.dumps(payload), mandatory=True)  # noqa
             break
         except pika.exceptions.UnroutableError as err:
@@ -101,3 +117,7 @@ def run_product_test(payload):
     channel.start_consuming()
     channel.close()
     connection.close()
+
+    if ret.get("error"):
+        raise Exception(ret["error"])
+    return ret["result"]
