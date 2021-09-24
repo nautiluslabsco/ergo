@@ -103,20 +103,22 @@ def ergo_rpc(payload, config: Config):
     # of the dead letter queue.
     channel.confirm_delivery()
     err = None
-    for retry in range(5):
+    for retry in range(10):
         try:
             routing_key = str(config.subtopic)
             channel.basic_publish(exchange=config.exchange, routing_key=routing_key,
                                   body=json.dumps(payload), mandatory=True)  # noqa
             break
         except pika.exceptions.UnroutableError as err:
-            time.sleep(.5)
+            time.sleep(.05)
     else:
         raise err
 
-    channel.start_consuming()
-    channel.close()
-    connection.close()
+    try:
+        channel.start_consuming()
+    finally:
+        channel.close()
+        connection.close()
 
     if ret.get("error"):
         raise Exception(ret["error"])
