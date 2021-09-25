@@ -151,7 +151,7 @@ class ErgoCli:
         host.start()
         return 0
 
-    def start(self, ref: str, *args: str) -> int:
+    async def start(self, ref: str, *args: str) -> int:
         """Summary.
 
         Args:
