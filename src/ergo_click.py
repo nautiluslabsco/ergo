@@ -128,4 +128,4 @@ def start(ref: str, arg: Tuple[str]) -> int:
         int: Description
 
     """
-    return asyncio.run(ERGO_CLI.start(ref, *list(arg)))
+    return ERGO_CLI.start(ref, *list(arg))

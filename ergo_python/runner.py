@@ -1,3 +1,5 @@
+import asyncio
+import threading
 import multiprocessing
 import tempfile
 import contextlib
@@ -56,9 +58,22 @@ class Config:
                 yield namespace.name
 
 
+@contextmanager
+def run(manifest, namespace):
+    """
+    This context manager starts a temporary ergo worker in a subprocess. The worker is terminated at __exit__ time.
+    """
+    process = multiprocessing.Process(target=ErgoCli().start, args=(manifest, namespace,))
+    process.start()
+    try:
+        yield
+    finally:
+        process.terminate()
+
+
 @asynccontextmanager
 # def ergo_start(manifest=None, namespace=None, func=None, protocol=None, exchange=None, pubtopic=None, subtopic=None):
-async def run(config):
+async def runX(config):
     """
     This context manager starts a temporary ergo worker in a subprocess. The worker is terminated at __exit__ time.
     """
@@ -66,15 +81,14 @@ async def run(config):
     #                      pubtopic=pubtopic, subtopic=subtopic) as (manifest, namespace,):
     with config.manifest() as manifest:
         with config.namespace() as namespace:
-            process = multiprocessing.Process(
-                target=ErgoCli().start,
-                args=(manifest, namespace),
-            )
-            process.start()
-            try:
-                yield process
-            finally:
-                process.terminate()
+            # task = asyncio.create_task(ErgoCli().start(manifest, namespace))
+            # yield task.cancel
+            # loop = asyncio.get_event_loop()
+            # loop.run_until_complete(asyncio.wait([task], timeout=20))
+            # task.cancel()
+            ErgoCli().start(manifest, namespace)
+            yield lambda: 1
+            bh = True
 
 
 @contextmanager
