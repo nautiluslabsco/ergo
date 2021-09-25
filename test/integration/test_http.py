@@ -22,16 +22,16 @@ def test_product():
     """tests the example function from the ergo README"""
     resp = session.get("http://localhost?x=4&y=5")
     assert resp.status_code == 200
-    body = resp.json()
-    assert body[0]["data"] == 20
+    result = resp.json()
+    assert result == [20.0]
 
 
 @with_ergo("start", "test/integration/configs/product.yml", "test/integration/configs/http.yml")
 def test_product__ergo_start():
     resp = session.get("http://localhost", params={"x": 2.5, "y": 3})
     assert resp.status_code == 200
-    body = resp.json()
-    assert body[0]["data"] == 7.5
+    result = resp.json()
+    assert result == [7.5]
 
 
 def get_data():
@@ -49,8 +49,7 @@ def test_get_data():
     """asserts that the FlaskHttpInvoker can correctly serialize output with common standard library data types"""
     resp = session.get("http://localhost")
     assert resp.status_code == 200
-    body = resp.json()
-    actual = body[0]["data"]
+    actual, = resp.json()
     expected = {
         "string": "🌟",
         'date': '2021-09-15',

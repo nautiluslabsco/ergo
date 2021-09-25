@@ -80,7 +80,7 @@ class FunctionInvocable:
                 result_exp = [result_exp]
 
             for result in result_exp:
-                yield {'data': result, 'log': log(data_in.get('log', []))}
+                yield result
 
         except BaseException as err:
 

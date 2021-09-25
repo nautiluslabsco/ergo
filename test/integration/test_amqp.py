@@ -56,18 +56,6 @@ def test_product_amqp(rabbitmq):
     assert result == 20.0
 
 
-@with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
-def test_product_amqp__legacy(rabbitmq):
-    conf = Config({
-        "func": "test/integration/target_functions.py:product",
-        "exchange": "primary",
-        "subtopic": "product.in",
-        "pubtopic": "product.out",
-    })
-    result = ergo_rpc({"data": '{"x": 4, "y": 5}'}, conf)
-    assert result == 20.0
-
-
 @timeout_decorator.timeout(seconds=2)
 def ergo_rpc(payload, config: Config):
     ret = {}
@@ -106,8 +94,9 @@ def ergo_rpc(payload, config: Config):
     for retry in range(10):
         try:
             routing_key = str(config.subtopic)
+            body = json.dumps({"data": payload})
             channel.basic_publish(exchange=config.exchange, routing_key=routing_key,
-                                  body=json.dumps(payload), mandatory=True)  # noqa
+                                  body=body, mandatory=True)  # noqa
             break
         except pika.exceptions.UnroutableError as err:
             time.sleep(.05)
