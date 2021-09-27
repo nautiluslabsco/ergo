@@ -26,5 +26,5 @@ then to make a request against this service
 
 ```
 $ curl -i "http://localhost?x=4&y=5"
-{"result": 20.0}
+[20.0]
 ```
