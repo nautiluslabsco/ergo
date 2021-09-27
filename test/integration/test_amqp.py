@@ -4,6 +4,7 @@ import json
 import docker
 import time
 import timeout_decorator
+import subprocess
 from pika import URLParameters
 from src.amqp_invoker import declare_topic_exchange
 from src.config import Config
@@ -16,8 +17,33 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 @pytest.fixture(scope="session")
 def rabbitmq():
     """
-    Start a rabbitmq docker container if none is running, and then wait for the broker to finish booting.
+    Start a rabbitmq server if none is running, and then wait for the broker to finish booting.
     """
+    try:
+        # Try running rabbitmq-server from the host system path. If this succeeds, we are presumably running
+        # inside an ergo docker container.
+        start_rabbitmq_baremetal()
+    except FileNotFoundError:
+        # Else assume we're running in a baremetal dev environment. Start rabbitmq in its own docker container.
+        start_rabbitmq_container()
+
+
+def start_rabbitmq_baremetal():
+    subprocess.Popen(["rabbitmq-server"])
+
+    print("awaiting broker")
+    output = ""
+    for retry in range(100):
+        result = subprocess.run(["rabbitmqctl", "await_online_nodes", "1"])
+        if result.returncode == 0:
+            break
+        time.sleep(.2)
+    else:
+        raise RuntimeError(output)
+    print("broker started")
+
+
+def start_rabbitmq_container():
     docker_client = docker.from_env()
     try:
         container, = docker_client.containers.list(filters={"name": "rabbitmq"})
