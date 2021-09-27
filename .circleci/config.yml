@@ -1,64 +1,22 @@
 version: 2.1
 jobs:
-  build:
-    docker:
-      - image: circleci/python:3.7
-    steps:
-      - checkout
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-      - run:
-          name: install python dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            make dev
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-          paths:
-            - "venv"
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            make test
-            codecov
-      - store_artifacts:
-          path: htmlcov/
-  test-python-install:
+  test:
+    machine: true
     parameters:
-      version:
+      python_version:
         type: string
-        default: latest
-    docker:
-      - image: circleci/python:<< parameters.version >>
+    environment:
+      ERGO_PYTHON_VERSION: << parameters.python_version >> 
     steps:
       - checkout
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
       - run:
-          name: install python dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            make dev
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-          paths:
-            - "venv"
+          name: build image
+          command: make build
       - run:
           name: run tests
-          command: |
-            . venv/bin/activate
-            make test
-            codecov
+          command: make test
       - store_artifacts:
           path: htmlcov/
-      - run:
-          name: Smoke Test Install 
-          command: |
-            python --version
-            sudo pip3 install circleci
   integration:
     docker:
       - image: circleci/python:3.7
@@ -107,33 +65,24 @@ jobs:
 workflows:
   build_and_deploy:
     jobs:
-      - build:
-          filters:
-            tags:
-              only: /.*/
-      - test-python-install:
-          name: test-python-install-3.6
-          version: "3.6"
-          requires:
-            - build
-      - test-python-install:
-          name: test-python-install-3.7
-          version: "3.7"
-          requires:
-            - build
-      - test-python-install:
-          name: test-python-install-3.8
-          version: "3.8"
-          requires:
-            - build
-      - test-python-install:
-          name: test-python-install-3.9
-          version: "3.9"
-          requires:
-            - build
+      - test:
+          name: test-3.6
+          python_version: "3.6"
+      - test:
+          name: test-3.7
+          python_version: "3.7"
+      - test:
+          name: test-3.8
+          python_version: "3.8"
+      - test:
+          name: test-3.9
+          python_version: "3.9"
       - deploy:
           requires:
-            - build
+            - test-3.6
+            - test-3.7
+            - test-3.8
+            - test-3.9
           filters:
             tags:
               only: /[0-9]+(\.[0-9]+)*\-alpha/

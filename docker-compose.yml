@@ -1,0 +1,10 @@
+version: "3.2"
+services:
+  ergo:
+    image: ergo:python-${ERGO_PYTHON_VERSION}
+    build:
+      context: .
+      args:
+        - ERGO_PYTHON_VERSION=${ERGO_PYTHON_VERSION}
+    volumes:
+      - ${PWD}:/app
