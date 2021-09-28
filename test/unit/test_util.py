@@ -43,3 +43,10 @@ class TestUtil(unittest.TestCase):
         product_cls = util.load_source("test/integration/target.py:Product")
         assert isinstance(product_cls(), object)
         assert product_cls()(4, 5) == 20
+
+        # load classmethod
+        product_call = util.load_source("test/integration/target.py:Product.__call__")
+        assert product_call(product_cls(), 4, 5) == 20
+
+        # load invalid pattern
+        self.assertRaises(Exception, util.load_source, "test/integration/.target:py.__Product__+call")

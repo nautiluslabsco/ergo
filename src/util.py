@@ -112,7 +112,7 @@ def print_exc_plus() -> str:  # pragma: no cover
 
 
 def load_source(ref: str) -> Any:
-    pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'  # (path/to/file/)(file).(extension):(method)
+    pattern: str = r'^(.*\/)?([^\.\/]+)\.([^\.]+):([^:]+\.)?([^:\.]+)$'
     matches: Optional[Match[str]] = re.match(pattern, ref)
     if not matches:
         raise Exception(f'Invalid source reference pattern {ref}, must conform to [path/to/file/]<file>.<extension>[:[class.]method]]')
@@ -138,7 +138,4 @@ def load_source(ref: str) -> Any:
         scope = getattr(scope, class_name)
 
     method_name = matches.group(5)
-    if method_name is not None:
-        return getattr(scope, method_name)
-    else:
-        return scope # return class_name if no method exists
+    return getattr(scope, method_name)
