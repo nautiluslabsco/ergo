@@ -31,13 +31,10 @@ class FlaskHttpInvoker(HttpInvoker):
             """
             data_out: List[TYPE_PAYLOAD] = []
             data_in: TYPE_PAYLOAD = dict(request.args)
-            # data_in(f'route: {str(request.url_rule)}')
-            # try:
             for result in self._invocable.invoke(data_in):
                 data_out.append(result)
-            # except Exception as err:
-            #     print(err)
-            #     abort(400)
+            if len(data_out) == 1:
+                data_out = data_out[0]
             return json.dumps(data_out, cls=ErgoEncoder)
 
         app.run(host='0.0.0.0', port=self._port)
