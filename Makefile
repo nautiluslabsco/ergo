@@ -27,3 +27,7 @@ test:
 docker_test:
 	coverage run -m unittest discover -v
 	coverage html
+
+package:
+	python setup.py sdist
+	python setup.py bdist_wheel
