@@ -5,8 +5,7 @@ import docker
 import time
 import timeout_decorator
 import subprocess
-from pika import URLParameters
-from src.amqp_invoker import declare_topic_exchange
+from contextlib import contextmanager
 from src.config import Config
 from test.integration.utils import with_ergo
 
@@ -78,17 +77,19 @@ def test_product_amqp(rabbitmq):
         "subtopic": "product.in",
         "pubtopic": "product.out",
     })
-    result = ergo_rpc({"x": 4, "y": 5}, conf)
+    result = rpc(conf, x=4, y=5)
     assert result == 20.0
 
 
 @timeout_decorator.timeout(seconds=2)
-def ergo_rpc(payload, config: Config):
+def rpc(config: Config, **payload):
     ret = {}
 
-    connection = pika.BlockingConnection(URLParameters(AMQP_HOST))
-    channel = connection.channel()
-    declare_topic_exchange(channel, config.exchange)
+    connection = pika.BlockingConnection(pika.URLParameters(config.host))
+    for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
+        with retry():
+            channel = connection.channel()
+            channel.exchange_declare(config.exchange, passive=True)
 
     def on_pubtopic_message(body):
         result = body["data"]
@@ -116,18 +117,11 @@ def ergo_rpc(payload, config: Config):
     # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
     # of the dead letter queue.
     channel.confirm_delivery()
-    err = None
-    for retry in range(10):
-        try:
-            routing_key = str(config.subtopic)
+    for retry in _retries(10, 0.5, pika.exceptions.UnroutableError):
+        with retry():
             body = json.dumps({"data": payload})
-            channel.basic_publish(exchange=config.exchange, routing_key=routing_key,
+            channel.basic_publish(exchange=config.exchange, routing_key=str(config.subtopic),
                                   body=body, mandatory=True)  # noqa
-            break
-        except pika.exceptions.UnroutableError as err:
-            time.sleep(.05)
-    else:
-        raise err
 
     try:
         channel.start_consuming()
@@ -138,3 +132,22 @@ def ergo_rpc(payload, config: Config):
     if ret.get("error"):
         raise Exception(ret["error"])
     return ret["result"]
+
+
+def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
+    retry_errors = retry_errors or (Exception,)
+    success = set()
+
+    for attempt in range(n):
+        @contextmanager
+        def retry():
+            try:
+                yield
+                success.add(True)
+            except retry_errors:
+                if attempt+1 == n:
+                    raise
+                time.sleep(backoff_seconds)
+
+        if not success:
+            yield retry

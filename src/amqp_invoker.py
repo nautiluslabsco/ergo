@@ -17,11 +17,6 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
     return uri._replace(query='&'.join(params)).geturl()
 
 
-def declare_topic_exchange(channel, exchange_name):
-    channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False,
-                             internal=False, arguments=None)
-
-
 class AmqpInvoker(Invoker):
     """Summary."""
 
@@ -37,7 +32,8 @@ class AmqpInvoker(Invoker):
         exchange_name = self._invocable.config.exchange
         channel.queue_declare(queue=queue_name)
         channel.queue_declare(queue=queue_name_error)
-        declare_topic_exchange(channel, exchange_name)
+        channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False,
+                                 internal=False, arguments=None)
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
         return channel, queue_name, queue_name_error
 
