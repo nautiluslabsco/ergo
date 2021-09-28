@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 import pika
 
 from src.invoker import Invoker
-from src.types import TYPE_PAYLOAD
+from src.types import TYPE_RETURN
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -52,7 +52,7 @@ class AmqpInvoker(Invoker):
                 properties (TYPE): Description
                 body (TYPE): Description
             """
-            data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
+            data_in: TYPE_RETURN = dict(json.loads(body.decode('utf-8')))
             data_in['key'] = str(self._invocable.config.subtopic)
             try:
                 for data_out in self._invocable.invoke(data_in):

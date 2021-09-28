@@ -1,11 +1,12 @@
 """Summary.
 
 Attributes:
-    TYPE_RETURN (TYPE): Description
+    TYPE_RETURN (TYPE): Return value from bound function
+    TYPE_PAYLOAD (TYPE): Standardized payload object
 
 """
+from typing import Any, Dict
 from src.payload import Payload
-from typing import Any
 
-TYPE_RETURN = Payload
-TYPE_PAYLOAD = Any
+TYPE_RETURN = Dict[str, Any]
+TYPE_PAYLOAD = Payload

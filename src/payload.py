@@ -17,14 +17,14 @@ class Payload:
         self._data: Dict[str, Any] = data or {}
         self._encoder: Optional[Type[json.JSONEncoder]] = encoder
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> Optional[Any]:
         """Summary.
 
         Args:
             key (str): Description
 
         Returns:
-            Optional[str]: Description
+            Optional[Any]: Description
 
         """
         return self._data.get(key)

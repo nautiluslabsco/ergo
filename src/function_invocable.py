@@ -1,6 +1,5 @@
 """Summary."""
 import inspect
-from json import JSONEncoder
 from typing import Callable, Generator, Optional
 
 from src.config import Config
@@ -37,7 +36,7 @@ class FunctionInvocable:
         """Summary.
 
         Returns:
-            Optional[Callable[..., TYPE_RETURN]]: Description
+            Optional[Callable[..., TYPE_RETURN]]: Bound function
 
         """
         return self._func
@@ -52,7 +51,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_RETURN, TYPE_RETURN, None]:
+    def invoke(self, data_in: TYPE_RETURN) -> Generator[TYPE_PAYLOAD, None, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -60,10 +59,12 @@ class FunctionInvocable:
         Func responses will not be percolated if they return None.
 
         Args:
-            data_in (Payload): payload with a 'data' key. Corresponding value will be passed to injected function.
+            data_in (TYPE_RETURN): dict with a 'data' key. Corresponding value will be passed to injected function.
 
         Raises:
-            Exception: caught exception re-raised with a stack trace.
+            Exception:
+                * caught exception re-raised with a stack trace.
+                * function was not specified in configuration and cannot be invoked
 
         """
         if not self._func:
@@ -75,10 +76,7 @@ class FunctionInvocable:
                 result_exp = (r for r in [self._func(data_in['data'])])
 
             for result in result_exp:
-                yield TYPE_RETURN(data={'data': result, 'log': log(data_in.get('log', []))}, encoder=self._encoder)
-
-        except GeneratorExit:
-            return
+                yield TYPE_PAYLOAD(data={'data': result, 'log': log(data_in.get('log', []))}, encoder=self._encoder)
 
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
@@ -87,7 +85,7 @@ class FunctionInvocable:
         """Summary.
 
         Raises:
-            Exception: Description
+            Exception: failure to inject function due to non-existing or invalid reference
 
         """
         try:
