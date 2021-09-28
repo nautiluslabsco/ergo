@@ -1,4 +1,3 @@
-import sys
 import unittest
 import src.util as util
 
@@ -33,3 +32,14 @@ class TestUtil(unittest.TestCase):
         frames = f1()
         for code, frame in zip(['f3', 'f2', 'f1'], frames):
             assert code in str(frame.f_code), f'code is: {code}, frame is: {frame}'
+
+    def test_load_source(self):
+        # load callable
+        product = util.load_source("test/integration/target.py:product")
+        assert product is not None
+        assert product(4, 5) == 20
+
+        # load classname
+        product_cls = util.load_source("test/integration/target.py:Product")
+        assert isinstance(product_cls(), object)
+        assert product_cls()(4, 5) == 20
