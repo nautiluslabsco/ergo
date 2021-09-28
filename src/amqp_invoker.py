@@ -1,4 +1,6 @@
 """Summary."""
+import inspect
+
 import json
 from typing import Tuple
 from urllib.parse import urlparse
@@ -51,9 +53,14 @@ class AmqpInvoker(Invoker):
                 body (TYPE): Description
             """
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
-            data_in['key'] = str(self._invocable.config.subtopic)
             try:
-                for data_out in self._invocable.invoke(data_in["data"]):
+                func_signature = inspect.signature(self._invocable.func)
+                func_params = list(func_signature.parameters)
+                if func_params == ["data"]:
+                    arg = data_in
+                else:
+                    arg = data_in["data"]
+                for data_out in self._invocable.invoke(arg):
                     payload = {
                         "data": data_out,
                         "key": str(self._invocable.config.pubtopic),

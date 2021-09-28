@@ -1,0 +1,3 @@
+func: test/integration/target_functions.py:product_legacy
+subtopic: product.in
+pubtopic: product.out

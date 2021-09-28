@@ -81,7 +81,19 @@ def test_product_amqp(rabbitmq):
     assert result == 20.0
 
 
-@timeout_decorator.timeout(seconds=2)
+@with_ergo("start", f"test/integration/configs/product_legacy.yml", "test/integration/configs/amqp.yml")
+def test_product_amqp__legacy(rabbitmq):
+    conf = Config({
+        "func": "test/integration/target_functions.py:product_legacy",
+        "exchange": "primary",
+        "subtopic": "product.in",
+        "pubtopic": "product.out",
+    })
+    result = rpc(conf, x=4, y=5)
+    assert result == 20.0
+
+
+# @timeout_decorator.timeout(seconds=2)
 def rpc(config: Config, **payload):
     ret = {}
 
