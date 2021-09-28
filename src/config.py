@@ -58,7 +58,7 @@ class Config:
         """Summary.
 
         Returns:
-            TYPE: Description
+            TYPE: Source reference to a `Callable` attribute
         """
         return self._func
 
@@ -103,7 +103,7 @@ class Config:
         """Summary.
 
         Returns:
-            TYPE: Description
+            TYPE: Source reference to an attribute conforming to protocol `json.JSONEncoder`
         """
         return self._encoder
 
