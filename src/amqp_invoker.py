@@ -1,6 +1,5 @@
 """Summary."""
 import inspect
-
 import json
 from typing import Tuple
 from urllib.parse import urlparse
@@ -56,6 +55,7 @@ class AmqpInvoker(Invoker):
             try:
                 func_signature = inspect.signature(self._invocable.func)
                 func_params = list(func_signature.parameters)
+                # TODO(zschubert) delete this block?
                 if func_params == ["data"]:
                     arg = data_in
                 else:

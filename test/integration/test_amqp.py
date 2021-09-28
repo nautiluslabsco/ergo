@@ -93,7 +93,7 @@ def test_product_amqp__legacy(rabbitmq):
     assert result == 20.0
 
 
-# @timeout_decorator.timeout(seconds=2)
+@timeout_decorator.timeout(seconds=2)
 def rpc(config: Config, **payload):
     ret = {}
 
