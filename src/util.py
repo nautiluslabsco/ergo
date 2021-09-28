@@ -137,5 +137,5 @@ def load_source(ref: str) -> Any:
         class_name: str = match[:-1]
         scope = getattr(scope, class_name)
 
-    method_name = matches.group(5)
+    method_name: str = matches.group(5)
     return getattr(scope, method_name)
