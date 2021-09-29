@@ -1,3 +1,0 @@
-func: test/integration/target_functions.py:product
-subtopic: product.in
-pubtopic: product.out

@@ -1,31 +1,39 @@
 import multiprocessing
-import functools
-from typing import Callable
+import yaml
+import tempfile
+from contextlib import contextmanager
 from src.ergo_cli import ErgoCli
 
 
-def with_ergo(command: str, *ergo_args: str):
+@contextmanager
+def ergo(command, *args, manifest=None, namespace=None):
     """
-    This decorator adds setup code to the wrapped function that starts a temporary ergo worker in a child process.
-    The worker is terminated prior to the wrapped function returning.
+    This context manager starts a temporary ergo worker in a child process. The worker is terminated at __exit__ time.
+    """
+    if manifest:
+        assert namespace
+        with tempfile.NamedTemporaryFile(mode="w+") as manifest_file:
+            manifest_file.write(yaml.dump(manifest))
+            manifest_file.seek(0)
+            with tempfile.NamedTemporaryFile(mode="w+") as namespace_file:
+                namespace_file.write(yaml.dump(namespace))
+                namespace_file.seek(0)
 
-    Args:
-        command (str): An ergo command, e.g. start, amqp or http.
-        *ergo_args (str): Positional arguments to pass to ergo.
-    :return:
-    """
-    def decorator(fn: Callable):
-        @functools.wraps(fn)
-        def wrapped(*args, **kwargs):
-            ergo_process = multiprocessing.Process(
-                target=getattr(ErgoCli(), command),
-                args=ergo_args,
-            )
-            ergo_process.start()
-            try:
-                ret = fn(*args, **kwargs)
-            finally:
-                ergo_process.terminate()
-            return ret
-        return wrapped
-    return decorator
+                with _ergo_inner(command, manifest_file.name, namespace_file.name):
+                    yield
+    else:
+        with _ergo_inner(command, *args):
+            yield
+
+
+@contextmanager
+def _ergo_inner(command, *args):
+    ergo_process = multiprocessing.Process(
+        target=getattr(ErgoCli(), command),
+        args=args,
+    )
+    ergo_process.start()
+    try:
+        yield
+    finally:
+        ergo_process.terminate()

@@ -6,8 +6,8 @@ import time
 import timeout_decorator
 import subprocess
 from contextlib import contextmanager
-from src.config import Config
-from test.integration.utils import with_ergo
+from test.integration.utils import ergo
+from src.topic import PubTopic, SubTopic
 
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
@@ -43,16 +43,11 @@ def start_rabbitmq_baremetal():
 
 
 def start_rabbitmq_container():
+    container_start = subprocess.run(["docker-compose", "up", "-d", "rabbitmq"])
+    assert container_start.returncode == 0
+
     docker_client = docker.from_env()
-    try:
-        container, = docker_client.containers.list(filters={"name": "rabbitmq"})
-    except ValueError:
-        container = docker_client.containers.run(
-            name="rabbitmq",
-            image="rabbitmq:3.8.16-management-alpine",
-            ports={5672: 5672},
-            detach=True,
-        )
+    container, = docker_client.containers.list(filters={"name": "rabbitmq"})
 
     print("awaiting broker")
     output = ""
@@ -69,39 +64,55 @@ def start_rabbitmq_container():
     print("broker started")
 
 
-@with_ergo("start", f"test/integration/configs/product.yml", "test/integration/configs/amqp.yml")
+def product(x, y):
+    return float(x) * float(y)
+
+
 def test_product_amqp(rabbitmq):
-    conf = Config({
-        "func": "test/integration/target_functions.py:product",
-        "exchange": "primary",
+    manifest = {
+        "func": f"{__file__}:product",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
         "subtopic": "product.in",
         "pubtopic": "product.out",
-    })
-    result = rpc(conf, x=4, y=5)
-    assert result == 20.0
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        result = rpc(json.dumps({"data": {"x": 4, "y": 5}}), **manifest, **namespace)
+        assert result == 20.0
 
 
-@with_ergo("start", f"test/integration/configs/product_legacy.yml", "test/integration/configs/amqp.yml")
+def product_legacy(data):
+    return float(data["x"]) * float(data["y"])
+
+
 def test_product_amqp__legacy(rabbitmq):
-    conf = Config({
-        "func": "test/integration/target_functions.py:product_legacy",
-        "exchange": "primary",
-        "subtopic": "product.in",
-        "pubtopic": "product.out",
-    })
-    result = rpc(conf, x=4, y=5)
+    manifest = {
+        "func": f"{__file__}:product_legacy",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "product_legacy.in",
+        "pubtopic": "product_legacy.out",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        result = rpc(json.dumps({"data": {"x": 4, "y": 5}}), **manifest, **namespace)
     assert result == 20.0
 
 
 @timeout_decorator.timeout(seconds=2)
-def rpc(config: Config, **payload):
+def rpc(payload, **config):
     ret = {}
 
-    connection = pika.BlockingConnection(pika.URLParameters(config.host))
+    connection = pika.BlockingConnection(pika.URLParameters(config["host"]))
     for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():
             channel = connection.channel()
-            channel.exchange_declare(config.exchange, passive=True)
+            channel.exchange_declare(config["exchange"], passive=True)
 
     def on_pubtopic_message(body):
         result = body["data"]
@@ -113,7 +124,7 @@ def rpc(config: Config, **payload):
 
     def add_consumer(queue_name, consumer):
         channel.queue_declare(queue=queue_name)
-        channel.queue_bind(exchange=config.exchange, queue=queue_name)
+        channel.queue_bind(exchange=config["exchange"], queue=queue_name)
         channel.queue_purge(queue_name)
 
         def on_message_callback(chan, method, properties, body):
@@ -123,17 +134,16 @@ def rpc(config: Config, **payload):
 
         channel.basic_consume(queue=queue_name, on_message_callback=on_message_callback)
 
-    add_consumer(str(config.pubtopic), on_pubtopic_message)
-    add_consumer(f"{config.func}_error", on_error_mesage)
+    add_consumer(str(PubTopic(config["pubtopic"])), on_pubtopic_message)
+    add_consumer(f"{config['func']}_error", on_error_mesage)
 
     # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
     # of the dead letter queue.
     channel.confirm_delivery()
     for retry in _retries(10, 0.5, pika.exceptions.UnroutableError):
         with retry():
-            body = json.dumps({"data": payload})
-            channel.basic_publish(exchange=config.exchange, routing_key=str(config.subtopic),
-                                  body=body, mandatory=True)  # noqa
+            channel.basic_publish(exchange=config["exchange"], routing_key=str(SubTopic(config["subtopic"])),
+                                  body=payload, mandatory=True)  # noqa
 
     try:
         channel.start_consuming()
@@ -148,9 +158,12 @@ def rpc(config: Config, **payload):
 
 def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
     retry_errors = retry_errors or (Exception,)
-    success = set()
 
+    success = set()
     for attempt in range(n):
+        if success:
+            break
+
         @contextmanager
         def retry():
             try:
@@ -161,5 +174,4 @@ def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
                     raise
                 time.sleep(backoff_seconds)
 
-        if not success:
-            yield retry
+        yield retry
