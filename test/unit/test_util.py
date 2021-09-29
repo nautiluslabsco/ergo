@@ -1,3 +1,4 @@
+import os
 import unittest
 import src.util as util
 
@@ -50,3 +51,8 @@ class TestUtil(unittest.TestCase):
 
         # load invalid pattern
         self.assertRaises(Exception, util.load_source, "test/integration/.target:py.__Product__+call")
+
+        # load relative path
+        os.chdir("test/integration")
+        mod = util.load_source("target.py:product")
+        assert mod is not None
