@@ -64,7 +64,7 @@ class FunctionInvocable:
         Raises:
             Exception:
                 * caught exception re-raised with a stack trace.
-                * function was not specified in configuration and cannot be invoked
+                * function source reference was invalid and cannot be invoked.
 
         """
         if not self._func:
