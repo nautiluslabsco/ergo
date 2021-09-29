@@ -32,29 +32,3 @@ def test_product__ergo_start():
     assert resp.status_code == 200
     result = resp.json()
     assert result == 7.5
-
-
-def get_data():
-    return {
-        "string": "🌟",
-        "date": datetime.date(2021, 9, 15),
-        "time": datetime.datetime(2021, 9, 15, 3, 30, tzinfo=pytz.timezone("America/New_York")),
-        "decimal": decimal.Decimal("0.01234567890123456789"),
-        "float": 0.01234567890123456789,
-    }
-
-
-@with_ergo("http", f"{__file__}:get_data")
-def test_get_data():
-    """asserts that the FlaskHttpInvoker can correctly serialize output with common standard library data types"""
-    resp = session.get("http://localhost")
-    assert resp.status_code == 200
-    actual = resp.json()
-    expected = {
-        "string": "🌟",
-        'date': '2021-09-15',
-        'time': '2021-09-15T03:30:00-04:56',
-        'decimal': '0.01234567890123456789',
-        'float': 0.012345678901234568,
-    }
-    assert actual == expected

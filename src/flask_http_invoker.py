@@ -1,8 +1,6 @@
 """Summary."""
 from typing import List
 import json
-import datetime
-import decimal
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
@@ -35,16 +33,7 @@ class FlaskHttpInvoker(HttpInvoker):
                 data_out.append(result)
             if len(data_out) == 1:
                 data_out = data_out[0]
-            return json.dumps(data_out, cls=ErgoEncoder)
+            return json.dumps(data_out)
 
         app.run(host='0.0.0.0', port=self._port)
         return 0
-
-
-class ErgoEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime.datetime) or isinstance(obj, datetime.date):
-            return obj.isoformat()
-        elif isinstance(obj, decimal.Decimal):
-            return str(obj)
-        return json.JSONEncoder.default(self, obj)
