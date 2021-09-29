@@ -84,26 +84,6 @@ def test_product_amqp(rabbitmq):
         assert result == 20.0
 
 
-def product_legacy(data):
-    return float(data["x"]) * float(data["y"])
-
-
-def test_product_amqp__legacy(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:product_legacy",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "product_legacy.in",
-        "pubtopic": "product_legacy.out",
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
-        result = rpc(json.dumps({"data": {"x": 4, "y": 5}}), **manifest, **namespace)
-    assert result == 20.0
-
-
 @timeout_decorator.timeout(seconds=2)
 def rpc(payload, **config):
     ret = {}
