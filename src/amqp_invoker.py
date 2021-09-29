@@ -1,5 +1,4 @@
 """Summary."""
-import inspect
 import json
 from typing import Tuple
 from urllib.parse import urlparse
@@ -57,6 +56,7 @@ class AmqpInvoker(Invoker):
                     payload = {
                         "data": data_out,
                         "key": str(self._invocable.config.pubtopic),
+                        "log": data_in.get("log", []),
                     }
                     channel.basic_publish(exchange=self._invocable.config.exchange,
                                           routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
