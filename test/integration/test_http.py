@@ -35,3 +35,27 @@ def test_product__ergo_start():
         assert resp.status_code == 200
         result = resp.json()
         assert result == 7.5
+
+
+def get_data():
+    return {
+        "string": "🌟",
+        "float": 1.234,
+    }
+
+
+def test_get_data():
+    manifest = {
+        "func": f"{__file__}:get_data"
+    }
+    namespace = {
+        "protocol": "http",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        resp = session.get("http://localhost")
+        assert resp.status_code == 200
+        result = resp.json()
+        assert result == {
+            "string": "🌟",
+            "float": 1.234
+        }
