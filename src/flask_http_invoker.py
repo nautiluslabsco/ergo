@@ -32,7 +32,7 @@ class FlaskHttpInvoker(HttpInvoker):
             # data_in(f'route: {str(request.url_rule)}')
             # try:
             for result in self._invocable.invoke(data_in):
-                data_out.append(result)
+                data_out.append(str(result))
             # except Exception as err:
             #     print(err)
             #     abort(400)
