@@ -19,12 +19,10 @@ def rabbitmq():
     Start a rabbitmq server if none is running, and then wait for the broker to finish booting.
     """
     try:
-        # Try running rabbitmq-server from the host system path. If this succeeds, we are presumably running
-        # inside an ergo docker container.
-        start_rabbitmq_baremetal()
-    except FileNotFoundError:
         # Else assume we're running in a baremetal dev environment. Start rabbitmq in its own docker container.
         start_rabbitmq_container()
+    except Exception:
+        pass
 
 
 def start_rabbitmq_baremetal():

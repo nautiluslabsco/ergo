@@ -3,8 +3,11 @@ jobs:
   build:
     docker:
       - image: circleci/python:3.7
+      - image: rabbitmq:3.8.16-management-alpine
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 19.03.13
       - restore_cache:
           key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
       - run:
@@ -17,6 +20,9 @@ jobs:
           key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
           paths:
             - "venv"
+      - run:
+          name: docker ps
+          command: docker ps -a
       - run:
           name: run tests
           command: |
