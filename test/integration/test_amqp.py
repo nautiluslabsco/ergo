@@ -4,7 +4,6 @@ import json
 import docker
 import time
 import timeout_decorator
-import subprocess
 from contextlib import contextmanager
 from test.integration.utils import ergo
 from src.topic import PubTopic, SubTopic
@@ -18,47 +17,19 @@ def rabbitmq():
     """
     Start a rabbitmq server if none is running, and then wait for the broker to finish booting.
     """
-    try:
-        # Else assume we're running in a baremetal dev environment. Start rabbitmq in its own docker container.
-        start_rabbitmq_container()
-    except Exception:
-        pass
-
-
-def start_rabbitmq_baremetal():
-    subprocess.Popen(["rabbitmq-server"])
-
-    print("awaiting broker")
-    output = ""
-    for retry in range(100):
-        result = subprocess.run(["rabbitmqctl", "await_online_nodes", "1"])
-        if result.returncode == 0:
-            break
-        time.sleep(.2)
-    else:
-        raise RuntimeError(output)
-    print("broker started")
-
-
-def start_rabbitmq_container():
-    container_start = subprocess.run(["docker-compose", "up", "-d", "rabbitmq"])
-    assert container_start.returncode == 0
-
     docker_client = docker.from_env()
-    container, = docker_client.containers.list(filters={"name": "rabbitmq"})
+    if not docker_client.containers.list(filters={"name": "rabbitmq"}):
+        docker_client.containers.run(
+            name="rabbitmq",
+            image="rabbitmq:3.8.16-management-alpine",
+            ports={5672: 5672, 15672: 15672},
+            detach=True,
+        )
 
     print("awaiting broker")
-    output = ""
-    for retry in range(200):
-        try:
-            exit_code, output = container.exec_run(["rabbitmqctl", "await_online_nodes", "1"])
-            if exit_code == 0:
-                break
-        except docker.errors.APIError:
-            pass
-        time.sleep(.5)
-    else:
-        raise RuntimeError(output)
+    for retry in _retries(200, 0.5, pika.exceptions.AMQPConnectionError, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
+        with retry():
+            pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
     print("broker started")
 
 
@@ -151,5 +122,8 @@ def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
                 if attempt+1 == n:
                     raise
                 time.sleep(backoff_seconds)
+            except Exception as e:
+                raise
+
 
         yield retry

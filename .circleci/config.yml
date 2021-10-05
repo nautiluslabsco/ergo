@@ -38,8 +38,11 @@ jobs:
         default: latest
     docker:
       - image: circleci/python:<< parameters.version >>
+      - image: rabbitmq:3.8.16-management-alpine
     steps:
       - checkout
+      - setup_remote_docker:
+          version: 19.03.13
       - restore_cache:
           key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
       - run:
