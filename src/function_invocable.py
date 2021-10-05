@@ -3,7 +3,7 @@ import inspect
 from typing import Callable, Generator, Optional
 
 from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
+from src.types import TYPE_RETURN, TYPE_PAYLOAD
 from src.util import load_source, log, print_exc_plus
 
 
@@ -17,7 +17,7 @@ class FunctionInvocable:
             reference (str): Description
 
         """
-        self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
+        self._func: Optional[Callable[..., TYPE_PAYLOAD]] = None  # type: ignore
         self._config: Config = config
         self.inject()
 
@@ -32,7 +32,7 @@ class FunctionInvocable:
         return self._config
 
     @property
-    def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore
+    def func(self) -> Optional[Callable[..., TYPE_PAYLOAD]]:  # type: ignore
         """Summary.
 
         Returns:
@@ -42,7 +42,7 @@ class FunctionInvocable:
         return self._func
 
     @func.setter
-    def func(self, arg: Callable[..., TYPE_RETURN]) -> None:  # type: ignore
+    def func(self, arg: Callable[..., TYPE_PAYLOAD]) -> None:  # type: ignore
         """Summary.
 
         Args:
@@ -51,7 +51,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_RETURN) -> Generator[TYPE_PAYLOAD, None, None]:
+    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_RETURN, None, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -76,7 +76,7 @@ class FunctionInvocable:
                 result_exp = (r for r in [self._func(data_in['data'])])
 
             for result in result_exp:
-                yield TYPE_PAYLOAD(data={'data': result, 'log': log(data_in.get('log', []))}, encoder=self._encoder)
+                yield TYPE_RETURN(data={'data': result, 'log': log(data_in.get('log', []))}, encoder=self._encoder)
 
         except BaseException as err:
             raise Exception(print_exc_plus()) from err

@@ -3,7 +3,7 @@
 # type: ignore
 """Summary."""
 
-from src.types import TYPE_PAYLOAD
+from src.types import TYPE_RETURN
 from typing import Any, List
 
 from falcon import Request, Response, abort
@@ -30,7 +30,7 @@ class FalconHttpInvoker(HttpInvoker):
             request (Request): Description
             response (Response): Description
         """
-        data_out: List[TYPE_PAYLOAD] = []
+        data_out: List[TYPE_RETURN] = []
         data_in: List[Any] = request.params
         # data_in(f'route: {str(request.url_rule)}')
         try:
