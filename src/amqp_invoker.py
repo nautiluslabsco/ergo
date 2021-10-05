@@ -2,9 +2,7 @@
 import json
 from typing import Tuple
 from urllib.parse import urlparse
-
 import pika
-
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 
@@ -35,7 +33,6 @@ class AmqpInvoker(Invoker):
         channel.queue_declare(queue=queue_name)
         channel.queue_declare(queue=queue_name_error)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
         return channel, queue_name, queue_name_error
 
@@ -53,11 +50,15 @@ class AmqpInvoker(Invoker):
                 body (TYPE): Description
             """
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
-            data_in['key'] = str(self._invocable.config.subtopic)
             try:
-                for data_out in self._invocable.invoke(data_in):
-                    data_out['key'] = str(self._invocable.config.pubtopic)
-                    channel.basic_publish(exchange=self._invocable.config.exchange, routing_key=str(self._invocable.config.pubtopic), body=json.dumps(data_out))
+                for data_out in self._invocable.invoke(data_in["data"]):
+                    payload = {
+                        "data": data_out,
+                        "key": str(self._invocable.config.pubtopic),
+                        "log": data_in.get("log", []),
+                    }
+                    channel.basic_publish(exchange=self._invocable.config.exchange,
+                                          routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
             except Exception as err:  # pylint: disable=broad-except
                 data_in['error'] = str(err)
                 channel.basic_publish(exchange='', routing_key=queue_name_error, body=json.dumps(data_in))

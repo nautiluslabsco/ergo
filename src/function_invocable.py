@@ -66,7 +66,7 @@ class FunctionInvocable:
         Func responses will not be percolated if they return None.
 
         Args:
-            data_in (Payload): payload with a 'data' key. Corresponding value will be passed to injected function.
+            data_in (Dict): Contents will be passed to injected function as keyword args.
 
         Raises:
             Exception: caught exception re-raised with a stack trace.
@@ -75,13 +75,12 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            if inspect.isgeneratorfunction(self._func):
-                result_exp = self._func(data_in['data'])
-            else:
-                result_exp = (r for r in [self._func(data_in['data'])])
+            result_exp = self._func(**data_in)
+            if not inspect.isgeneratorfunction(self._func):
+                result_exp = [result_exp]
 
             for result in result_exp:
-                yield {'data': result, 'log': log(data_in.get('log', []))}
+                yield result
 
         except BaseException as err:
 

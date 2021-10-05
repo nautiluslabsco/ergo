@@ -11,3 +11,8 @@ xenon
 autopep8
 coverage
 codecov
+pytz
+requests
+docker
+timeout-decorator
+pytest
