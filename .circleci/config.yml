@@ -21,9 +21,6 @@ jobs:
           paths:
             - "venv"
       - run:
-          name: docker ps
-          command: docker ps -a
-      - run:
           name: run tests
           command: |
             . venv/bin/activate
