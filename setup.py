@@ -71,7 +71,7 @@ class VerifyVersionCommand(install):
 
 setup(
     name='ergo',  # How you named your package folder (MyLib)
-    packages=['src'],  # Chose the same as "name"
+    packages=['src', 'ergo_python'],
     version=VERSION,  # Start with a small number and increase it with every change you make
     license='MIT',  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     description='Simple Microservice Development Framework',  # Give a short description about your library
