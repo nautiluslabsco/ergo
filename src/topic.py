@@ -25,7 +25,7 @@ class Topic:
         """
         ret = '#'
         if self._keys:
-            ret = '#.%s.#' % '.#.'.join(sorted([str(key) for key in self._keys]))
+            ret = '#.%s.#' % '.#.'.join(sorted([str(key) for key in self._keys if str(key) != '#']))
         return ret
 
 
@@ -42,5 +42,9 @@ class PubTopic(Topic):
         Returns:
             str: Description
         """
-        ret = '.'.join(sorted([str(key) for key in self._keys]))
-        return ret
+        ret = []
+        keys = sorted([str(key) for key in self._keys])
+        for key in keys:
+            if not (key == "#" and key in ret):
+                ret.append(key)
+        return ".".join(ret)
