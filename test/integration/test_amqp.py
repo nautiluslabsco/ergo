@@ -3,7 +3,6 @@ import pika
 import json
 import docker
 import time
-import timeout_decorator
 from contextlib import contextmanager
 from test.integration.utils import ergo
 from src.topic import PubTopic, SubTopic
@@ -49,60 +48,97 @@ def test_product_amqp(rabbitmq):
         "pubtopic": "product.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
-        result = rpc(json.dumps({"data": {"x": 4, "y": 5}}), **manifest, **namespace)
+        payload = json.dumps({"data": {"x": 4, "y": 5}})
+        result = next(rpc(payload, **manifest, **namespace))
         assert result == 20.0
 
 
-@timeout_decorator.timeout(seconds=2)
-def rpc(payload, **config):
-    ret = {}
+def get_dict():
+    return {"key": "value"}
 
-    connection = pika.BlockingConnection(pika.URLParameters(config["host"]))
+
+def get_two_dicts():
+    return [get_dict(), get_dict()]
+
+
+def test_get_two_dicts(rabbitmq):
+    manifest = {
+        "func": f"{__file__}:get_two_dicts",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "get_two_dicts.in",
+        "pubtopic": "get_two_dicts.out",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        payload = '{"data": {}}'
+        results = rpc(payload, **manifest, **namespace)
+        assert next(results) == get_two_dicts()
+
+
+def yield_two_dicts():
+    yield get_dict()
+    yield get_dict()
+
+
+def test_yield_two_dicts(rabbitmq):
+    manifest = {
+        "func": f"{__file__}:yield_two_dicts",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "yield_two_dicts.in",
+        "pubtopic": "yield_two_dicts.out",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        payload = '{"data": {}}'
+        results = rpc(payload, **manifest, **namespace)
+        assert next(results) == get_dict()
+        assert next(results) == get_dict()
+
+
+def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
+    connection = pika.BlockingConnection(pika.URLParameters(host))
     for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():
             channel = connection.channel()
-            channel.exchange_declare(config["exchange"], passive=True)
+            channel.exchange_declare(exchange, passive=True)
+            error_channel = connection.channel()
+            error_channel.queue_purge(queue=f"{func}_error")
 
-    def on_pubtopic_message(body):
-        result = body["data"]
-        ret["result"] = result
+    queue_name = f"{func}_rpc"
+    channel.queue_declare(queue=queue_name)
+    channel.queue_purge(queue_name)
+    channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=str(SubTopic(pubtopic)))
 
-    def on_error_mesage(body):
-        error = body["error"]
-        ret["error"] = error
+    publish(host, exchange, subtopic, payload)
 
-    def add_consumer(queue_name, consumer):
-        channel.queue_declare(queue=queue_name)
-        channel.queue_bind(exchange=config["exchange"], queue=queue_name)
-        channel.queue_purge(queue_name)
+    while True:
+        _, _, body = next(error_channel.consume(f"{func}_error", inactivity_timeout=0.1))
+        if body:
+            raise RuntimeError(json.loads(body)["error"])
+        _, _, body = next(channel.consume(queue_name, inactivity_timeout=0.1))
+        if body:
+            yield json.loads(body)["data"]
 
-        def on_message_callback(chan, method, properties, body):
-            channel.stop_consuming()
-            body = json.loads(body)
-            return consumer(body)
 
-        channel.basic_consume(queue=queue_name, on_message_callback=on_message_callback)
-
-    add_consumer(str(PubTopic(config["pubtopic"])), on_pubtopic_message)
-    add_consumer(f"{config['func']}_error", on_error_mesage)
-
-    # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
-    # of the dead letter queue.
-    channel.confirm_delivery()
-    for retry in _retries(10, 0.5, pika.exceptions.UnroutableError):
-        with retry():
-            channel.basic_publish(exchange=config["exchange"], routing_key=str(SubTopic(config["subtopic"])),
-                                  body=payload, mandatory=True)  # noqa
-
+def publish(host, exchange, routing_key, payload: str):
+    connection = pika.BlockingConnection(pika.URLParameters(host))
+    channel = connection.channel()
     try:
-        channel.start_consuming()
+        # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
+        # of the dead letter queue.
+        channel.confirm_delivery()
+        for retry in _retries(10, 0.5, pika.exceptions.UnroutableError):
+            with retry():
+                channel.basic_publish(exchange=exchange, routing_key=str(PubTopic(routing_key)), body=payload, mandatory=True)
     finally:
         channel.close()
         connection.close()
-
-    if ret.get("error"):
-        raise Exception(ret["error"])
-    return ret["result"]
 
 
 def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):

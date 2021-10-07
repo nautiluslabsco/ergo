@@ -14,5 +14,5 @@ codecov
 pytz
 requests
 docker
-timeout-decorator
 pytest
+pytest-timeout

@@ -1,5 +1,6 @@
 """Summary."""
 from typing import List
+import inspect
 import json
 from flask import Flask, request  # , abort
 
@@ -27,11 +28,9 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_out: List[TYPE_PAYLOAD] = []
             data_in: TYPE_PAYLOAD = dict(request.args)
-            for result in self._invocable.invoke(data_in):
-                data_out.append(result)
-            if len(data_out) == 1:
+            data_out: List[TYPE_PAYLOAD] = list(self._invocable.invoke(data_in))
+            if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]
             return json.dumps(data_out)
 

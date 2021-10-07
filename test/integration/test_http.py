@@ -1,3 +1,6 @@
+import inspect
+
+import pytest
 import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
@@ -37,25 +40,58 @@ def test_product__ergo_start():
         assert result == 7.5
 
 
-def get_data():
+def get_dict():
     return {
         "string": "🌟",
         "float": 1.234,
     }
 
 
-def test_get_data():
+def get_one_dict():
+    return [get_dict()]
+
+
+def get_two_dicts():
+    return [get_dict(), get_dict()]
+
+
+def get_none():
+    return None
+
+
+def yield_one_dict():
+    yield get_dict()
+
+
+def yield_two_dicts():
+    yield get_dict()
+    yield get_dict()
+
+
+@pytest.mark.parametrize("getter", [
+    get_dict,
+    get_one_dict,
+    get_two_dicts,
+    get_none,
+    yield_one_dict,
+    yield_two_dicts,
+])
+def test_get_data(getter):
+    """assert that ergo flask response data preserves the type and dimensionality of the component function's return
+    value"""
     manifest = {
-        "func": f"{__file__}:get_data"
+        "func": f"{__file__}:{getter.__name__}"
     }
     namespace = {
         "protocol": "http",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         resp = session.get("http://localhost")
-        assert resp.status_code == 200
-        result = resp.json()
-        assert result == {
-            "string": "🌟",
-            "float": 1.234
-        }
+        assert resp.ok
+        actual = resp.json()
+        if inspect.isgeneratorfunction(getter):
+            expected = [i for i in getter()]
+        else:
+            expected = getter()
+
+        assert actual == expected
