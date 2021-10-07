@@ -117,21 +117,21 @@ class ErgoCli:
         self.use(name)
         return 0
 
-    def http(self, target, *args: str) -> int:
+    def http(self, func: str, *args: str) -> int:
         """Summary.
 
         Args:
-            target (str): Description
+            func (str): Description
             *args (str): Description
 
         Returns:
             int: Description
 
         """
-        if isinstance(target, Config):
-            config = target
-        else:
-            config = Config({"func": target})
+        config = Config({"func": func})
+        return self._http(config)
+
+    def _http(self, config: Config):
         host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(config))
         host.start()
         return 0
@@ -171,4 +171,9 @@ class ErgoCli:
                 conf.update(namespace_cfg)
                 config = Config(conf)
 
-                return {'amqp': self.amqp, 'something_else': self.http}.get(config.protocol, self.http)(config)
+                if config.protocol == "amqp":
+                    return self.amqp(config)
+                elif config.protocol == "http":
+                    return self._http(config)
+                else:
+                    raise ValueError(f"unexpected protocol: {config.protocol}")

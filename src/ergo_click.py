@@ -81,20 +81,20 @@ def use(name: str) -> int:
 
 
 @main.command()
-@click.argument('target', type=click.STRING)
+@click.argument('func', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def http(target: str, arg: Tuple[str]) -> int:
+def http(func: str, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
-        target (str): Path to a configuration file or to a function.
+        func (str): Path to a function.
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.http(target, *list(arg))
+    return ERGO_CLI.http(func, *list(arg))
 
 
 @main.command()
