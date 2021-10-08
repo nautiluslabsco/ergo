@@ -58,15 +58,22 @@ class AmqpInvoker(Invoker):
 
     def on_message(self, channel, method, properties, body, args) -> None:  # type: ignore
         connection, threads, routing_key = args
-        t = threading.Thread(target=self.do_work, args=(connection, channel, body, method.delivery_tag, routing_key))
+        t = threading.Thread(target=self.handler, args=(connection, channel, body, method.delivery_tag, routing_key))
         t.start()
         threads.append(t)
 
-    def do_work(self, connection, channel, body, delivery_tag, routing_key) -> None:  # type: ignore
+    def handler(self, connection, channel, body, delivery_tag, routing_key) -> None:  # type: ignore
         # thread_id = threading.get_ident()
         # TODO: can be used for tracing
 
         # Perform actual work
+        do_work = functools.partial(self.do_work, channel, body, routing_key)
+        connection.add_callback_threadsafe(do_work)
+
+        ack_message = functools.partial(self.ack, channel, delivery_tag)
+        connection.add_callback_threadsafe(ack_message)
+
+    def do_work(self, channel, body, routing_key):
         data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
         try:
             for data_out in self._invocable.invoke(data_in["data"]):
@@ -76,13 +83,10 @@ class AmqpInvoker(Invoker):
                     "log": data_in.get("log", []),
                 }
                 channel.basic_publish(exchange=self._invocable.config.exchange,
-                                      routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
+                                    routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
         except Exception as err:  # pylint: disable=broad-except
             data_in['error'] = str(err)
             channel.basic_publish(exchange='', routing_key=routing_key, body=json.dumps(data_in))
-
-        callback = functools.partial(self.ack, channel, delivery_tag)
-        connection.add_callback_threadsafe(callback)
 
     def ack(self, channel, delivery_tag) -> None:  # type: ignore
         if channel.is_open:
