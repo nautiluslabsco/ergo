@@ -1,9 +1,9 @@
 """Summary."""
 import json
 import threading
-from typing import Any, List, Tuple
+from typing import List, Tuple
 from urllib.parse import urlparse
-from markupsafe import functools
+import functools
 import pika
 from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
@@ -27,11 +27,15 @@ class AmqpInvoker(Invoker):
         super().__init__(invocable)
         self.threads: List[threading.Thread] = []
 
+    def __del__(self) -> None:
+        for thread in self.threads:
+            thread.join()
+
     def start(self) -> int:
         """Summary."""
         connection, channel, queue_name, queue_name_error = self.connect()
         wrapper = functools.partial(self.on_message, args=(connection, self.threads, queue_name_error))
-        channel.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=wrapper)
+        channel.basic_consume(queue=queue_name, auto_ack=False, on_message_callback=wrapper)
         channel.start_consuming()
         return 0
 
@@ -49,6 +53,7 @@ class AmqpInvoker(Invoker):
         channel.queue_declare(queue=queue_name_error)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
+        channel.basic_qos(prefetch_count=1)
         return connection, channel, queue_name, queue_name_error
 
     def on_message(self, channel, method, properties, body, args) -> None:  # type: ignore
