@@ -1,10 +1,9 @@
 import pytest
 import pika
+import pika.exceptions
 import json
-import docker
-import time
-from contextlib import contextmanager
-from test.integration.utils import ergo
+from test.integration.utils import ergo, retries
+from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
 from src.topic import PubTopic, SubTopic
 
 
@@ -13,23 +12,7 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 
 @pytest.fixture(scope="session")
 def rabbitmq():
-    """
-    Start a rabbitmq server if none is running, and then wait for the broker to finish booting.
-    """
-    docker_client = docker.from_env()
-    if not docker_client.containers.list(filters={"name": "rabbitmq"}):
-        docker_client.containers.run(
-            name="rabbitmq",
-            image="rabbitmq:3.8.16-management-alpine",
-            ports={5672: 5672, 15672: 15672},
-            detach=True,
-        )
-
-    print("awaiting broker")
-    for retry in _retries(200, 0.5, pika.exceptions.AMQPConnectionError):
-        with retry():
-            pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
-    print("broker started")
+    start_rabbitmq_broker()
 
 
 def product(x, y):
@@ -103,7 +86,7 @@ def test_yield_two_dicts(rabbitmq):
 
 def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     connection = pika.BlockingConnection(pika.URLParameters(host))
-    for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
+    for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():
             channel = connection.channel()
             channel.exchange_declare(exchange, passive=True)
@@ -133,30 +116,9 @@ def publish(host, exchange, routing_key, payload: str):
         # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
         # of the dead letter queue.
         channel.confirm_delivery()
-        for retry in _retries(10, 0.5, pika.exceptions.UnroutableError):
+        for retry in retries(10, 0.5, pika.exceptions.UnroutableError):
             with retry():
                 channel.basic_publish(exchange=exchange, routing_key=str(PubTopic(routing_key)), body=payload, mandatory=True)
     finally:
         channel.close()
         connection.close()
-
-
-def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
-    retry_errors = retry_errors or (Exception,)
-
-    success = set()
-    for attempt in range(n):
-        if success:
-            break
-
-        @contextmanager
-        def retry():
-            try:
-                yield
-                success.add(True)
-            except retry_errors:
-                if attempt+1 == n:
-                    raise
-                time.sleep(backoff_seconds)
-
-        yield retry

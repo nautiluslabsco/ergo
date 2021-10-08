@@ -1,6 +1,8 @@
+import time
 import multiprocessing
 import yaml
 import tempfile
+from typing import Type
 from contextlib import contextmanager
 from src.ergo_cli import ErgoCli
 
@@ -37,3 +39,22 @@ def _ergo_inner(command, *args):
         yield
     finally:
         ergo_process.terminate()
+
+
+def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
+    success: set = set()
+    for attempt in range(n):
+        if success:
+            break
+
+        @contextmanager
+        def retry():
+            try:
+                yield
+                success.add(True)
+            except retry_errors:
+                if attempt+1 == n:
+                    raise
+                time.sleep(backoff_seconds)
+
+        yield retry
