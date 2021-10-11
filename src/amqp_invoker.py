@@ -28,7 +28,7 @@ class AmqpInvoker(Invoker):
         host = set_param(self._invocable.config.host, 'heartbeat', str(heartbeat)) if heartbeat else self._invocable.config.host
         parameters = pika.URLParameters(host)
         connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
+        channel: pika.adapters.blocking_connection.BlockingChannel = connection.channel()
         queue_name = self._invocable.config.func
         queue_name_error = f'{queue_name}_error'
         exchange_name = self._invocable.config.exchange

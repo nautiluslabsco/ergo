@@ -130,3 +130,20 @@ def start(ref: str, arg: Tuple[str]) -> int:
 
     """
     return ERGO_CLI.start(ref, *list(arg))
+
+
+@main.command()
+@click.argument('ref', type=click.STRING)
+@click.argument('arg', nargs=-1)
+def graph(ref: str, arg: Tuple[str]) -> int:
+    """Summary.
+
+    Args:
+        ref (str): Description
+        arg (Tuple[str]): Description
+
+    Returns:
+        int: Description
+
+    """
+    return ERGO_CLI.graph(ref, *list(arg))

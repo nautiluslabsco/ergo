@@ -5,3 +5,4 @@ ansicolors
 click-default-group
 pika
 PyYAML
+graphviz

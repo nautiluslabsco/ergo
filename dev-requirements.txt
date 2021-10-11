@@ -11,3 +11,6 @@ xenon
 autopep8
 coverage
 codecov
+types-PyYAML
+types-setuptools
+pika-stubs

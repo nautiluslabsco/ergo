@@ -109,8 +109,12 @@ class FunctionInvocable:
         source_file_extension: str = matches.group(3)
         sys.path.insert(0, path_to_source_file)
 
-        spec: ModuleSpec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
-        module: ModuleType = importlib.util.module_from_spec(spec)
+        possible_spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
+        assert possible_spec is not None
+        spec: ModuleSpec = possible_spec
+        possible_module: Optional[ModuleType] = importlib.util.module_from_spec(spec)
+        assert possible_module is not None
+        module: ModuleType = possible_module
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)
 

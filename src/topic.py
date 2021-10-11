@@ -25,7 +25,7 @@ class Topic:
         """
         ret = '#'
         if self._keys:
-            ret = '#.%s.#' % '.#.'.join(sorted([str(key) for key in self._keys]))
+            ret = f'#.{".#.".join(sorted([str(key) for key in self._keys]))}.#'
         return ret
 
 
