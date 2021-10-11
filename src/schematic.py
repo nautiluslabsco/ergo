@@ -60,6 +60,7 @@ def load_configs(folders: List[str]) -> List[Dict[str, Union[None, str, List[str
                 pass
     return configs
 
+
 def topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[str]]]]) -> None:  # type: ignore[no-any-unimported]
     """Summary.
 
@@ -76,6 +77,7 @@ def topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[
         for topic_element in format_topic('subtopic', config):
             dot.node(*topic_element)
             dot.edge(topic_element[0], format_component(config)[0])
+
 
 def derived_topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[str]]]]) -> None:  # type: ignore[no-any-unimported]
     """Summary.

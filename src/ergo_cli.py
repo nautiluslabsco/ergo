@@ -10,7 +10,7 @@ from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 from src.http_invoker import HttpInvoker
-from src.schematic import graph
+from src.schematic import graph as ergograph
 from src.version import get_version
 
 
@@ -180,5 +180,5 @@ class ErgoCli:
             int: Description
 
         """
-        graph(list(args))
+        ergograph(list(args))
         return 0
