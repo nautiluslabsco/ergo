@@ -6,3 +6,4 @@ click-default-group
 pika
 PyYAML
 aio-pika
+retry

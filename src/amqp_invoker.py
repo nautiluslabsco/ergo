@@ -1,14 +1,16 @@
 """Summary."""
+import aio_pika
+import asyncio
+import functools
 import json
-from typing import Callable, Tuple
+
+from retry import retry
+from typing import Callable 
 from urllib.parse import urlparse
-from black import asyncio
-from markupsafe import functools
-import pika
+
 from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
-import aio_pika
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -43,29 +45,35 @@ class AmqpInvoker(Invoker):
         finally:
             loop.run_until_complete(connection.close())
 
+    @retry(aio_pika.exceptions.AMQPConnectionError, delay=1, jitter=(1, 3), backoff=2)
     async def connect(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
         connection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
         async with connection:
-            channel = await connection.channel()
-            exchange = await channel.declare_exchange(
-                name=self.exchange_name,
-                type=aio_pika.ExchangeType.TOPIC,
-                passive=False,
-                durable=True,
-                auto_delete=False,
-                internal=False,
-                arguments=None
-            )
-            queue = await channel.declare_queue(name=self.queue_name)
-            queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
+            try:
+                channel = await connection.channel()
+                exchange = await channel.declare_exchange(
+                    name=self.exchange_name,
+                    type=aio_pika.ExchangeType.TOPIC,
+                    passive=False,
+                    durable=True,
+                    auto_delete=False,
+                    internal=False,
+                    arguments=None
+                )
+                queue = await channel.declare_queue(name=self.queue_name)
+                queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
-            await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-            # TODO(ahuman-bean): bind error queue
+                await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
+                # TODO(ahuman-bean): bind error queue
 
-            await loop.create_task(self.consume(channel, queue, self.on_message))
-            # TODO(ahuman-bean): implement error handling
-            # await loop.create_task(self.consume(channel, queue_error, self.on_error))
+                await loop.create_task(self.consume(channel, queue, self.on_message))
+                # TODO(ahuman-bean): implement error handling
+                # await loop.create_task(self.consume(channel, queue_error, self.on_error))
+            except KeyboardInterrupt:
+                loop.run_until_complete(channel.close())
+            except aio_pika.exceptions.ConnectionClosed:
+                pass
 
         return connection
 
