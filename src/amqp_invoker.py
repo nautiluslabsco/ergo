@@ -49,6 +49,8 @@ class AmqpInvoker(Invoker):
                 properties (TYPE): Description
                 body (TYPE): Description
             """
+            channel.basic_ack(method.delivery_tag)
+                
             data_in: TYPE_PAYLOAD = dict(json.loads(body.decode('utf-8')))
             try:
                 for data_out in self._invocable.invoke(data_in["data"]):
@@ -63,7 +65,7 @@ class AmqpInvoker(Invoker):
                 data_in['error'] = str(err)
                 channel.basic_publish(exchange='', routing_key=queue_name_error, body=json.dumps(data_in))
 
-        channel.basic_consume(queue=queue_name, auto_ack=True, on_message_callback=handler)
+        channel.basic_consume(queue=queue_name, auto_ack=False, on_message_callback=handler)
 
         channel.start_consuming()
 
