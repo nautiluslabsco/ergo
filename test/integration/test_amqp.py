@@ -4,6 +4,7 @@ import json
 import docker
 import time
 from contextlib import contextmanager
+from typing import Type
 from test.integration.utils import ergo
 from src.topic import PubTopic, SubTopic
 
@@ -141,7 +142,7 @@ def publish(host, exchange, routing_key, payload: str):
         connection.close()
 
 
-def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
+def _retries(n: int, backoff_seconds: float, *retry_errors: Type[BaseException]):
     retry_errors = retry_errors or (Exception,)
 
     success = set()

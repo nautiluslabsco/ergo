@@ -6,9 +6,10 @@ import threading
 
 from pika.exceptions import AMQPConnectionError, ConnectionClosedByBroker
 from retry import retry
-from typing import Tuple
+from typing import List, Tuple
 from urllib.parse import urlparse
 
+from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 
@@ -26,6 +27,10 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 class AmqpInvoker(Invoker):
     """Summary."""
 
+    def __init__(self, invocable: FunctionInvocable) -> None:
+        super().__init__(invocable)
+        self.threads: List[threading.Thread] = []
+
     @retry(AMQPConnectionError, delay=1, jitter=(1, 3), backoff=2)
     def start(self) -> int:
         """Summary."""
@@ -40,6 +45,9 @@ class AmqpInvoker(Invoker):
             connection.close()
         except ConnectionClosedByBroker:
             pass
+        finally:
+            for t in self.threads:
+                t.join()
 
         return 0
 
@@ -60,9 +68,13 @@ class AmqpInvoker(Invoker):
         return connection, channel, queue_name, queue_name_error
 
     def on_message(self, channel, method, properties, body, args) -> None:  # type: ignore
+        # thread management
+        self.threads = [r for r in self.threads if r.is_alive()]
+
         connection, routing_key = args
         t = threading.Thread(target=self.handler, args=(connection, channel, body, method.delivery_tag, routing_key))
         t.start()
+        self.threads.append(t)
 
     def handler(self, connection, channel, body, delivery_tag, routing_key) -> None:  # type: ignore
         # thread_id = threading.get_ident()
