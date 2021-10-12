@@ -26,6 +26,14 @@ def test_product():
         assert result == 20.0
 
 
+def test_product__post_request():
+    with ergo("http", f"{__file__}:product"):
+        resp = session.post("http://localhost?x=4&y=5")
+        assert resp.status_code == 200
+        result = resp.json()
+        assert result == 20.0
+
+
 def test_product__ergo_start():
     manifest = {
         "func": f"{__file__}:product"
