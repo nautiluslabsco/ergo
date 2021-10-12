@@ -1,7 +1,7 @@
 """Summary."""
 import json
 import threading
-from typing import List, Tuple
+from typing import Tuple
 from urllib.parse import urlparse
 import functools
 import pika
@@ -23,18 +23,10 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 class AmqpInvoker(Invoker):
     """Summary."""
 
-    def __init__(self, invocable: FunctionInvocable) -> None:
-        super().__init__(invocable)
-        self.threads: List[threading.Thread] = []
-
-    def __del__(self) -> None:
-        for thread in self.threads:
-            thread.join()
-
     def start(self) -> int:
         """Summary."""
         connection, channel, queue_name, queue_name_error = self.connect()
-        wrapper = functools.partial(self.on_message, args=(connection, self.threads, queue_name_error))
+        wrapper = functools.partial(self.on_message, args=(connection, queue_name_error))
         channel.basic_consume(queue=queue_name, auto_ack=False, on_message_callback=wrapper)
         channel.start_consuming()
         return 0
@@ -53,18 +45,16 @@ class AmqpInvoker(Invoker):
         channel.queue_declare(queue=queue_name_error)
         channel.exchange_declare(exchange_name, exchange_type='topic', passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
         channel.queue_bind(exchange=exchange_name, queue=queue_name, routing_key=str(self._invocable.config.subtopic))
-        channel.basic_qos(prefetch_count=1)
         return connection, channel, queue_name, queue_name_error
 
     def on_message(self, channel, method, properties, body, args) -> None:  # type: ignore
-        connection, threads, routing_key = args
+        connection, routing_key = args
         t = threading.Thread(target=self.handler, args=(connection, channel, body, method.delivery_tag, routing_key))
         t.start()
-        threads.append(t)
 
     def handler(self, connection, channel, body, delivery_tag, routing_key) -> None:  # type: ignore
         # thread_id = threading.get_ident()
-        # TODO: can be used for tracing
+        # TODO(ahuman-bean): can be used for tracing
 
         # Perform actual work
         do_work = functools.partial(self.do_work, channel, body, routing_key)
@@ -83,7 +73,7 @@ class AmqpInvoker(Invoker):
                     "log": data_in.get("log", []),
                 }
                 channel.basic_publish(exchange=self._invocable.config.exchange,
-                                    routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
+                                      routing_key=str(self._invocable.config.pubtopic), body=json.dumps(payload))
         except Exception as err:  # pylint: disable=broad-except
             data_in['error'] = str(err)
             channel.basic_publish(exchange='', routing_key=routing_key, body=json.dumps(data_in))
@@ -92,5 +82,5 @@ class AmqpInvoker(Invoker):
         if channel.is_open:
             channel.basic_ack(delivery_tag)
         else:
-            # TODO: can log or raise exception
+            # TODO(ahuman-bean): can log or raise exception
             pass
