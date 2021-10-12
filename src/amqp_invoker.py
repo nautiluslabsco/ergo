@@ -63,16 +63,20 @@ class AmqpInvoker(Invoker):
             await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
             # TODO(ahuman-bean): bind error queue
 
-            async def handler():
-                await queue.consume(functools.partial(self.on_message, channel=channel))
-
-            async def error_handler():
-                await queue_error.consume(functools.partial(self.on_error, channel=channel))
-
-            await loop.create_task(handler())
-            await loop.create_task(error_handler())
+            await loop.create_task(self.consume(channel, queue, self.on_message))
+            # TODO(ahuman-bean): implement error handling
+            # await loop.create_task(self.consume(channel, queue_error, self.on_error))
 
         return connection
+
+    async def consume(
+        self,
+        channel: aio_pika.RobustChannel,
+        queue: aio_pika.RobustQueue,
+        callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], None]
+    ):
+        while True:
+            await queue.consume(functools.partial(callback, channel=channel))
 
     async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel):
         async with message.process():
