@@ -22,5 +22,5 @@ package:
 	python setup.py bdist_wheel
 
 test:
-	coverage run -m pytest -vv --timeout 30
+	coverage run --source src -m pytest -vv --timeout 30
 	coverage html
