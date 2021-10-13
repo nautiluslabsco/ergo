@@ -7,3 +7,4 @@ pika
 PyYAML
 aio-pika
 retry
+aiomisc
