@@ -51,7 +51,7 @@ class AmqpInvoker(Invoker):
             loop.run_forever()
         finally:
             loop.run_until_complete(connection.close())
-        
+
         return 0
 
     @retry(aio_pika.exceptions.AMQPConnectionError, delay=1, jitter=(1, 3), backoff=2)
@@ -84,7 +84,7 @@ class AmqpInvoker(Invoker):
                     queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
                     await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-                    # TODO(ahuman-bean): bind error queue
+                    await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
                     futures = [
                         self.consume(channel, queue, self.on_message),
@@ -105,7 +105,7 @@ class AmqpInvoker(Invoker):
         channel: aio_pika.RobustChannel,
         queue: aio_pika.RobustQueue,
         callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
-    ):
+    ) -> None:
         """
         Binds a single consumer tag to `queue` and continuously pulls `message`s into `callback`.
 
@@ -118,7 +118,7 @@ class AmqpInvoker(Invoker):
             async for message in consumed:
                 await callback(message, channel)
 
-    async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel):
+    async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """
         Primary event queue callback.
 
@@ -140,7 +140,7 @@ class AmqpInvoker(Invoker):
                 # TODO(ahuman-bean): cleaner error messages
                 await exchange.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
 
-    async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel):
+    async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """
         Stub for an error queue callback.
 
@@ -159,7 +159,7 @@ class AmqpInvoker(Invoker):
         Parameters:
             data_in: Raw event data
 
-        Returns:
+        Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`
         """
         for data_out in self._invocable.invoke(data_in["data"]):
