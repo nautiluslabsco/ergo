@@ -39,22 +39,38 @@ class AmqpInvoker(Invoker):
         self.exchange_name = self._invocable.config.exchange
         self.queue_name = self._invocable.config.func
 
-    def start(self) -> None:
-        with aiomisc.new_event_loop(pool_size=MAX_THREADS) as loop:
-            connection = loop.run_until_complete(self.run(loop))
+    def start(self) -> int:
+        """
+        Starts a new event loop that maintains a persistent AMQP connection.
+        Underlying execution context is a thread pool of size `MAX_THREADS`.
+        """
+        loop = aiomisc.new_event_loop(pool_size=MAX_THREADS)
+        connection = loop.run_until_complete(self.run(loop))
 
-            try:
-                loop.run_forever()
-            finally:
-                loop.run_until_complete(connection.close())
+        try:
+            loop.run_forever()
+        finally:
+            loop.run_until_complete(connection.close())
+        
+        return 0
 
     @retry(aio_pika.exceptions.AMQPConnectionError, delay=1, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
+        """
+        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPConnectionError`.
+        Consumer workers run in separate tasks against a single read/write channel.
+
+        Parameters:
+            loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
+
+        Returns:
+            connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
+        """
         connection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
         async with connection:
-            try:
-                async with connection.channel() as channel:
+            async with connection.channel() as channel:
+                try:
                     exchange = await channel.declare_exchange(
                         name=self.exchange_name,
                         type=aio_pika.ExchangeType.TOPIC,
@@ -77,9 +93,10 @@ class AmqpInvoker(Invoker):
                     ]
 
                     await asyncio.gather(*futures)
-
-            except aio_pika.exceptions.ConnectionClosed:
-                pass
+                except KeyboardInterrupt:
+                    loop.run_until_complete(channel.close())
+                except aio_pika.exceptions.ConnectionClosed:
+                    pass
 
         return connection
 
@@ -89,11 +106,27 @@ class AmqpInvoker(Invoker):
         queue: aio_pika.RobustQueue,
         callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
     ):
+        """
+        Binds a single consumer tag to `queue` and continuously pulls `message`s into `callback`.
+
+        Parameters:
+            channel: Connection state
+            queue: Queue from which to read
+            callback: Awaitable callback
+        """
         async with queue.iterator() as consumed:
             async for message in consumed:
                 await callback(message, channel)
+                await message.ack()
 
     async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel):
+        """
+        Primary event queue callback.
+
+        Parameters:
+            message: Message object with convenience methods for acknowledgement
+            channel: Connection state
+        """
         async with message.process():
             data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
             exchange = await channel.get_exchange(self._invocable.config.exchange)
@@ -109,10 +142,27 @@ class AmqpInvoker(Invoker):
                 await exchange.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
 
     async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel):
+        """
+        Stub for an error queue callback.
+
+        Parameters:
+            message: Message object with convenience methods for acknowledgement
+            channel: Connection state
+        """
         pass
 
     @aiomisc.threaded_iterable
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
+        """
+        Performs the potentially CPU-intensive work of `self._invocable.invoke` in a separate thread
+        within the constraints of the underlying execution context.
+
+        Parameters:
+            data_in: Raw event data
+
+        Returns:
+            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`
+        """
         for data_out in self._invocable.invoke(data_in["data"]):
             yield {
                 "data": data_out,
