@@ -5,7 +5,7 @@ import asyncio
 import json
 
 from retry import retry
-from typing import Any, Callable, Dict, Generator
+from typing import Awaitable, Callable, Iterable
 from urllib.parse import urlparse
 
 from src.function_invocable import FunctionInvocable
@@ -40,7 +40,7 @@ class AmqpInvoker(Invoker):
         self.queue_name = self._invocable.config.func
 
     def start(self) -> None:
-        with aiomisc.entrypoint(pool_size=MAX_THREADS) as loop:
+        with aiomisc.new_event_loop(pool_size=MAX_THREADS) as loop:
             connection = loop.run_until_complete(self.run(loop))
 
             try:
@@ -87,7 +87,7 @@ class AmqpInvoker(Invoker):
         self,
         channel: aio_pika.RobustChannel,
         queue: aio_pika.RobustQueue,
-        callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], None]
+        callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
     ):
         async with queue.iterator() as consumed:
             async for message in consumed:
@@ -112,7 +112,7 @@ class AmqpInvoker(Invoker):
         pass
 
     @aiomisc.threaded_iterable
-    def do_work(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, None, None]:
+    def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
         for data_out in self._invocable.invoke(data_in["data"]):
             yield {
                 "data": data_out,
