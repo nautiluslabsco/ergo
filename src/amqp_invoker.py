@@ -83,6 +83,9 @@ class AmqpInvoker(Invoker):
                     queue = await channel.declare_queue(name=self.queue_name)
                     queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
+                    # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
+                    # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
+
                     await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
                     await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
@@ -107,12 +110,12 @@ class AmqpInvoker(Invoker):
         callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
     ) -> None:
         """
-        Binds a single consumer tag to `queue` and continuously pulls `message`s into `callback`.
+        Binds a single consumer tag to `queue` and continuously consumes `aio_pika.IncomingMessage`s into `callback`.
 
         Parameters:
             channel: Connection state
             queue: Queue from which to read
-            callback: Awaitable callback
+            callback: Awaitable message handler
         """
         async with queue.iterator() as consumed:
             async for message in consumed:
@@ -126,11 +129,15 @@ class AmqpInvoker(Invoker):
             message: Message object with convenience methods for acknowledgement
             channel: Connection state
         """
+
+        # `message.process` will call `message.ack` upon `__aexit__` or `__exit__` (since no additional flags are passed to it),
+        # as well as handle requeueing and rejects if there are failures
         async with message.process():
             data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
             exchange = await channel.get_exchange(self._invocable.config.exchange)
 
             try:
+                # `self.do_work` is guaranteed to run on a separate thread, which is recommended for potentially long-running background tasks
                 async with self.do_work(data_in) as generator:
                     async for data_out in generator:
                         await exchange.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
@@ -150,17 +157,17 @@ class AmqpInvoker(Invoker):
         """
         pass
 
-    @aiomisc.threaded_iterable
+    @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
         """
         Performs the potentially CPU-intensive work of `self._invocable.invoke` in a separate thread
-        within the constraints of the underlying execution context.
+        outside the constraints of the underlying execution context (in this case a thread pool).
 
         Parameters:
             data_in: Raw event data
 
         Yields:
-            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`
+            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke` plus metadata
         """
         for data_out in self._invocable.invoke(data_in["data"]):
             yield {
