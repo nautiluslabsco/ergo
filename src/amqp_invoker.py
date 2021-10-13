@@ -42,7 +42,10 @@ class AmqpInvoker(Invoker):
     def start(self) -> int:
         """
         Starts a new event loop that maintains a persistent AMQP connection.
-        Underlying execution context is a thread pool of size `MAX_THREADS`.
+        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
+
+        Returns:
+            exit_code
         """
         loop = aiomisc.new_event_loop(pool_size=MAX_THREADS)
         connection = loop.run_until_complete(self.run(loop))
@@ -58,7 +61,7 @@ class AmqpInvoker(Invoker):
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
         """
         Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPConnectionError`.
-        Consumer workers run in separate tasks against a single read/write channel.
+        Consumer workers run in separate tasks sharing a single read/write channel.
 
         Parameters:
             loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
@@ -95,6 +98,7 @@ class AmqpInvoker(Invoker):
                         # self.consume(channel, queue_error, self.on_error)
                     ]
 
+                    # Gathers all workers as futures and runs them concurrently on the underlying execution context
                     await asyncio.gather(*futures)
                 except KeyboardInterrupt:
                     loop.run_until_complete(channel.close())
@@ -113,8 +117,8 @@ class AmqpInvoker(Invoker):
         Binds a single consumer tag to `queue` and continuously consumes `aio_pika.IncomingMessage`s into `callback`.
 
         Parameters:
-            channel: Connection state
-            queue: Queue from which to read
+            channel: Connection handle and state
+            queue: Readable message queue
             callback: Awaitable message handler
         """
         async with queue.iterator() as consumed:
@@ -127,7 +131,7 @@ class AmqpInvoker(Invoker):
 
         Parameters:
             message: Message object with convenience methods for acknowledgement
-            channel: Connection state
+            channel: Connection handle and state
         """
 
         # `message.process` will call `message.ack` upon `__aexit__` or `__exit__` (since no additional flags are passed to it),
@@ -153,7 +157,7 @@ class AmqpInvoker(Invoker):
 
         Parameters:
             message: Message object with convenience methods for acknowledgement
-            channel: Connection state
+            channel: Connection handle and state
         """
         pass
 
@@ -161,7 +165,7 @@ class AmqpInvoker(Invoker):
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
         """
         Performs the potentially CPU-intensive work of `self._invocable.invoke` in a separate thread
-        outside the constraints of the underlying execution context (in this case a thread pool).
+        outside the constraints of the underlying execution context.
 
         Parameters:
             data_in: Raw event data
