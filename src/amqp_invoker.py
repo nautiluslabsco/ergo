@@ -100,8 +100,6 @@ class AmqpInvoker(Invoker):
 
                     # Gathers all workers as futures and runs them concurrently on the underlying execution context
                     await asyncio.gather(*futures)
-                except KeyboardInterrupt:
-                    loop.run_until_complete(channel.close())
                 except aio_pika.exceptions.ConnectionClosed:
                     pass
 
