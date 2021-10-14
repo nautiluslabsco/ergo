@@ -13,4 +13,5 @@ coverage
 codecov
 types-PyYAML
 types-setuptools
-pika-stubs
+pika-stubs==0.1.3
+
