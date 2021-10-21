@@ -5,7 +5,6 @@ Attributes:
 
 """
 from typing import Tuple
-
 import click
 from click_default_group import \
     DefaultGroup  # https://pypi.org/project/click-default-group/
@@ -82,20 +81,20 @@ def use(name: str) -> int:
 
 
 @main.command()
-@click.argument('ref', type=click.STRING)
+@click.argument('func', type=click.STRING)
 @click.argument('arg', nargs=-1)
-def http(config: Config, arg: Tuple[str]) -> int:
+def http(func: str, arg: Tuple[str]) -> int:
     """Summary.
 
     Args:
-        config (str): Description
+        func (str): Path to a function.
         arg (Tuple[str]): Description
 
     Returns:
         int: Description
 
     """
-    return ERGO_CLI.http(config, *list(arg))
+    return ERGO_CLI.http(func, *list(arg))
 
 
 @main.command()
@@ -130,7 +129,6 @@ def start(ref: str, arg: Tuple[str]) -> int:
 
     """
     return ERGO_CLI.start(ref, *list(arg))
-
 
 @main.command()
 @click.argument('ref', type=click.STRING)
