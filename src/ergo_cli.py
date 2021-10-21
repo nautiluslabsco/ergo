@@ -10,6 +10,7 @@ from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
 from src.http_invoker import HttpInvoker
+from src.schematic import graph as ergograph
 from src.version import get_version
 
 
@@ -117,21 +118,17 @@ class ErgoCli:
         self.use(name)
         return 0
 
-    def http(self, func: str, *args: str) -> int:
+    def http(self, config: Config, *args: str) -> int:
         """Summary.
 
         Args:
-            func (str): Description
+            config (str): Description
             *args (str): Description
 
         Returns:
             int: Description
 
         """
-        config = Config({"func": func})
-        return self._http(config)
-
-    def _http(self, config: Config):
         host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(config))
         host.start()
         return 0
@@ -163,17 +160,25 @@ class ErgoCli:
 
         """
         # use safe_load instead load
-        with open(ref) as config_file:
+        with open(ref, encoding='utf8') as config_file:
             conf = yaml.safe_load(config_file)
             namespace_file_name = args[0] if len(args) > 0 else conf.get('namespace')
-            with open(namespace_file_name) as namespace_file:
+            with open(namespace_file_name, encoding='utf8') as namespace_file:
                 namespace_cfg = yaml.safe_load(namespace_file)
                 conf.update(namespace_cfg)
                 config = Config(conf)
 
-                if config.protocol == "amqp":
-                    return self.amqp(config)
-                elif config.protocol == "http":
-                    return self._http(config)
-                else:
-                    raise ValueError(f"unexpected protocol: {config.protocol}")
+                return {'amqp': self.amqp, 'something_else': self.http}.get(config.protocol, self.http)(config)
+
+    def graph(self, *args: str) -> int:
+        """Summary.
+
+        Args:
+            ref (str): root folder for graph
+
+        Returns:
+            int: Description
+
+        """
+        ergograph(list(args))
+        return 0
