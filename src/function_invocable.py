@@ -76,7 +76,7 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             result = self._func(**data_in)
-            if inspect.isgeneratorfunction(self._func):
+            if inspect.isgenerator(result):
                 yield from result
             else:
                 yield result
