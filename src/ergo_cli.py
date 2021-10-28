@@ -5,7 +5,7 @@ import os
 import yaml
 from colors import color
 
-from src.amqp_invoker import AmqpInvoker
+from src.amqp_invoker import AmqpInvoker, RPCInvoker
 from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
@@ -152,6 +152,21 @@ class ErgoCli:
         host.start()
         return 0
 
+    def rpc(self, config: Config, *args: str) -> int:
+        """Summary.
+
+        Args:
+            ref (str): Description
+            *args (str): Description
+
+        Returns:
+            int: Description
+
+        """
+        host: RPCInvoker = RPCInvoker(FunctionInvocable(config))
+        host.start()
+        return 0
+
     def start(self, ref: str, *args: str) -> int:
         """Summary.
 
@@ -174,6 +189,8 @@ class ErgoCli:
 
                 if config.protocol == "amqp":
                     return self.amqp(config)
+                elif config.protocol == "rpc":
+                    return self.rpc(config)
                 elif config.protocol == "http":
                     return self._http(config)
                 else:
