@@ -4,6 +4,7 @@ import aiomisc
 import asyncio
 import json
 
+from aio_pika.exchange import ExchangeType
 from retry import retry
 from typing import Awaitable, Callable, Iterable
 from urllib.parse import urlparse
@@ -29,6 +30,8 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 class AmqpInvoker(Invoker):
     """Summary."""
 
+    exchange_type: ExchangeType = ExchangeType.TOPIC
+
     def __init__(self, invocable: FunctionInvocable) -> None:
         super().__init__(invocable)
 
@@ -38,6 +41,10 @@ class AmqpInvoker(Invoker):
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
         self.queue_name = self._invocable.config.func
+
+    @property
+    def routing_key(self) -> str:
+        return str(self._invocable.config.subtopic)
 
     def start(self) -> int:
         """
@@ -76,7 +83,7 @@ class AmqpInvoker(Invoker):
                 try:
                     exchange = await channel.declare_exchange(
                         name=self.exchange_name,
-                        type=aio_pika.ExchangeType.TOPIC,
+                        type=self.exchange_type,
                         passive=False,
                         durable=True,
                         auto_delete=False,
@@ -89,7 +96,7 @@ class AmqpInvoker(Invoker):
                     # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
                     # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
 
-                    await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
+                    await queue.bind(exchange=exchange, routing_key=self.routing_key)
                     await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
                     futures = [

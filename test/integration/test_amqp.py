@@ -8,6 +8,7 @@ from src.topic import PubTopic, SubTopic
 
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
+EXCHANGE = "test_amqp_exchange"
 
 
 @pytest.fixture(scope="session")
@@ -26,13 +27,13 @@ def test_product_amqp(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": "test_exchange",
+        "exchange": EXCHANGE,
         "subtopic": "product.in",
         "pubtopic": "product.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = json.dumps({"data": {"x": 4, "y": 5}})
-        result = next(rpc(payload, **manifest, **namespace))
+        result = next(rpc_call(payload, **manifest, **namespace))
         assert result == 20.0
 
 
@@ -51,13 +52,13 @@ def test_get_two_dicts(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": "test_exchange",
+        "exchange": EXCHANGE,
         "subtopic": "get_two_dicts.in",
         "pubtopic": "get_two_dicts.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
-        results = rpc(payload, **manifest, **namespace)
+        results = rpc_call(payload, **manifest, **namespace)
         assert next(results) == get_two_dicts()
 
 
@@ -73,18 +74,18 @@ def test_yield_two_dicts(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": "test_exchange",
+        "exchange": EXCHANGE,
         "subtopic": "yield_two_dicts.in",
         "pubtopic": "yield_two_dicts.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
-        results = rpc(payload, **manifest, **namespace)
+        results = rpc_call(payload, **manifest, **namespace)
         assert next(results) == get_dict()
         assert next(results) == get_dict()
 
 
-def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
+def rpc_call(payload, func, host, exchange, pubtopic, subtopic, **_):
     connection = pika.BlockingConnection(pika.URLParameters(host))
     for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():

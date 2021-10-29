@@ -20,6 +20,7 @@ class Config:
         self._namespace: Optional[str] = config.get('namespace', 'local')
         self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
         self._subtopic: Topic = SubTopic(config.get('subtopic'))
+        self._rpc_routing_key: Optional[str] = config.get('rpc_routing_key')
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
@@ -51,6 +52,15 @@ class Config:
             TYPE: Description
         """
         return self._pubtopic
+
+    @property
+    def rpc_routing_key(self) -> Optional[str]:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._rpc_routing_key
 
     @property
     def func(self) -> str:
