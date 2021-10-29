@@ -5,7 +5,8 @@ import os
 import yaml
 from colors import color
 
-from src.amqp_invoker import AmqpInvoker, RPCInvoker
+from src.amqp_invoker import AmqpInvoker
+from src.rpc_invoker import RPCInvoker
 from src.config import Config
 from src.flask_http_invoker import FlaskHttpInvoker
 from src.function_invocable import FunctionInvocable
