@@ -1,12 +1,12 @@
 """Summary."""
-import aio_pika
-import aiomisc
 import asyncio
 import json
-
-from retry import retry
 from typing import Awaitable, Callable, Iterable
 from urllib.parse import urlparse
+
+import aio_pika
+import aiomisc
+from retry import retry
 
 from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
@@ -74,15 +74,7 @@ class AmqpInvoker(Invoker):
         async with connection:
             async with connection.channel() as channel:
                 try:
-                    exchange = await channel.declare_exchange(
-                        name=self.exchange_name,
-                        type=aio_pika.ExchangeType.TOPIC,
-                        passive=False,
-                        durable=True,
-                        auto_delete=False,
-                        internal=False,
-                        arguments=None
-                    )
+                    exchange = await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
                     queue = await channel.declare_queue(name=self.queue_name)
                     queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
@@ -105,12 +97,7 @@ class AmqpInvoker(Invoker):
 
         return connection
 
-    async def consume(
-        self,
-        channel: aio_pika.RobustChannel,
-        queue: aio_pika.RobustQueue,
-        callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
-    ) -> None:
+    async def consume(self, channel: aio_pika.RobustChannel, queue: aio_pika.RobustQueue, callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]) -> None:
         """
         Binds a single consumer tag to `queue` and continuously consumes `aio_pika.IncomingMessage`s into `callback`.
 
@@ -140,7 +127,7 @@ class AmqpInvoker(Invoker):
 
             try:
                 # `self.do_work` is guaranteed to run on a separate thread, which is recommended for potentially long-running background tasks
-                async with self.do_work(data_in) as generator:
+                async with self.do_work(data_in) as generator:  # pylint: disable=E1701
                     async for data_out in generator:
                         await exchange.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
 
@@ -149,7 +136,7 @@ class AmqpInvoker(Invoker):
                 # TODO(ahuman-bean): cleaner error messages
                 await exchange.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
 
-    async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
+    async def on_error(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """
         Stub for an error queue callback.
 
@@ -157,7 +144,6 @@ class AmqpInvoker(Invoker):
             message: Message object with convenience methods for acknowledgement
             channel: Connection handle and state
         """
-        pass
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
@@ -172,8 +158,4 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke` plus metadata
         """
         for data_out in self._invocable.invoke(data_in["data"]):
-            yield {
-                "data": data_out,
-                "key": str(self._invocable.config.pubtopic),
-                "log": data_in.get("log", [])
-            }
+            yield {"data": data_out, "key": str(self._invocable.config.pubtopic), "log": data_in.get("log", [])}

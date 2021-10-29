@@ -13,21 +13,16 @@ printf "\e[1mFormatting code (autopep) $mod ...\e[0m\n"
 autopep8 --in-place --aggressive --aggressive --recursive $mod
 if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
 
+printf "\e[1mRemoving unused imports (autoflake) $mod ...\e[0m\n"
+autoflake --remove-all-unused-imports --in-place -r $mod
+if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
+
 printf "\e[1mFormatting code (black) $mod ...\e[0m\n"
 black -S --line-length 512 $mod
 if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
 
 printf "\e[1mSorting imports (isort) $mod ...\e[0m\n"
 isort $mod/*.py
-if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
-
-printf "\e[1mLinting (pylint) $mod ...\e[0m\n"
-find $mod -iname "*.py" | xargs pylint -d too-few-public-methods -d missing-docstring -d unused-argument -d no-self-use -d unused-variable -d line-too-long
-if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
-
-printf "\e[1mLinting (flake8) $mod ...\e[0m\n"
-# flake8 --ignore=E501 --use-flake8-tabs $mod
-flake8 --ignore=E501 $mod
 if [ $? -ne 0 ]; then { printf "\e[31mFailed, aborting.\e[0m\n" ; exit 1; } fi
 
 printf "\e[1mAssessing style (pycodestyle) $mod ...\e[0m\n"

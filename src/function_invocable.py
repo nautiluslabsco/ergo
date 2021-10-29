@@ -11,7 +11,7 @@ from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
 from src.types import TYPE_PAYLOAD, TYPE_RETURN
-from src.util import log, print_exc_plus
+from src.util import print_exc_plus
 
 
 class FunctionInvocable:
@@ -107,7 +107,8 @@ class FunctionInvocable:
         source_file_extension: str = matches.group(3)
         sys.path.insert(0, path_to_source_file)
 
-        spec: ModuleSpec = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
+        spec: Optional[ModuleSpec] = importlib.util.spec_from_file_location(source_file_name, f'{path_to_source_file}/{source_file_name}.{source_file_extension}')
+        assert spec
         module: ModuleType = importlib.util.module_from_spec(spec)
         assert isinstance(spec.loader, Loader)  # see https://github.com/python/typeshed/issues/2793
         spec.loader.exec_module(module)

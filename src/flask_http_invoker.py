@@ -1,7 +1,8 @@
 """Summary."""
-from typing import List
 import inspect
 import json
+from typing import List
+
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker

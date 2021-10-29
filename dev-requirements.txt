@@ -16,3 +16,6 @@ requests
 docker
 pytest
 pytest-timeout
+autoflake
+types-PyYAML
+types-retry
