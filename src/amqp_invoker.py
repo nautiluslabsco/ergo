@@ -3,6 +3,7 @@ import aio_pika
 import aiomisc
 import asyncio
 import json
+import time
 
 from retry import retry
 from typing import Awaitable, Callable, Iterable
@@ -43,6 +44,7 @@ class AmqpInvoker(Invoker):
     def routing_key(self) -> str:
         return str(self._invocable.config.subtopic)
 
+    @retry(ConnectionError, jitter=(.1, .3), backoff=1.1)
     def start(self) -> int:
         """
         Starts a new event loop that maintains a persistent AMQP connection.
