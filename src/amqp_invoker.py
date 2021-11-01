@@ -4,7 +4,6 @@ import aiomisc
 import asyncio
 import json
 
-from aio_pika.exchange import ExchangeType
 from retry import retry
 from typing import Awaitable, Callable, Iterable
 from urllib.parse import urlparse
@@ -30,8 +29,6 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 class AmqpInvoker(Invoker):
     """Summary."""
 
-    exchange_type: ExchangeType = ExchangeType.TOPIC
-
     def __init__(self, invocable: FunctionInvocable) -> None:
         super().__init__(invocable)
 
@@ -39,8 +36,8 @@ class AmqpInvoker(Invoker):
         heartbeat = self._invocable.config.heartbeat
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
-        self.exchange_name = self._invocable.config.exchange
-        self.queue_name = self._invocable.config.func
+        self.rpc_routing_key = self._invocable.config.route
+        self.queue_name = self.rpc_routing_key or self._invocable.config.func
 
     @property
     def routing_key(self) -> str:
@@ -82,8 +79,8 @@ class AmqpInvoker(Invoker):
             async with connection.channel() as channel:
                 try:
                     exchange = await channel.declare_exchange(
-                        name=self.exchange_name,
-                        type=self.exchange_type,
+                        name=self._invocable.config.exchange,
+                        type=aio_pika.ExchangeType.TOPIC,
                         passive=False,
                         durable=True,
                         auto_delete=False,
@@ -149,12 +146,22 @@ class AmqpInvoker(Invoker):
                 # `self.do_work` is guaranteed to run on a separate thread, which is recommended for potentially long-running background tasks
                 async with self.do_work(data_in) as generator:
                     async for data_out in generator:
-                        await exchange.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
+                        out_message = aio_pika.Message(body=json.dumps(data_out).encode(),
+                                                       correlation_id=message.correlation_id)
+                        publish_coro = exchange.publish(message=out_message, routing_key=str(self._invocable.config.pubtopic))
+                        if message.reply_to:
+                            await channel.default_exchange.publish(message=out_message, routing_key=message.reply_to)
+                        await publish_coro
 
             except Exception as err:  # pylint: disable=broad-except
                 data_in['error'] = str(err)
                 # TODO(ahuman-bean): cleaner error messages
-                await exchange.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
+                out_message = aio_pika.Message(body=json.dumps(data_in).encode(),
+                                               correlation_id=message.correlation_id)
+                publish_coro = exchange.publish(message=out_message, routing_key=f'{self.queue_name}_error')
+                if message.reply_to:
+                    await channel.default_exchange.publish(message=out_message, routing_key=message.reply_to)
+                await publish_coro
 
     async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """

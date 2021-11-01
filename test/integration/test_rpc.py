@@ -7,9 +7,8 @@ from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
 from typing import Optional, Dict
 import uuid
 
-
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
-EXCHANGE = "test_rpc_exchange"
+ERGO_EXCHANGE = "primary"
 
 
 @pytest.fixture(scope="session")
@@ -26,14 +25,13 @@ def test_product_rpc(rabbitmq):
         "func": f"{__file__}:product",
     }
     namespace = {
-        "protocol": "rpc",
+        "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": EXCHANGE,
-        "rpc_routing_key": "rpc_product"
+        "route": "product"
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = {"x": 4, "y": 5}
-        result = rpc_call(AMQP_HOST, namespace["exchange"], namespace["rpc_routing_key"], payload)
+        result = next(rpc_call(AMQP_HOST, namespace["route"], payload))
         assert result == 20.0
 
 
@@ -42,24 +40,23 @@ def test_product_rpc__unexpected_argument(rabbitmq):
         "func": f"{__file__}:product",
     }
     namespace = {
-        "protocol": "rpc",
+        "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": EXCHANGE,
-        "rpc_routing_key": "rpc_product"
+        "route": "product"
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = {"x": 4, "y": 5, "z": 6}
         with pytest.raises(RuntimeError):
-            rpc_call(AMQP_HOST, namespace["exchange"], namespace["rpc_routing_key"], payload)
+            next(rpc_call(AMQP_HOST, namespace["route"], payload))
 
 
-def rpc_call(broker: str, exchange: str, routing_key: str, payload: Optional[Dict] = None):
+def rpc_call(broker: str, routing_key: str, payload: Optional[Dict] = None):
     connection = pika.BlockingConnection(pika.URLParameters(broker))
 
     for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():
             channel = connection.channel()
-            channel.exchange_declare(EXCHANGE, passive=True)
+            channel.exchange_declare(ERGO_EXCHANGE, passive=True)
 
     callback_queue = channel.queue_declare(
         queue="",
@@ -77,7 +74,7 @@ def rpc_call(broker: str, exchange: str, routing_key: str, payload: Optional[Dic
                 reply_to=callback_queue,
                 correlation_id=correlation_id,
             )
-            channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, properties=properties,
+            channel.basic_publish(exchange=ERGO_EXCHANGE, routing_key=routing_key, body=body, properties=properties,
                                   mandatory=True)
 
     for _, props, body in channel.consume(callback_queue):
@@ -86,4 +83,4 @@ def rpc_call(broker: str, exchange: str, routing_key: str, payload: Optional[Dic
         message = json.loads(body)
         if "error" in message:
             raise RuntimeError(message["error"])
-        return message["data"]
+        yield message["data"]
