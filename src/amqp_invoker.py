@@ -57,7 +57,7 @@ class AmqpInvoker(Invoker):
 
         return 0
 
-    @retry(aio_pika.exceptions.AMQPConnectionError, delay=1, jitter=(1, 3), backoff=2)
+    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=1, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
         """
         Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPConnectionError`.
@@ -73,35 +73,32 @@ class AmqpInvoker(Invoker):
 
         async with connection:
             async with connection.channel() as channel:
-                try:
-                    exchange = await channel.declare_exchange(
-                        name=self.exchange_name,
-                        type=aio_pika.ExchangeType.TOPIC,
-                        passive=False,
-                        durable=True,
-                        auto_delete=False,
-                        internal=False,
-                        arguments=None
-                    )
-                    queue = await channel.declare_queue(name=self.queue_name)
-                    queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
+                exchange = await channel.declare_exchange(
+                    name=self.exchange_name,
+                    type=aio_pika.ExchangeType.TOPIC,
+                    passive=False,
+                    durable=True,
+                    auto_delete=False,
+                    internal=False,
+                    arguments=None
+                )
+                queue = await channel.declare_queue(name=self.queue_name)
+                queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
-                    # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
-                    # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
+                # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
+                # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
 
-                    await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-                    await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
+                await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
+                await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
-                    futures = [
-                        self.consume(channel, queue, self.on_message),
-                        # TODO(ahuman-bean): implement error handling
-                        # self.consume(channel, queue_error, self.on_error)
-                    ]
+                futures = [
+                    self.consume(channel, queue, self.on_message),
+                    # TODO(ahuman-bean): implement error handling
+                    # self.consume(channel, queue_error, self.on_error)
+                ]
 
-                    # Gathers all workers as futures and runs them concurrently on the underlying execution context
-                    await asyncio.gather(*futures)
-                except aio_pika.exceptions.ConnectionClosed:
-                    pass
+                # Gathers all workers as futures and runs them concurrently on the underlying execution context
+                await asyncio.gather(*futures)
 
         return connection
 
