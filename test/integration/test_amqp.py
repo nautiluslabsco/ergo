@@ -5,10 +5,10 @@ import json
 from test.integration.utils import ergo, retries
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
 from src.topic import PubTopic, SubTopic
-from src.constants import ERGO_EXCHANGE
 
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
+EXCHANGE = "test_rpc_exchange"
 
 
 @pytest.fixture(scope="session")
@@ -27,7 +27,7 @@ def test_product_amqp(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": ERGO_EXCHANGE,
+        "exchange": EXCHANGE,
         "subtopic": "product.in",
         "pubtopic": "product.out",
     }
@@ -52,7 +52,7 @@ def test_get_two_dicts(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": ERGO_EXCHANGE,
+        "exchange": EXCHANGE,
         "subtopic": "get_two_dicts.in",
         "pubtopic": "get_two_dicts.out",
     }
@@ -74,7 +74,7 @@ def test_yield_two_dicts(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "exchange": ERGO_EXCHANGE,
+        "exchange": EXCHANGE,
         "subtopic": "yield_two_dicts.in",
         "pubtopic": "yield_two_dicts.out",
     }

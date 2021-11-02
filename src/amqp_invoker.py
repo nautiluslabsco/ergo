@@ -3,7 +3,6 @@ import aio_pika
 import aiomisc
 import asyncio
 import json
-import time
 
 from retry import retry
 from typing import Awaitable, Callable, Iterable
@@ -146,20 +145,20 @@ class AmqpInvoker(Invoker):
                     async for data_out in generator:
                         out_message = aio_pika.Message(body=json.dumps(data_out).encode(),
                                                        correlation_id=message.correlation_id)
-                        publish_coro = exchange.publish(message=out_message, routing_key=str(self._invocable.config.pubtopic))
+                        routing_key = self._invocable.config.pubtopic
                         if message.reply_to:
-                            await channel.default_exchange.publish(message=out_message, routing_key=message.reply_to)
-                        await publish_coro
+                            routing_key = routing_key.extend(message.reply_to)
+                        await exchange.publish(message=out_message, routing_key=str(routing_key))
 
             except Exception as err:  # pylint: disable=broad-except
                 data_in['error'] = str(err)
                 # TODO(ahuman-bean): cleaner error messages
                 out_message = aio_pika.Message(body=json.dumps(data_in).encode(),
                                                correlation_id=message.correlation_id)
-                publish_coro = exchange.publish(message=out_message, routing_key=f'{self.queue_name}_error')
+                routing_key = self._invocable.config.pubtopic
                 if message.reply_to:
-                    await channel.default_exchange.publish(message=out_message, routing_key=message.reply_to)
-                await publish_coro
+                    routing_key = routing_key.extend(message.reply_to)
+                await exchange.publish(message=out_message, routing_key=str(routing_key))
 
     async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """

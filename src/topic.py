@@ -13,9 +13,28 @@ class Topic:
         Args:
             topic_str (str): Description
         """
-        self._keys: List[Key] = []
-        if topic_str:
-            self._keys = [Key(key_str) for key_str in topic_str.split('.')]
+        self._raw: str = topic_str or ""
+
+    def extend(self, topic_str: str):
+        """
+        extend returns a new Topic object with additional keys given in `topic_str`
+
+        >>> topic = PubTopic("a.b")
+        >>> str(topic)
+        'a.b'
+        >>> extended = topic.extend("c")
+        >>> str(topic)
+        'a.b'
+        >>> str(extended)
+        'a.b.c'
+
+        """
+        if self._raw:
+            topic_str = ".".join([self._raw, topic_str])
+        return type(self)(topic_str)
+
+    def _keys(self):
+        return [Key(key_str) for key_str in self._raw.split('.')]
 
     def __str__(self) -> str:
         """Summary.
@@ -25,7 +44,7 @@ class Topic:
         """
         ret = '#'
         if self._keys:
-            ret = '#.%s.#' % '.#.'.join(sorted([str(key) for key in self._keys]))
+            ret = '#.%s.#' % '.#.'.join(sorted([str(key) for key in self._keys()]))
         return ret
 
 
@@ -42,5 +61,5 @@ class PubTopic(Topic):
         Returns:
             str: Description
         """
-        ret = '.'.join(sorted([str(key) for key in self._keys]))
+        ret = '.'.join(sorted([str(key) for key in self._keys()]))
         return ret

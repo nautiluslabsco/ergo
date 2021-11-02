@@ -1,1 +1,0 @@
-ERGO_EXCHANGE = "primary"

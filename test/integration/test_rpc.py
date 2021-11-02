@@ -1,14 +1,8 @@
 import pytest
-import pika
-import pika.exceptions
-import json
-from test.integration.utils import ergo, retries
+from test.integration.utils import ergo
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
-from src.constants import ERGO_EXCHANGE
-from typing import Optional, Dict
-import uuid
-
-AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
+from ergo_python.rpc_client import ErgoRPCClient
+from ergo_python.config import Namespace
 
 
 @pytest.fixture(scope="session")
@@ -26,61 +20,16 @@ def test_product_rpc(rabbitmq):
     }
     namespace = {
         "protocol": "amqp",
-        "host": AMQP_HOST,
-        "subtopic": "product"
+        "host": "amqp://guest:guest@localhost:5672/%2F",
+        "subtopic": "product.in",
+        "pubtopic": "product.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
-        payload = {"x": 4, "y": 5}
-        result = next(rpc_call(AMQP_HOST, namespace["subtopic"], payload))
+        namespace = Namespace(dict(**manifest, **namespace))
+        rpc_client = ErgoRPCClient(namespace)
+        result = next(rpc_client.call(x=4, y=5))
         assert result == 20.0
 
-
-def test_product_rpc__unexpected_argument(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:product",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "subtopic": "product"
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
-        payload = {"x": 4, "y": 5, "z": 6}
+        # test unexpected argument
         with pytest.raises(RuntimeError):
-            next(rpc_call(AMQP_HOST, namespace["subtopic"], payload))
-
-
-def rpc_call(broker: str, routing_key: str, payload: Optional[Dict] = None):
-    connection = pika.BlockingConnection(pika.URLParameters(broker))
-
-    for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
-        with retry():
-            channel = connection.channel()
-            channel.exchange_declare(ERGO_EXCHANGE, passive=True)
-
-    callback_queue = channel.queue_declare(
-        queue="",
-        auto_delete=True
-    ).method.queue
-
-    # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
-    # of the dead letter queue.
-    channel.confirm_delivery()
-    for retry in retries(10, 0.5, pika.exceptions.UnroutableError):
-        with retry():
-            body = json.dumps({"data": payload or {}})
-            correlation_id = str(uuid.uuid4())
-            properties = pika.BasicProperties(
-                reply_to=callback_queue,
-                correlation_id=correlation_id,
-            )
-            channel.basic_publish(exchange=ERGO_EXCHANGE, routing_key=routing_key, body=body, properties=properties,
-                                  mandatory=True)
-
-    for _, props, body in channel.consume(callback_queue):
-        if props.correlation_id != correlation_id:
-            continue
-        message = json.loads(body)
-        if "error" in message:
-            raise RuntimeError(message["error"])
-        yield message["data"]
+            next(rpc_client.call(x=4, y=5, z=6))
