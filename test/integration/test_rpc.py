@@ -4,11 +4,11 @@ import pika.exceptions
 import json
 from test.integration.utils import ergo, retries
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
+from src.constants import ERGO_EXCHANGE
 from typing import Optional, Dict
 import uuid
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
-ERGO_EXCHANGE = "primary"
 
 
 @pytest.fixture(scope="session")
