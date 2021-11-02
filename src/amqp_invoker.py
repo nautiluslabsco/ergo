@@ -144,6 +144,7 @@ class AmqpInvoker(Invoker):
                 async with self.do_work(data_in) as generator:
                     async for data_out in generator:
                         out_message = aio_pika.Message(body=json.dumps(data_out).encode(),
+                                                       reply_to=message.reply_to,
                                                        correlation_id=message.correlation_id)
                         routing_key = self._invocable.config.pubtopic
                         if message.reply_to:

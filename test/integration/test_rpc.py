@@ -5,6 +5,9 @@ from ergo_python.rpc_client import ErgoRPCClient
 from ergo_python.config import Namespace
 
 
+BROKER_URL = "amqp://guest:guest@localhost:5672/%2F"
+
+
 @pytest.fixture(scope="session")
 def rabbitmq():
     start_rabbitmq_broker()
@@ -20,7 +23,7 @@ def test_product_rpc(rabbitmq):
     }
     namespace = {
         "protocol": "amqp",
-        "host": "amqp://guest:guest@localhost:5672/%2F",
+        "host": BROKER_URL,
         "subtopic": "product.in",
         "pubtopic": "product.out",
     }
@@ -33,3 +36,30 @@ def test_product_rpc(rabbitmq):
         # test unexpected argument
         with pytest.raises(RuntimeError):
             next(rpc_client.call(x=4, y=5, z=6))
+
+
+def do_twice(**kwargs):
+    for _ in range(2):
+        yield kwargs
+
+
+def bedazzle(statement):
+    return f"🌟 {statement} 🌟"
+
+
+def test_bedazzle(rabbitmq):
+    """
+    assert that ErgoRPCClient can synchronously return data passed through multiple components
+    """
+
+    do_twice_manifest = {"func": f"{__file__}:do_twice", "protocol": "amqp"}
+    bedazzle_manifest = {"func": f"{__file__}:bedazzle", "protocol": "amqp"}
+    do_twice_namespace = {"subtopic": "do_twice", "pubtopic": "do_twice_pub", "host": BROKER_URL}
+    bedazzle_namespace = {"subtopic": "do_twice_pub", "pubtopic": "bedazzle", "host": BROKER_URL}
+    with ergo("start", manifest=do_twice_manifest, namespace=do_twice_namespace):
+        with ergo("start", manifest=bedazzle_manifest, namespace=bedazzle_namespace):
+            rpc_namespace = Namespace({"subtopic": "do_twice", "pubtopic": "bedazzle"})
+            rpc_client = ErgoRPCClient(rpc_namespace)
+            result = rpc_client.call(statement="bedazzle me")
+            for _ in range(2):
+                assert next(result) == "🌟 bedazzle me 🌟"
