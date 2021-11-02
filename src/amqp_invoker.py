@@ -37,6 +37,7 @@ class AmqpInvoker(Invoker):
         heartbeat = self._invocable.config.heartbeat
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
+        self.exchange_name = self._invocable.config.exchange
         self.queue_name = self._invocable.config.func
 
     @retry(ConnectionError, jitter=(.1, .3), backoff=1.1)
@@ -76,7 +77,7 @@ class AmqpInvoker(Invoker):
             async with connection.channel() as channel:
                 try:
                     exchange = await channel.declare_exchange(
-                        name=self._invocable.config.exchange,
+                        name=self.exchange_name,
                         type=aio_pika.ExchangeType.TOPIC,
                         passive=False,
                         durable=True,
