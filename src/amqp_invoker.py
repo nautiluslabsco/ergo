@@ -37,12 +37,7 @@ class AmqpInvoker(Invoker):
         heartbeat = self._invocable.config.heartbeat
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
-        self.rpc_routing_key = self._invocable.config.route
-        self.queue_name = self.rpc_routing_key or self._invocable.config.func
-
-    @property
-    def routing_key(self) -> str:
-        return str(self._invocable.config.subtopic)
+        self.queue_name = self._invocable.config.func
 
     @retry(ConnectionError, jitter=(.1, .3), backoff=1.1)
     def start(self) -> int:
@@ -95,7 +90,7 @@ class AmqpInvoker(Invoker):
                     # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
                     # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
 
-                    await queue.bind(exchange=exchange, routing_key=self.routing_key)
+                    await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
                     await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
                     futures = [

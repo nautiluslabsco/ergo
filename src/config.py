@@ -20,7 +20,6 @@ class Config:
         self._namespace: Optional[str] = config.get('namespace', 'local')
         self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
         self._subtopic: Topic = SubTopic(config.get('subtopic'))
-        self._route: Optional[str] = config.get('route')
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
@@ -52,15 +51,6 @@ class Config:
             TYPE: Description
         """
         return self._pubtopic
-
-    @property
-    def route(self) -> Optional[str]:
-        """Summary.
-
-        Returns:
-            TYPE: Description
-        """
-        return self._route
 
     @property
     def func(self) -> str:

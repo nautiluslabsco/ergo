@@ -27,11 +27,11 @@ def test_product_rpc(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "route": "product"
+        "subtopic": "product"
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = {"x": 4, "y": 5}
-        result = next(rpc_call(AMQP_HOST, namespace["route"], payload))
+        result = next(rpc_call(AMQP_HOST, namespace["subtopic"], payload))
         assert result == 20.0
 
 
@@ -42,12 +42,12 @@ def test_product_rpc__unexpected_argument(rabbitmq):
     namespace = {
         "protocol": "amqp",
         "host": AMQP_HOST,
-        "route": "product"
+        "subtopic": "product"
     }
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = {"x": 4, "y": 5, "z": 6}
         with pytest.raises(RuntimeError):
-            next(rpc_call(AMQP_HOST, namespace["route"], payload))
+            next(rpc_call(AMQP_HOST, namespace["subtopic"], payload))
 
 
 def rpc_call(broker: str, routing_key: str, payload: Optional[Dict] = None):
