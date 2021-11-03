@@ -1,1 +1,1 @@
-from src.config import Config, Namespace
+from src.config import Config, Graph

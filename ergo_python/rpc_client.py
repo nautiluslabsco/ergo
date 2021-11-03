@@ -5,39 +5,39 @@ import uuid
 import time
 from typing import Type
 from contextlib import contextmanager
-from ergo_python.config import Namespace
+from ergo_python.config import Graph
 
 
 class ErgoRPCClient(object):
     """
-    ErgoRPCClient provides a wrapper around ergo Namespace objects for making synchronous remote procedure calls
-    to ergo components attached to the given subtopic and pubtopic.
+    ErgoRPCClient provides a wrapper around ergo Graph objects for making synchronous remote procedure calls
+    that publish to the given subtopic and then yield from the given pubtopic.
 
-    >>> namespace = Namespace({"subtopic": "product_map", "pubtopic": "product_reduce"})
-    >>> ergo_client = ErgoRPCClient(namespace)
+    >>> graph = Graph({"subtopic": "product_map", "pubtopic": "product_reduce"})
+    >>> ergo_client = ErgoRPCClient(graph)
     >>> next(ergo_client.call(xs=[4, 5, 6]))
     120.0
 
     """
 
-    def __init__(self, namespace: Namespace):
-        self._namespace = namespace
+    def __init__(self, graph: Graph):
+        self._graph = graph
 
-        for retry in _retries(20, 0.5, pika.exceptions.AMQPConnectionError):
+        for retry in _retries(40, 0.5, pika.exceptions.AMQPConnectionError):
             with retry():
-                self.connection = pika.BlockingConnection(pika.URLParameters(namespace.host))
+                self.connection = pika.BlockingConnection(pika.URLParameters(graph.host or ""))
 
         for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
             with retry():
                 self.channel = self.connection.channel()
-                self.channel.exchange_declare(namespace.exchange, passive=True)
+                self.channel.exchange_declare(graph.exchange, passive=True)
 
         self.callback_queue = self.channel.queue_declare(
             queue="",
             exclusive=True,
         ).method.queue
-        self.reply_to_topic = str(namespace.pubtopic.extend(self.callback_queue))
-        self.channel.queue_bind(self.callback_queue, namespace.exchange, routing_key=self.reply_to_topic)
+        self.reply_to_topic = str(graph.pubtopic.extend(self.callback_queue))
+        self.channel.queue_bind(self.callback_queue, graph.exchange, routing_key=self.reply_to_topic)
 
     def call(self, **payload):
         # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
@@ -52,8 +52,8 @@ class ErgoRPCClient(object):
                     correlation_id=correlation_id,
                 )
                 self.channel.basic_publish(
-                    exchange=self._namespace.exchange,
-                    routing_key=str(self._namespace.subtopic),
+                    exchange=self._graph.exchange,
+                    routing_key=str(self._graph.subtopic),
                     body=body,
                     properties=properties,
                     mandatory=True,

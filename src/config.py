@@ -4,13 +4,8 @@ from typing import Dict, Optional
 from src.topic import PubTopic, SubTopic, Topic
 
 
-class Namespace:
+class Graph:
     def __init__(self, config: Dict[str, str]):
-        """Summary.
-
-        Args:
-            config (Dict[str, str]): Description
-        """
         self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
         self._subtopic: Topic = SubTopic(config.get('subtopic'))
         self._host: Optional[str] = config.get('host')
@@ -50,10 +45,10 @@ class Namespace:
         Returns:
             TYPE: Description
         """
-        return self._exchange or 'primary'
+        return self._exchange or "primary"
 
 
-class Config(Namespace):
+class Config(Graph):
     """Summary."""
 
     # pylint: disable=too-many-instance-attributes
@@ -67,8 +62,18 @@ class Config(Namespace):
         """
         super().__init__(config)
         self._func: str = config['func']
+        self._namespace: Optional[str] = config.get('namespace', 'local')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
+
+    @property
+    def namespace(self) -> Optional[str]:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._namespace
 
     @property
     def func(self) -> str:
@@ -78,6 +83,15 @@ class Config(Namespace):
             TYPE: Description
         """
         return self._func
+
+    @property
+    def host(self) -> str:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._host or ''
 
     @property
     def protocol(self) -> str:

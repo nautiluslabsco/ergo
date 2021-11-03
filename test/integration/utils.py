@@ -13,12 +13,11 @@ def ergo(command, *args, manifest=None, namespace=None):
     This context manager starts a temporary ergo worker in a child process. The worker is terminated at __exit__ time.
     """
     if manifest:
-        assert namespace
         with tempfile.NamedTemporaryFile(mode="w+") as manifest_file:
             manifest_file.write(yaml.dump(manifest))
             manifest_file.seek(0)
             with tempfile.NamedTemporaryFile(mode="w+") as namespace_file:
-                namespace_file.write(yaml.dump(namespace))
+                namespace_file.write(yaml.dump(namespace or {}))
                 namespace_file.seek(0)
 
                 with _ergo_inner(command, manifest_file.name, namespace_file.name):
