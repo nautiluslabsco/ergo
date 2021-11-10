@@ -116,9 +116,8 @@ class AmqpInvoker(Invoker):
             queue: Readable message queue
             callback: Awaitable message handler
         """
-        async with queue.iterator() as consumed:
-            async for message in consumed:
-                await callback(message, channel)
+        async for message in queue:
+            await callback(message, channel)
 
     async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
         """
