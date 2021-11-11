@@ -137,7 +137,7 @@ class AmqpInvoker(Invoker):
         Parameters:
             channel_pool: Pool of valid `Channel` handles
             message: Message to be published
-            routing_key: Exchange-level discriminator
+            routing_key: Exchange-level routing discriminator
         """
         async with channel_pool.acquire() as channel:
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
@@ -146,14 +146,14 @@ class AmqpInvoker(Invoker):
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
         """
-        Performs the potentially CPU-intensive work of `self._invocable.invoke` in a separate thread
-        outside the constraints of the underlying execution context.
+        Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
+        within the constraints of the underlying execution context.
 
         Parameters:
             data_in: Raw event data
 
         Yields:
-            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke` plus metadata
+            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
         for data_out in self._invocable.invoke(data_in["data"]):
             yield {
