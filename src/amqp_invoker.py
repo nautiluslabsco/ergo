@@ -116,6 +116,9 @@ class AmqpInvoker(Invoker):
         """
 
         async with channel_pool.acquire() as channel:
+            # See: https://github.com/mosquito/aio-pika/issues/396
+            # Exchange should be guaranteed to exist at this point, unless manually deleted from outside the system (in which case this ought to fail)
+            # This simply refreshes the handle
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             queue = await channel.declare_queue(name=self.queue_name)
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
