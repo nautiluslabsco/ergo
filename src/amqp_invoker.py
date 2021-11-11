@@ -1,11 +1,12 @@
 """Summary."""
+import functools
 import aio_pika
 import aiomisc
 import asyncio
 import json
 
 from retry import retry
-from typing import Awaitable, Callable, Iterable
+from typing import Awaitable, Callable, Iterable, Tuple
 from urllib.parse import urlparse
 
 from src.function_invocable import FunctionInvocable
@@ -57,103 +58,54 @@ class AmqpInvoker(Invoker):
 
         return 0
 
-    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=1, jitter=(1, 3), backoff=2)
+    @retry(aio_pika.exceptions.AMQPConnectionError, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """
-        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPConnectionError`.
-        Consumer workers run in separate tasks sharing a single read/write channel.
-
-        Parameters:
-            loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
-
-        Returns:
-            connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
-        """
         connection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
-        async with connection:
-            async with connection.channel() as channel:
-                exchange = await channel.declare_exchange(
-                    name=self.exchange_name,
-                    type=aio_pika.ExchangeType.TOPIC,
-                    passive=False,
-                    durable=True,
-                    auto_delete=False,
-                    internal=False,
-                    arguments=None
-                )
-                queue = await channel.declare_queue(name=self.queue_name)
-                queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
+        async def get_channel() -> aio_pika.Channel:
+            return await connection.channel()
 
-                # TODO(ahuman-bean): Ideal `prefetch_count` needs fine-tuning for optimal throughput
-                # await channel.set_qos(prefetch_count=MAX_PREFETCH_COUNT)
+        # Separate channels for consuming/publishing
+        channel_pool = aio_pika.pool.Pool(get_channel, max_size=2, loop=loop)
 
-                await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-                await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
+        async with connection, channel_pool:
+            async for data_in in self.consume(channel_pool):
+                try:
+                    async for data_out in self.do_work(data_in):
+                        await self.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
 
-                futures = [
-                    self.consume(channel, queue, self.on_message),
-                    # TODO(ahuman-bean): implement error handling
-                    # self.consume(channel, queue_error, self.on_error)
-                ]
-
-                # Gathers all workers as futures and runs them concurrently on the underlying execution context
-                await asyncio.gather(*futures)
+                except Exception as err:  # pylint: disable=broad-except
+                    data_in['error'] = str(err)
+                    # TODO(ahuman-bean): cleaner error messages
+                    await self.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
 
         return connection
 
-    async def consume(
-        self,
-        channel: aio_pika.RobustChannel,
-        queue: aio_pika.RobustQueue,
-        callback: Callable[[aio_pika.IncomingMessage, aio_pika.RobustChannel], Awaitable[None]]
-    ) -> None:
-        """
-        Binds a single consumer tag to `queue` and continuously consumes `aio_pika.IncomingMessage`s into `callback`.
+    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> None:
+        async with channel_pool.acquire() as channel:
+            exchange = await self.get_exchange(channel)
+            queue = await channel.declare_queue(name=self.queue_name)
+            queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
-        Parameters:
-            channel: Connection handle and state
-            queue: Readable message queue
-            callback: Awaitable message handler
-        """
-        async for message in queue:
-            await callback(message, channel)
+            await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
+            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
-    async def on_message(self, message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
-        """
-        Primary event queue callback.
+            async for message in queue:
+                async with message.process():
+                    yield dict(json.loads(message.body.decode('utf-8')))
 
-        Parameters:
-            message: Message object with convenience methods for acknowledgement
-            channel: Connection handle and state
-        """
-
-        # `message.process` will call `message.ack` upon `__aexit__` or `__exit__` (since no additional flags are passed to it),
-        # as well as handle requeueing and rejects if there are failures
-        async with message.process():
-            data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
-            exchange = await channel.get_exchange(self._invocable.config.exchange)
-
-            try:
-                # `self.do_work` is guaranteed to run on a separate thread, which is recommended for potentially long-running background tasks
-                async with self.do_work(data_in) as generator:
-                    async for data_out in generator:
-                        await exchange.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
-
-            except Exception as err:  # pylint: disable=broad-except
-                data_in['error'] = str(err)
-                # TODO(ahuman-bean): cleaner error messages
-                await exchange.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
-
-    async def on_error(message: aio_pika.IncomingMessage, channel: aio_pika.RobustChannel) -> None:
-        """
-        Stub for an error queue callback.
-
-        Parameters:
-            message: Message object with convenience methods for acknowledgement
-            channel: Connection handle and state
-        """
-        pass
+    async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
+        async with channel_pool.acquire() as channel:
+            exchange = await channel.declare_exchange(
+                name=self.exchange_name,
+                type=aio_pika.ExchangeType.TOPIC,
+                passive=False,
+                durable=True,
+                auto_delete=False,
+                internal=False,
+                arguments=None
+            )
+            exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
