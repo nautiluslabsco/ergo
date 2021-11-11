@@ -81,12 +81,12 @@ class AmqpInvoker(Invoker):
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
-                        await self.publish(message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
+                        await self.publish(channel_pool, message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
 
                 except Exception as err:  # pylint: disable=broad-except
                     data_in['error'] = str(err)
                     # TODO(ahuman-bean): cleaner error messages
-                    await self.publish(message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
+                    await self.publish(channel_pool, message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
 
         return connection
 
