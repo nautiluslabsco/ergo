@@ -57,7 +57,7 @@ class AmqpInvoker(Invoker):
 
         return 0
 
-    @retry(aio_pika.exceptions.AMQPConnectionError, jitter=(1, 3), backoff=2)
+    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
         connection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
