@@ -59,12 +59,21 @@ class AmqpInvoker(Invoker):
 
     @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
+        """
+        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
+        Runs continuous `consume` -> `do_work` -> `publish` event loop.
+
+        Parameters:
+            loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
+        Returns:
+            connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
+        """
         connection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
         async def get_channel() -> aio_pika.Channel:
             return await connection.channel()
 
-        # Separate channels for consuming/publishing
+        # Pool for consuming and publishing
         channel_pool = aio_pika.pool.Pool[aio_pika.RobustChannel](get_channel, max_size=2, loop=loop)
         async with channel_pool.acquire() as channel:
             await channel.declare_exchange(
@@ -77,20 +86,35 @@ class AmqpInvoker(Invoker):
                 arguments=None
             )
 
+        # Consume-Publish loop
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
-                        await self.publish(channel_pool, message=aio_pika.Message(body=json.dumps(data_out).encode()), routing_key=str(self._invocable.config.pubtopic))
+                        message = aio_pika.Message(body=json.dumps(data_out).encode())
+                        routing_key = str(self._invocable.config.pubtopic)
+                        await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
                     data_in['error'] = str(err)
                     # TODO(ahuman-bean): cleaner error messages
-                    await self.publish(channel_pool, message=aio_pika.Message(body=json.dumps(data_in).encode()), routing_key=f'{self.queue_name}_error')
+                    message = aio_pika.Message(body=json.dumps(data_in).encode())
+                    routing_key = f'{self.queue_name}_error'
+                    await self.publish(channel_pool, message, routing_key)
 
         return connection
 
     async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> Iterable[TYPE_PAYLOAD]:
+        """
+        Re-acquires handles to `channel`, `exchange`, and `queue` before continuously consuming `aio_pika.IncomingMessage`.
+
+        Parameters:
+            channel_pool: Pool of valid `Channel` handles
+
+        Yields:
+            payload: JSON-deserialized object
+        """
+
         async with channel_pool.acquire() as channel:
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             queue = await channel.declare_queue(name=self.queue_name)
@@ -104,6 +128,14 @@ class AmqpInvoker(Invoker):
                     yield dict(json.loads(message.body.decode('utf-8')))
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
+        """
+        Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
+
+        Parameters:
+            channel_pool: Pool of valid `Channel` handles
+            message: Message to be published
+            routing_key: Exchange-level discriminator
+        """
         async with channel_pool.acquire() as channel:
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             await exchange.publish(message, routing_key)
