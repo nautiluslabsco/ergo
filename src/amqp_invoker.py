@@ -1,12 +1,11 @@
 """Summary."""
-import functools
 import aio_pika
 import aiomisc
 import asyncio
 import json
 
 from retry import retry
-from typing import Awaitable, Callable, Iterable, Tuple
+from typing import Iterable
 from urllib.parse import urlparse
 
 from src.function_invocable import FunctionInvocable
@@ -66,7 +65,17 @@ class AmqpInvoker(Invoker):
             return await connection.channel()
 
         # Separate channels for consuming/publishing
-        channel_pool = aio_pika.pool.Pool(get_channel, max_size=2, loop=loop)
+        channel_pool = aio_pika.pool.Pool[aio_pika.RobustChannel](get_channel, max_size=2, loop=loop)
+        async with channel_pool.acquire() as channel:
+            await channel.declare_exchange(
+                name=self.exchange_name,
+                type=aio_pika.ExchangeType.TOPIC,
+                passive=False,
+                durable=True,
+                auto_delete=False,
+                internal=False,
+                arguments=None
+            )
 
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
@@ -81,9 +90,9 @@ class AmqpInvoker(Invoker):
 
         return connection
 
-    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> None:
+    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> Iterable[TYPE_PAYLOAD]:
         async with channel_pool.acquire() as channel:
-            exchange = await self.get_exchange(channel)
+            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             queue = await channel.declare_queue(name=self.queue_name)
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
@@ -96,16 +105,8 @@ class AmqpInvoker(Invoker):
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         async with channel_pool.acquire() as channel:
-            exchange = await channel.declare_exchange(
-                name=self.exchange_name,
-                type=aio_pika.ExchangeType.TOPIC,
-                passive=False,
-                durable=True,
-                auto_delete=False,
-                internal=False,
-                arguments=None
-            )
-            exchange.publish(message, routing_key)
+            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+            await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
