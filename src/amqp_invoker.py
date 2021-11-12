@@ -132,7 +132,7 @@ class AmqpInvoker(Invoker):
                 # Therefore, acknowledgement is sent upon successful receipt and deserialization of `message`
                 # This is performed prior to processing due to the `consumer_timeout` (default 30 minutes) on the broker side
                 # See: https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
-                message.ack()
+                await message.ack()
                 yield data_in
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
