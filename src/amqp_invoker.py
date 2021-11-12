@@ -126,14 +126,15 @@ class AmqpInvoker(Invoker):
             await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
             await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
-            async for message in queue:
-                data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
-                # Subsequent processing work could still fail, but message delivery is considered to be successful since the `message` was not structurally malformed
-                # Therefore, acknowledgement is sent upon successful receipt and deserialization of `message`
-                # This is performed prior to processing due to the `consumer_timeout` (default 30 minutes) on the broker side
-                # See: https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
-                await message.ack()
-                yield data_in
+            async with queue.iterator() as iter:
+                async for message in iter:
+                    data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
+                    # Subsequent processing work could still fail, but message delivery is considered to be successful since the `message` was not structurally malformed
+                    # Therefore, acknowledgement is sent upon successful receipt and deserialization of `message`
+                    # This is performed prior to processing due to the `consumer_timeout` (default 30 minutes) on the broker side
+                    # See: https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
+                    await message.ack()
+                    yield data_in
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
