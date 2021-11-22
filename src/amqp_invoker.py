@@ -124,7 +124,7 @@ class AmqpInvoker(Invoker):
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
             await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
+            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name.replace(".", "_")}_error')
 
             async for message in queue:
                 async with message.process():
