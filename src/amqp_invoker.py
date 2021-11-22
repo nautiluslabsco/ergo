@@ -96,9 +96,10 @@ class AmqpInvoker(Invoker):
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_in['error'] = str(err)
                     # TODO(ahuman-bean): cleaner error messages
-                    message = aio_pika.Message(body=json.dumps(data_in).encode())
+                    data_in['error'] = str(err)
+                    # NOTE(ahuman-bean): have to nest metadata so error consumers can actually have access to them
+                    message = aio_pika.Message(body=json.dumps({"data": data_in}).encode())
                     routing_key = f'{self.queue_name.replace(".", "_")}_error'
                     await self.publish(channel_pool, message, routing_key)
 
