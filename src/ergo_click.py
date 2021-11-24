@@ -5,6 +5,7 @@ Attributes:
 
 """
 from typing import Tuple
+
 import click
 from click_default_group import \
     DefaultGroup  # https://pypi.org/project/click-default-group/
@@ -129,6 +130,7 @@ def start(ref: str, arg: Tuple[str]) -> int:
 
     """
     return ERGO_CLI.start(ref, *list(arg))
+
 
 @main.command()
 @click.argument('ref', type=click.STRING)

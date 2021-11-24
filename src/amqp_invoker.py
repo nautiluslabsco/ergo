@@ -1,12 +1,12 @@
 """Summary."""
-import aio_pika
-import aiomisc
 import asyncio
 import json
-
-from retry import retry
 from typing import Iterable
 from urllib.parse import urlparse
+
+import aio_pika
+import aiomisc
+from retry import retry
 
 from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
@@ -15,7 +15,6 @@ from src.types import TYPE_PAYLOAD
 # content_type: application/json
 # {"x":5,"y":7}
 
-# TODO(ahuman-bean): requires fine-tuning
 MAX_THREADS = 2
 
 
@@ -41,8 +40,7 @@ class AmqpInvoker(Invoker):
 
     def start(self) -> int:
         """
-        Starts a new event loop that maintains a persistent AMQP connection.
-        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
+        Starts a new event loop that maintains a persistent AMQP connection. The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
 
         Returns:
             exit_code
@@ -76,15 +74,7 @@ class AmqpInvoker(Invoker):
         # Pool for consuming and publishing
         channel_pool = aio_pika.pool.Pool[aio_pika.RobustChannel](get_channel, max_size=2, loop=loop)
         async with channel_pool.acquire() as channel:
-            await channel.declare_exchange(
-                name=self.exchange_name,
-                type=aio_pika.ExchangeType.TOPIC,
-                passive=False,
-                durable=True,
-                auto_delete=False,
-                internal=False,
-                arguments=None
-            )
+            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
         # Consume-Publish loop
         async with connection, channel_pool:
@@ -96,8 +86,9 @@ class AmqpInvoker(Invoker):
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_in['error'] = str(err)
-                    # TODO(ahuman-bean): cleaner error messages
+                    orig = err.__context__
+                    data_in['error'] = f'{type(orig).__name__}: {str(orig)}'
+                    data_in['traceback'] = str(err)
                     message = aio_pika.Message(body=json.dumps(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
@@ -156,8 +147,4 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
         for data_out in self._invocable.invoke(data_in["data"]):
-            yield {
-                "data": data_out,
-                "key": str(self._invocable.config.pubtopic),
-                "log": data_in.get("log", [])
-            }
+            yield {"data": data_out, "key": str(self._invocable.config.pubtopic), "log": data_in.get("log", [])}

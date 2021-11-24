@@ -11,7 +11,7 @@ from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
 from src.types import TYPE_PAYLOAD, TYPE_RETURN
-from src.util import log, print_exc_plus
+from src.util import print_exc_plus
 
 
 class FunctionInvocable:
