@@ -26,7 +26,7 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
     return uri._replace(query='&'.join(params)).geturl()
 
 
-def make_error_output(err: Exception) -> Dict:
+def make_error_output(err: Exception) -> Dict[str, str]:
     """Make a more digestable error output."""
     orig = err.__context__
     err_output = {

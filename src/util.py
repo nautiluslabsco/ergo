@@ -122,5 +122,7 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
     prog = re.compile(r'File ".+/(\w+[.]py)", line (\d+), in (\w+)\n')
     match = prog.search(stack_string)
     if match:
-        return match.groups()
+        matches = match.groups()
+        if len(matches) == 3:  # for mypy
+            return matches[0], matches[1], matches[2]
     return None, None, None
