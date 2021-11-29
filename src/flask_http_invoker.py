@@ -1,7 +1,8 @@
 """Summary."""
-from typing import List
 import inspect
 import json
+from typing import List
+
 from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
@@ -20,7 +21,7 @@ class FlaskHttpInvoker(HttpInvoker):
         """
         app: Flask = Flask(__name__)
 
-        @app.route(self.route, methods=["GET", "POST"])
+        @app.route(self.route, methods=['GET', 'POST'])
         def handler() -> str:  # type: ignore
             """Summary.
 
