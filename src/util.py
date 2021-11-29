@@ -1,9 +1,10 @@
 """Convenience Funcs for handling errors, logging, and monitoring."""
+import re
 import sys
 import time
 import traceback
 from types import FrameType, TracebackType
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import uuid4
 
 if sys.version_info >= (3, 8):
@@ -104,3 +105,22 @@ def print_exc_plus() -> str:  # pragma: no cover
                 ret = f'{ret}\n<ERROR WHILE PRINTING VALUE>'
 
     return ret
+
+
+def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    Extract minimal useful information from top of function stack.
+
+    Returns:
+        str: filename
+        str: lineno
+        str: function name
+    """
+    traceback_exception = traceback.TracebackException.from_exception(exc)
+    stack_string = traceback_exception.stack.format()[-1]
+    # File ".*", line n+, in s+\n
+    prog = re.compile(r'File ".+/(\w+[.]py)", line (\d+), in (\w+)\n')
+    match = prog.search(stack_string)
+    if match:
+        return match.groups()
+    return None, None, None

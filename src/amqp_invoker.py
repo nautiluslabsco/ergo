@@ -1,7 +1,7 @@
 """Summary."""
 import asyncio
 import json
-from typing import Iterable
+from typing import Dict, Iterable
 from urllib.parse import urlparse
 
 import aio_pika
@@ -11,6 +11,7 @@ from retry import retry
 from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
+from src.util import extract_from_stack
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -23,6 +24,19 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
     uri, new_param = urlparse(host), f'{param_key}={param_val}'
     params = [p for p in uri.query.split('&') if param_key not in p] + [new_param]
     return uri._replace(query='&'.join(params)).geturl()
+
+
+def make_error_output(err: Exception) -> Dict:
+    """Make a more digestable error output."""
+    orig = err.__context__
+    err_output = {
+        'type': type(orig).__name__,
+        'message': str(orig),
+    }
+    filename, lineno, function_name = extract_from_stack(orig)
+    if None not in (filename, lineno, function_name):
+        err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}
+    return err_output
 
 
 class AmqpInvoker(Invoker):
@@ -57,8 +71,7 @@ class AmqpInvoker(Invoker):
 
     @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """
-        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
+        """Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
         Runs continuous `consume` -> `do_work` -> `publish` event loop.
 
         Parameters:
@@ -86,8 +99,7 @@ class AmqpInvoker(Invoker):
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    orig = err.__context__
-                    data_in['error'] = f'{type(orig).__name__}: {str(orig)}'
+                    data_in['error'] = make_error_output(err)
                     data_in['traceback'] = str(err)
                     message = aio_pika.Message(body=json.dumps(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
@@ -146,5 +158,5 @@ class AmqpInvoker(Invoker):
         Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-        for data_out in self._invocable.invoke(data_in["data"]):
-            yield {"data": data_out, "key": str(self._invocable.config.pubtopic), "log": data_in.get("log", [])}
+        for data_out in self._invocable.invoke(data_in['data']):
+            yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
