@@ -1,6 +1,8 @@
 """Summary."""
 import asyncio
 import json
+import copy
+import inspect
 from typing import Dict, Iterable
 from urllib.parse import urlparse
 
@@ -95,7 +97,7 @@ class AmqpInvoker(Invoker):
                 try:
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
-                        routing_key = str(self._invocable.config.pubtopic)
+                        routing_key = str(data_out['key'])
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
@@ -158,5 +160,16 @@ class AmqpInvoker(Invoker):
         Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-        for data_out in self._invocable.invoke(data_in['data']):
-            yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
+        data = data_in['data']
+        context = {
+            'subtopic': self._invocable.config.subtopic,
+            'pubtopic': self._invocable.config.pubtopic
+        }
+        for ambiguous_object in self._invocable.invoke(copy.deepcopy(data), copy.deepcopy(context)):
+            if type(ambiguous_object) is tuple:
+                data_out, context_out = ambiguous_object
+                yield {'data': data_out, 'key': context_out['pubtopic'], 'log': data_in.get('log', [])}
+            else:
+                data_out = ambiguous_object
+                yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
+

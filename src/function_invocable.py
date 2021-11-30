@@ -58,7 +58,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
+    def invoke(self, data_in: TYPE_PAYLOAD, context) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -67,6 +67,7 @@ class FunctionInvocable:
 
         Args:
             data_in (Dict): Contents will be passed to injected function as keyword args.
+            context (Dict): Passes along additional context
 
         Raises:
             Exception: caught exception re-raised with a stack trace.
@@ -75,7 +76,11 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            result = self._func(**data_in)
+            num_params = len(inspect.signature(self._func).parameters)
+            if num_params == 2:
+                result = self._func(data_in, context)
+            else:
+                result = self._func(data_in)
             if inspect.isgenerator(result):
                 yield from result
             else:
