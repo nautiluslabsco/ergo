@@ -24,6 +24,7 @@ class Config:
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
+        self._context_enabler: Optional[bool] = config.get('context', False)
 
     @property
     def namespace(self) -> Optional[str]:
@@ -96,3 +97,13 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
+    
+    @property
+    def context_enabler(self) -> Optional[str]:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._context_enabler
+
