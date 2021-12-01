@@ -165,11 +165,12 @@ class AmqpInvoker(Invoker):
             'subtopic': self._invocable.config.subtopic,
             'pubtopic': self._invocable.config.pubtopic
         }
-        for ambiguous_object in self._invocable.invoke(copy.deepcopy(data), copy.deepcopy(context)):
-            if type(ambiguous_object) is tuple:
-                data_out, context_out = ambiguous_object
-                yield {'data': data_out, 'key': context_out['pubtopic'], 'log': data_in.get('log', [])}
-            else:
-                data_out = ambiguous_object
-                yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
+
+        def _helper(g, orig_context):
+            curr_context = copy.deepcopy(orig_context)
+            for _data_out in g(copy.deepcopy(data), curr_context):
+                yield _data_out, curr_context
+
+        for data_out, context_out in _helper(self._invocable.invoke, context):
+            yield {'data': data_out, 'key': context_out['pubtopic'], 'log': data_in.get('log', [])}
 
