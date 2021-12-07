@@ -1,8 +1,6 @@
 """Summary."""
 import asyncio
 import json
-import copy
-import inspect
 from typing import Dict, Iterable
 from urllib.parse import urlparse
 
@@ -14,6 +12,7 @@ from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 from src.util import extract_from_stack
+from src.context import ErgoContext
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -165,12 +164,15 @@ class AmqpInvoker(Invoker):
             'subtopic': self._invocable.config.subtopic,
             'pubtopic': self._invocable.config.pubtopic
         }
+        context = ErgoContext(
+            subtopic=self._invocable.config.subtopic,
+            pubtopic=self._invocable.config.pubtopic
+        )
 
-        def _helper(g, orig_context):
-            curr_context = copy.deepcopy(orig_context)
-            for _data_out in g(copy.deepcopy(data), curr_context):
-                yield _data_out, curr_context
+        def _helper(g):
+            for _data_out in g(data, context):
+                yield _data_out, context
 
-        for data_out, context_out in _helper(self._invocable.invoke, context):
-            yield {'data': data_out, 'key': context_out['pubtopic'], 'log': data_in.get('log', [])}
+        for data_out, context_out in _helper(self._invocable.invoke):
+            yield {'data': data_out, 'key': context_out.pubtopic, 'log': data_in.get('log', [])}
 

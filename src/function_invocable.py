@@ -10,7 +10,8 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN, ErgoContext
+from src.types import TYPE_PAYLOAD, TYPE_RETURN
+from src.context import ErgoContext
 from src.util import print_exc_plus, gen_args
 
 
@@ -64,7 +65,7 @@ class FunctionInvocable:
         If func is a generator, will exhaust generator, yielding each response.
         If an exception occurs will re-raise with a stack trace.
         Func responses will not be percolated if they return None.
-        If first param is 'context' in injeced func, we pass along a context param.
+        If any param has 'ErgoContext' as type annotation in injeced func, we pass along a context arg.
 
         Args:
             data_in (Dict): Contents will be passed to injected function as keyword args.

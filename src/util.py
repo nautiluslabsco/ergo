@@ -7,7 +7,8 @@ from types import FrameType, TracebackType
 from typing import List, Optional, Tuple, Dict
 from uuid import uuid4
 
-from src.types import TYPE_PAYLOAD, ErgoContext
+from src.types import TYPE_PAYLOAD
+from src.context import ErgoContext
 
 if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=C0412
