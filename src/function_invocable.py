@@ -10,7 +10,7 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
+from src.types import TYPE_PAYLOAD, TYPE_RETURN, ErgoContext
 from src.util import print_exc_plus, gen_args
 
 
@@ -58,7 +58,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD, context: TYPE_PAYLOAD = None) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
+    def invoke(self, data_in: TYPE_PAYLOAD, context: ErgoContext = None) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
