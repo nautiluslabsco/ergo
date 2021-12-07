@@ -160,10 +160,6 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
         data = data_in['data']
-        context = {
-            'subtopic': self._invocable.config.subtopic,
-            'pubtopic': self._invocable.config.pubtopic
-        }
         context = ErgoContext(
             subtopic=self._invocable.config.subtopic,
             pubtopic=self._invocable.config.pubtopic
