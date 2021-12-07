@@ -4,7 +4,7 @@ import sys
 import time
 import traceback
 from types import FrameType, TracebackType
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from uuid import uuid4
 
 from src.types import TYPE_PAYLOAD, ErgoContext
@@ -129,5 +129,17 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
             return matches[0], matches[1], matches[2]
     return None, None, None
 
-#TODO: extract context type here!
-#def args_helper(data: TYPE_PAYLOAD)
+
+def gen_args(data: TYPE_PAYLOAD, params, context: ErgoContext) -> Dict:
+    """
+    Convenience func for generating arguments for a given invocable function.
+
+    Only passes along values from payload that match what's in the function signature.
+    """
+    filtered_args = {
+        k: v for k, v in data.items() if k in params.keys()
+    }
+    for p in params.values():
+        if p.annotation is ErgoContext:
+            filtered_args[p.name] = context
+    return filtered_args
