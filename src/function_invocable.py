@@ -10,7 +10,7 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
+from src.types import TYPE_PAYLOAD, TYPE_RETURN, ErgoContext
 from src.util import print_exc_plus
 
 
@@ -78,10 +78,14 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             params = inspect.signature(self._func).parameters
-            if [p for p in params][0] == 'context':
-                result = self._func(context, data_in)
-            else:
-                result = self._func(data_in)
+            filtered_args = {
+                k: v for k, v in data_in.items() if k in params.keys()
+            }
+            for p in params.values():
+                if p.annotation is ErgoContext:
+                    context_name = p.name
+                    filtered_args[context_name] = context
+            result = self._func(**filtered_args)
             if inspect.isgenerator(result):
                 yield from result
             else:

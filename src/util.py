@@ -7,6 +7,8 @@ from types import FrameType, TracebackType
 from typing import List, Optional, Tuple
 from uuid import uuid4
 
+from src.types import TYPE_PAYLOAD, ErgoContext
+
 if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=C0412
 else:
@@ -126,3 +128,6 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
         if len(matches) == 3:  # for mypy
             return matches[0], matches[1], matches[2]
     return None, None, None
+
+#TODO: extract context type here!
+#def args_helper(data: TYPE_PAYLOAD)
