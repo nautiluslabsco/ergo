@@ -1,6 +1,6 @@
 import sys
 import unittest
-import src.util as util
+import ergo.util as util
 
 
 class TestUtil(unittest.TestCase):

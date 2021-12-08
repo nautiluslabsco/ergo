@@ -2,7 +2,7 @@ import multiprocessing
 import yaml
 import tempfile
 from contextlib import contextmanager
-from src.ergo_cli import ErgoCli
+from ergo.ergo_cli import ErgoCli
 
 
 @contextmanager

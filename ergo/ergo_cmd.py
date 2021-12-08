@@ -2,7 +2,7 @@
 import cmd  # https://docs.python.org/3/library/cmd.html
 from typing import IO, Callable, List, Optional, cast
 
-from src.ergo_cli import ErgoCli
+from ergo.ergo_cli import ErgoCli
 
 
 class ErgoCmd(cmd.Cmd):

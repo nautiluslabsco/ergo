@@ -7,8 +7,8 @@ from types import FrameType, TracebackType
 from typing import List, Optional, Tuple, Dict
 from uuid import uuid4
 
-from src.types import TYPE_PAYLOAD
-from src.context import ErgoContext
+from ergo.types import TYPE_PAYLOAD
+from ergo.context import ErgoContext
 
 if sys.version_info >= (3, 8):
     from typing import TypedDict  # pylint: disable=C0412
@@ -140,7 +140,9 @@ def gen_args(data: TYPE_PAYLOAD, params, context: ErgoContext) -> Dict:
     filtered_args = {
         k: v for k, v in data.items() if k in params.keys()
     }
+    print('looking for a context match!')
     for p in params.values():
         if p.annotation is ErgoContext:
             filtered_args[p.name] = context
+            print('found a match!')
     return filtered_args

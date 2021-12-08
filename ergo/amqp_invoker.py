@@ -8,11 +8,11 @@ import aio_pika
 import aiomisc
 from retry import retry
 
-from src.function_invocable import FunctionInvocable
-from src.invoker import Invoker
-from src.types import TYPE_PAYLOAD
-from src.util import extract_from_stack
-from src.context import ErgoContext
+from ergo.function_invocable import FunctionInvocable
+from ergo.invoker import Invoker
+from ergo.types import TYPE_PAYLOAD
+from ergo.util import extract_from_stack
+from ergo.context import ErgoContext
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -96,7 +96,7 @@ class AmqpInvoker(Invoker):
                 try:
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
-                        routing_key = str(data_out['key'])
+                        routing_key = data_out['key']
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
@@ -170,5 +170,5 @@ class AmqpInvoker(Invoker):
                 yield _data_out, context
 
         for data_out, context_out in _helper(self._invocable.invoke):
-            yield {'data': data_out, 'key': context_out.pubtopic, 'log': data_in.get('log', [])}
+            yield {'data': data_out, 'key': str(context_out.pubtopic), 'log': data_in.get('log', [])}
 

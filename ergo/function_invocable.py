@@ -9,10 +9,10 @@ from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
-from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
-from src.context import ErgoContext
-from src.util import print_exc_plus, gen_args
+from ergo.config import Config
+from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
+from ergo.context import ErgoContext
+from ergo.util import print_exc_plus, gen_args
 
 
 class FunctionInvocable:
@@ -79,7 +79,9 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             params = inspect.signature(self._func).parameters
-            result = self._func(**gen_args(data_in, params, context))
+            args = gen_args(data_in, params, context)
+            print(f'args are: {args}')
+            result = self._func(**args)
             if inspect.isgenerator(result):
                 yield from result
             else:

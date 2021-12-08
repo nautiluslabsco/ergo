@@ -11,7 +11,7 @@ from distutils.core import setup
 
 from setuptools.command.install import install
 
-from src.version import get_version
+from ergo.version import get_version
 
 
 def from_file(file_name):
@@ -72,7 +72,6 @@ class VerifyVersionCommand(install):
 setup(
     name='ergo',  # How you named your package folder (MyLib)
     packages=['ergo'],  # Chose the same as "name"
-    package_dir={'ergo': 'src'},
     version=VERSION,  # Start with a small number and increase it with every change you make
     license='MIT',  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     description='Simple Microservice Development Framework',  # Give a short description about your library
@@ -93,7 +92,8 @@ setup(
         'aio-pika',
         'retry',
         'aiomisc',
-        'graphviz'
+        'graphviz',
+        'yarl'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
@@ -110,7 +110,7 @@ setup(
     python_requires='>=3',
     entry_points={
         'console_scripts': [
-            'ergo=src.ergo_click:main'
+            'ergo=ergo.ergo_click:main'
         ]
     },
     cmdclass={

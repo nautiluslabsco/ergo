@@ -1,4 +1,4 @@
-from src.topic import SubTopic, PubTopic
+from ergo.topic import SubTopic, PubTopic
 
 
 class ErgoContext:

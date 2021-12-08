@@ -1,7 +1,7 @@
 """Summary."""
 from typing import Dict, Optional
 
-from src.topic import PubTopic, SubTopic, Topic
+from ergo.topic import PubTopic, SubTopic, Topic
 
 
 class Config:
