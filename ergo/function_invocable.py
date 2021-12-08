@@ -79,9 +79,7 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             params = inspect.signature(self._func).parameters
-            args = gen_args(data_in, params, context)
-            print(f'args are: {args}')
-            result = self._func(**args)
+            result = self._func(**gen_args(data_in, params, context))
             if inspect.isgenerator(result):
                 yield from result
             else:
