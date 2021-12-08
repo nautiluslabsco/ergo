@@ -71,14 +71,15 @@ class VerifyVersionCommand(install):
 
 setup(
     name='ergo',  # How you named your package folder (MyLib)
-    packages=['src'],  # Chose the same as "name"
+    packages=['ergo'],  # Chose the same as "name"
+    package_dir={'ergo': 'src'},
     version=VERSION,  # Start with a small number and increase it with every change you make
     license='MIT',  # Chose a license from here: https://help.github.com/articles/licensing-a-repository
     description='Simple Microservice Development Framework',  # Give a short description about your library
     author='Matthew Hansen',  # Type in your name
     author_email='ergo@mattian.com',  # Type in your E-Mail
-    url='https://github.com/mattian7741/ergo',  # Provide either the link to your github or to your website
-    download_url=f'https://github.com/mattian7741/ergo/archive/v{VERSION}.tar.gz',  # github release url
+    url='https://github.com/nautiluslabsco/ergo',  # Provide either the link to your github or to your website
+    download_url=f'https://github.com/nautiluslabsco/ergo/archive/v{VERSION}.tar.gz',  # github release url
     keywords=['execute', 'microservice', 'lambda'],  # Keywords that define your package best
     install_requires=[  # dependencies
         'Click',
