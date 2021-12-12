@@ -12,7 +12,7 @@ from src.function_invocable import FunctionInvocable
 from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 from src.util import extract_from_stack
-
+from src.payload import Payload
 # content_type: application/json
 # {"x":5,"y":7}
 
@@ -93,7 +93,7 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
-                    data_in['context'] = self._invocable.config.copy()
+                    data_in.set('context', self._invocable.config.copy())
 
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
@@ -101,9 +101,9 @@ class AmqpInvoker(Invoker):
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_in['error'] = make_error_output(err)
-                    data_in['traceback'] = str(err)
-                    message = aio_pika.Message(body=json.dumps(data_in).encode())
+                    data_in.set('error', make_error_output(err))
+                    data_in.set('traceback', str(err))
+                    message = aio_pika.Message(body=json.dumps(str(data_in)).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
@@ -133,7 +133,7 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    yield dict(json.loads(message.body.decode('utf-8')))
+                    yield Payload(dict(json.loads(message.body.decode('utf-8'))))
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -161,5 +161,5 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        for data_out in self._invocable.invoke([data_in[arg] for arg in self._invocable.config.args]):
-            yield {'data': data_out, 'key': str(data_in['context'].pubtopic), 'log': data_in.get('log', [])}
+        for data_out in self._invocable.invoke([data_in.get(self._invocable.config.args[arg]) for arg in self._invocable.config.args]):
+            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}

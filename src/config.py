@@ -3,6 +3,7 @@ from typing import Dict, Optional
 
 from src.topic import PubTopic, SubTopic, Topic
 import copy
+from collections import OrderedDict
 
 class Config:
     """Summary."""
@@ -24,7 +25,7 @@ class Config:
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
-        self._args: List[str] = config.get('args', [])
+        self._args: OrderedDict[str, str] = config.get('args', {})
 
     def copy(self):
         return copy.deepcopy(self)
@@ -76,12 +77,12 @@ class Config:
 
     @pubtopic.setter
     def pubtopic(self, val: str) -> None:
-         """Summary.
+        """Summary.
 
         Returns:
             TYPE: Description
         """
-       self._pubtopic = val
+        self._pubtopic = val
 
     @property
     def func(self) -> str:
