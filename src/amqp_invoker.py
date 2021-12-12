@@ -93,9 +93,11 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
+                    data_in['context'] = self._invocable.config.copy()
+
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
-                        routing_key = str(self._invocable.config.pubtopic)
+                        routing_key = str(data_in.get('context').pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
@@ -158,5 +160,6 @@ class AmqpInvoker(Invoker):
         Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-        for data_out in self._invocable.invoke(data_in['data']):
-            yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
+
+        for data_out in self._invocable.invoke([data_in[arg] for arg in self._invocable.config.args]):
+            yield {'data': data_out, 'key': str(data_in['context'].pubtopic), 'log': data_in.get('log', [])}

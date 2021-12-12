@@ -75,7 +75,7 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            result = self._func(**data_in)
+            result = self._func(*data_in)
             if inspect.isgenerator(result):
                 yield from result
             else:
@@ -119,3 +119,5 @@ class FunctionInvocable:
 
         method_name: str = matches.group(5)
         self._func = getattr(scope, method_name)
+        self._config.args = inspect.getfullargspec(self._func)[0]
+
