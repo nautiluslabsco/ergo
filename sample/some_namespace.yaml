@@ -1,0 +1,3 @@
+protocol: amqp
+host: amqps://some.amqp.host
+exchange: primary 
