@@ -134,7 +134,8 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    yield Payload(dict(json.loads(message.body.decode('utf-8'))))
+                    data_in = json.loads(message.body.decode('utf-8'))
+                    yield Payload(data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -163,6 +164,4 @@ class AmqpInvoker(Invoker):
         """
 
         for data_out in self._invocable.invoke(data_in):
-            data_out["key"] = str(data_in.get('context').pubtopic)
-            data_out["log"] = data_in.get("log", [])
-            yield data_out
+            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}

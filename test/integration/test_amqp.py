@@ -50,7 +50,7 @@ def test_product_amqp(rabbitmq):
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = json.dumps({"x": 4, "y": 5})
         result = next(rpc(payload, **manifest, **namespace))
-        assert result == 20.0
+        assert result == {'data': 20.0, 'key': 'out.product', 'log': []}
 
 
 def get_dict():
@@ -75,7 +75,12 @@ def test_get_two_dicts(rabbitmq):
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
         results = rpc(payload, **manifest, **namespace)
-        assert next(results) == get_two_dicts()
+        expected = {
+            'data': get_two_dicts(),
+            'key': 'get_two_dicts.out',
+            'log': []
+        }
+        assert next(results) == expected
 
 
 def yield_two_dicts():
@@ -97,8 +102,13 @@ def test_yield_two_dicts(rabbitmq):
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
         results = rpc(payload, **manifest, **namespace)
-        assert next(results) == get_dict()
-        assert next(results) == get_dict()
+        expected = {
+            'data': get_dict(),
+            'key': 'out.yield_two_dicts',
+            'log': []
+        }
+        assert next(results) == expected
+        assert next(results) == expected
 
 
 def dispatch_greetings(names):
@@ -107,7 +117,7 @@ def dispatch_greetings(names):
 
 
 def greet(name):
-    return {"greeting": f"Hello, {name}!"}
+    return f"Hello, {name}!"
 
 
 def test_greet():
@@ -135,11 +145,18 @@ def test_greet():
         with ergo("start", manifest=manifest_greet, namespace=namespace_greet):
             payload = json.dumps({"names": ["Bob", "Alice"]})
             results = rpc(payload, manifest_greet["func"], AMQP_HOST, "test_exchange", "greet.out", "dispatch_greetings.in")
-            actual = []
-            for _ in range(2):
-                actual.append(next(results)["greeting"])
-            expected = ["Hello, Alice!", "Hello, Bob!"]
-            assert sorted(actual) == expected
+            actual = [next(results), next(results)]
+            actual = sorted(actual, key=lambda d: d['data'])
+            expected = [{
+                'data': "Hello, Alice!",
+                'key': 'greet.out',
+                'log': []
+            }, {
+                'data': "Hello, Bob!",
+                'key': 'greet.out',
+                'log': []
+            }]
+            assert actual == expected
 
 
 def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
