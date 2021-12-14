@@ -13,6 +13,7 @@ from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 from src.util import extract_from_stack
 from src.payload import Payload
+from src.serialization import serialize
 # content_type: application/json
 # {"x":5,"y":7}
 
@@ -28,7 +29,7 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 
 def make_error_output(err: Exception) -> Dict[str, str]:
     """Make a more digestable error output."""
-    orig = err.__context__
+    orig = err.__context__ or err
     err_output = {
         'type': type(orig).__name__,
         'message': str(orig),
@@ -103,7 +104,7 @@ class AmqpInvoker(Invoker):
                 except Exception as err:  # pylint: disable=broad-except
                     data_in.set('error', make_error_output(err))
                     data_in.set('traceback', str(err))
-                    message = aio_pika.Message(body=json.dumps(str(data_in)).encode())
+                    message = aio_pika.Message(body=serialize(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
@@ -161,5 +162,7 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        for data_out in self._invocable.invoke([data_in.get(self._invocable.config.args[arg]) for arg in self._invocable.config.args]):
-            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}
+        for data_out in self._invocable.invoke(data_in):
+            data_out["key"] = str(data_in.get('context').pubtopic)
+            data_out["log"] = data_in.get("log", [])
+            yield data_out

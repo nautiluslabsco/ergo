@@ -48,7 +48,7 @@ def test_product_amqp(rabbitmq):
         "pubtopic": "product.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
-        payload = json.dumps({"data": {"x": 4, "y": 5}})
+        payload = json.dumps({"x": 4, "y": 5})
         result = next(rpc(payload, **manifest, **namespace))
         assert result == 20.0
 
@@ -101,6 +101,47 @@ def test_yield_two_dicts(rabbitmq):
         assert next(results) == get_dict()
 
 
+def dispatch_greetings(names):
+    for name in names:
+        yield {"name": name}
+
+
+def greet(name):
+    return {"greeting": f"Hello, {name}!"}
+
+
+def test_greet():
+    manifest_dispatch_greetings = {
+        "func": f"{__file__}:dispatch_greetings",
+    }
+    manifest_greet = {
+        "func": f"{__file__}:greet",
+    }
+    namespace_dispatch_greetings = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "dispatch_greetings.in",
+        "pubtopic": "greet.in",
+    }
+    namespace_greet = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "greet.in",
+        "pubtopic": "greet.out",
+    }
+    with ergo("start", manifest=manifest_dispatch_greetings, namespace=namespace_dispatch_greetings):
+        with ergo("start", manifest=manifest_greet, namespace=namespace_greet):
+            payload = json.dumps({"names": ["Bob", "Alice"]})
+            results = rpc(payload, manifest_greet["func"], AMQP_HOST, "test_exchange", "greet.out", "dispatch_greetings.in")
+            actual = []
+            for _ in range(2):
+                actual.append(next(results)["greeting"])
+            expected = ["Hello, Alice!", "Hello, Bob!"]
+            assert sorted(actual) == expected
+
+
 def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     connection = pika.BlockingConnection(pika.URLParameters(host))
     for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
@@ -123,7 +164,7 @@ def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
             raise RuntimeError(json.loads(body)["error"])
         _, _, body = next(channel.consume(queue_name, inactivity_timeout=0.1))
         if body:
-            yield json.loads(body)["data"]
+            yield json.loads(body)
 
 
 def publish(host, exchange, routing_key, payload: str):
