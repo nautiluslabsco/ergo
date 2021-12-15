@@ -113,7 +113,7 @@ def test_yield_two_dicts(rabbitmq):
 
 def dispatch_greetings(names):
     for name in names:
-        yield {"name": name}
+        yield name
 
 
 def greet(name):

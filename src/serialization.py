@@ -1,11 +1,12 @@
 import json
+from typing import Any
 
 from src.config import Config
 from src.payload import Payload
 from src.topic import Topic
 
 
-def serialize(data):
+def serialize(data: Any) -> str:
     return json.dumps(data, cls=ErgoEncoder)
 
 
