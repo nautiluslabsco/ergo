@@ -56,3 +56,12 @@ class Payload:
 
         """
         return list(self._data.values())
+
+    def __str__(self) -> str:
+        """Summary.
+
+        Returns:
+            str: Description
+
+        """
+        return json.dumps(self._data)

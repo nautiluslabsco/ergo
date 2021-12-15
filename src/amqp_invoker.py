@@ -13,7 +13,6 @@ from src.invoker import Invoker
 from src.types import TYPE_PAYLOAD
 from src.util import extract_from_stack
 from src.payload import Payload
-from src.serialization import serialize
 # content_type: application/json
 # {"x":5,"y":7}
 
@@ -105,7 +104,7 @@ class AmqpInvoker(Invoker):
                     data_in.set('error', make_error_output(err))
                     data_in.set('traceback', str(err))
                     data_in.unset('context')
-                    message = aio_pika.Message(body=json.dumps(str(data_in)).encode())
+                    message = aio_pika.Message(body=str(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 

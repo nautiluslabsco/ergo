@@ -159,6 +159,26 @@ def test_greet():
             assert actual == expected
 
 
+def assert_false():
+    assert False
+
+
+def test_error_path(rabbitmq):
+    manifest = {
+        "func": f"{__file__}:assert_false",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "assert_false.in",
+        "pubtopic": "assert_false.out",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        with pytest.raises(ComponentFailure):
+            next(rpc("{}", **manifest, **namespace))
+
+
 def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     connection = pika.BlockingConnection(pika.URLParameters(host))
     for retry in _retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
@@ -178,7 +198,7 @@ def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     while True:
         _, _, body = next(error_channel.consume(f"{func}_error", inactivity_timeout=0.1))
         if body:
-            raise RuntimeError(json.loads(body)["error"])
+            raise ComponentFailure(json.loads(body)["error"])
         _, _, body = next(channel.consume(queue_name, inactivity_timeout=0.1))
         if body:
             yield json.loads(body)
@@ -218,3 +238,7 @@ def _retries(n: int, backoff_seconds: float, *retry_errors: BaseException):
                 time.sleep(backoff_seconds)
 
         yield retry
+
+
+class ComponentFailure(BaseException):
+    pass
