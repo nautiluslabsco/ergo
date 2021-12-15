@@ -38,6 +38,16 @@ class Payload:
         """
         self._data[key] = value
 
+    def unset(self, key: str) -> str:
+        """Summary.
+
+        Args:
+            key (str): Description
+            value (str): Description
+
+        """
+        return self._data.pop(key, None)
+
     def list(self) -> List[str]:
         """Summary.
 

@@ -104,7 +104,8 @@ class AmqpInvoker(Invoker):
                 except Exception as err:  # pylint: disable=broad-except
                     data_in.set('error', make_error_output(err))
                     data_in.set('traceback', str(err))
-                    message = aio_pika.Message(body=serialize(data_in).encode())
+                    data_in.unset('context')
+                    message = aio_pika.Message(body=json.dumps(str(data_in)).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
