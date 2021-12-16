@@ -1,6 +1,7 @@
 """Summary."""
 import asyncio
 import json
+import copy
 from typing import Dict, Iterable
 from urllib.parse import urlparse
 
@@ -93,7 +94,7 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
-                    data_in['context'] = self._invocable.config if self._invocable.config.context_enabler else None
+                    data_in['context'] = copy.deepcopy(self._invocable.config) if self._invocable.config.context_enabler else self._invocable.config
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
                         routing_key = str(self._invocable.config.pubtopic)
@@ -160,5 +161,6 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
         for data_out in self._invocable.invoke(data_in['context'], data_in['data']):
-            yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
+            yield {'data': data_out, 'key': data_in['context'].pubtopic, 'log': data_in.get('log', [])}
+            # yield {'data': data_out, 'key': str(self._invocable.config.pubtopic), 'log': data_in.get('log', [])}
 
