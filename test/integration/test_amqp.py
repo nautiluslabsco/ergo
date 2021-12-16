@@ -111,54 +111,6 @@ def test_yield_two_dicts(rabbitmq):
         assert next(results) == expected
 
 
-def dispatch_greetings(names):
-    for name in names:
-        yield name
-
-
-def greet(name):
-    return f"Hello, {name}!"
-
-
-def test_greet():
-    manifest_dispatch_greetings = {
-        "func": f"{__file__}:dispatch_greetings",
-    }
-    manifest_greet = {
-        "func": f"{__file__}:greet",
-    }
-    namespace_dispatch_greetings = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "dispatch_greetings.in",
-        "pubtopic": "greet.in",
-    }
-    namespace_greet = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "greet.in",
-        "pubtopic": "greet.out",
-    }
-    with ergo("start", manifest=manifest_dispatch_greetings, namespace=namespace_dispatch_greetings):
-        with ergo("start", manifest=manifest_greet, namespace=namespace_greet):
-            payload = json.dumps({"names": ["Bob", "Alice"]})
-            results = rpc(payload, manifest_greet["func"], AMQP_HOST, "test_exchange", "greet.out", "dispatch_greetings.in")
-            actual = [next(results), next(results)]
-            actual = sorted(actual, key=lambda d: d['data'])
-            expected = [{
-                'data': "Hello, Alice!",
-                'key': 'greet.out',
-                'log': []
-            }, {
-                'data': "Hello, Bob!",
-                'key': 'greet.out',
-                'log': []
-            }]
-            assert actual == expected
-
-
 def assert_false():
     assert False
 
