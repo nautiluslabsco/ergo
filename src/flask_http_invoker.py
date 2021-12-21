@@ -7,6 +7,7 @@ from flask import Flask, request  # , abort
 
 from src.http_invoker import HttpInvoker
 from src.types import TYPE_PAYLOAD
+from src.payload import Payload
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -29,7 +30,7 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_in: TYPE_PAYLOAD = dict(request.args)
+            data_in: TYPE_PAYLOAD = Payload(request.args)
             data_out: List[TYPE_PAYLOAD] = list(self._invocable.invoke(data_in))
             if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]

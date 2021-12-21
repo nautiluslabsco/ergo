@@ -46,3 +46,47 @@
 - [ ] Structured logging around low level execution and messages
 - [ ] Augment topics with lowlevel metadata (to:serviceX, from:serviceY, ip_address, etc.)
 - [ ] Support providing a readable name in configuration for rabbit queue
+- [ ] Dynamic routing
+- [ ] signature binding
+- [ ] sample component for ergo lib
+- [ ] documentation
+- [ ] verification of http interface
+- [ ] switch to .ergo for ergo graph
+- [ ] other executors: stdio, call stack, http (revisited)
+- [ ] node.js support
+- [ ] instrumentation/monitoring/datadog/new relic
+- [ ] metadata/data protocol
+- [ ] unit tests (ergo)
+- [ ] component unit testing framework
+- [ ] logging
+- [ ] transactions/correlation/lineage
+- [ ] request/response
+- [ ] transactions
+- [ ] data protocol version management
+- [ ] one-click deployment
+- [ ] convergence pattern
+- [ ] error retries/handling
+- [ ] stack trace
+- [ ] RPC
+- [ ] http gateway
+- [ ] event streams
+- [ ] deployment scheme into ergo library
+- [ ] payload validation (input and output)
+- [ ] payload serialization (adapters)
+- [ ] config callbacks as values
+- [ ] payload, topic, class clean up
+- [ ] elimination of pure helper functions
+- [ ] asyncio clean up (done the way it was done in node.js at sstk - [ ] single entry point async)
+- [ ] topic parameterization
+- [ ] topic parameterizationpass-through
+- [ ] topic parameterizationexpansion
+- [ ] topic parameterizationcompression
+- [ ] topic parameterizationinbound boolean (and/or) (array of topics inbound)
+- [ ] topic outbound multiple
+- [ ] specific consumers in clusters (web-socket example)
+- [ ] return value mapping/binding
+- [ ] message timestamps (and other metadata)
+- [ ] acknowledgments and requeues and long running operations
+- [ ] reintroduction of git hooks
+- [ ] linting, typing mechanics
+- [ ] overcome strong typing oversights (tech debt) - re-type everything

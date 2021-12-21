@@ -28,7 +28,7 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 
 def make_error_output(err: Exception) -> Dict[str, str]:
     """Make a more digestable error output."""
-    orig = err.__context__
+    orig = err.__context__ or err
     err_output = {
         'type': type(orig).__name__,
         'message': str(orig),
@@ -104,7 +104,7 @@ class AmqpInvoker(Invoker):
                     data_in.set('error', make_error_output(err))
                     data_in.set('traceback', str(err))
                     data_in.unset('context')
-                    message = aio_pika.Message(body=json.dumps(str(data_in)).encode())
+                    message = aio_pika.Message(body=str(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
@@ -134,7 +134,8 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    yield Payload(dict(json.loads(message.body.decode('utf-8'))))
+                    data_in = json.loads(message.body.decode('utf-8'))
+                    yield Payload(data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -162,5 +163,5 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        for data_out in self._invocable.invoke([data_in.get(self._invocable.config.args[arg]) for arg in self._invocable.config.args]):
+        for data_out in self._invocable.invoke(data_in):
             yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}
