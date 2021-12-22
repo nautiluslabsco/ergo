@@ -7,7 +7,7 @@ Attributes:
 import subprocess
 import sys
 
-VERSION = '0.5.6-alpha'
+VERSION = '0.5.7-alpha'
 
 
 def get_version() -> str:
