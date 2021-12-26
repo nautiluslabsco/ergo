@@ -50,7 +50,7 @@ class AmqpInvoker(Invoker):
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
-        self.queue_name = self._invocable.config.func
+        self.queue_name = self._invocable.config.func.replace('.py', '')
 
     def start(self) -> int:
         """
