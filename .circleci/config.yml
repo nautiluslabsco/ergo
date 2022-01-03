@@ -42,14 +42,17 @@ jobs:
       - run:
           name: "Enforce PEP8"
           command: |
+            . venv/bin/activate
             autopep8 --aggressive --aggressive --recursive ./ergo --diff --exit-code
       - run:
           name: "Enforce black style"
           command: |
+            . venv/bin/activate
             black -S --line-length 512 ./ergo --check --diff
       - run:
           name: "Enforce isort"
           command: |
+            . venv/bin/activate
             isort ./ergo/*.py -c
       - store_artifacts:
           path: htmlcov/
