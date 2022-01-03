@@ -7,7 +7,7 @@ from typing import Any, List
 
 from falcon import Request, Response, abort
 
-from src.http_invoker import HttpInvoker
+from ergo.http_invoker import HttpInvoker
 
 
 class FalconHttpInvoker(HttpInvoker):

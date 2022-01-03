@@ -5,9 +5,9 @@ from typing import List
 
 from flask import Flask, request  # , abort
 
-from src.http_invoker import HttpInvoker
-from src.types import TYPE_PAYLOAD
-from src.payload import Payload
+from ergo.http_invoker import HttpInvoker
+from ergo.payload import Payload
+from ergo.types import TYPE_PAYLOAD
 
 
 class FlaskHttpInvoker(HttpInvoker):

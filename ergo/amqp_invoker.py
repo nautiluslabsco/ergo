@@ -8,11 +8,12 @@ import aio_pika
 import aiomisc
 from retry import retry
 
-from src.function_invocable import FunctionInvocable
-from src.invoker import Invoker
-from src.types import TYPE_PAYLOAD
-from src.util import extract_from_stack
-from src.payload import Payload
+from ergo.function_invocable import FunctionInvocable
+from ergo.invoker import Invoker
+from ergo.payload import Payload
+from ergo.types import TYPE_PAYLOAD
+from ergo.util import extract_from_stack
+
 # content_type: application/json
 # {"x":5,"y":7}
 

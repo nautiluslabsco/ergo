@@ -1,7 +1,7 @@
 """Summary."""
 from typing import List, Optional
 
-from src.key import Key
+from ergo.key import Key
 
 
 class Topic:

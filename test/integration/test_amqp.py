@@ -5,7 +5,7 @@ import docker
 import time
 from contextlib import contextmanager
 from test.integration.utils import ergo
-from src.topic import PubTopic, SubTopic
+from ergo.topic import PubTopic, SubTopic
 
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"

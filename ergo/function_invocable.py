@@ -4,15 +4,15 @@ import inspect
 import os
 import re
 import sys
+from collections import OrderedDict
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
-from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
-from src.util import print_exc_plus
-from collections import OrderedDict
+from ergo.config import Config
+from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
+from ergo.util import print_exc_plus
 
 
 class FunctionInvocable:
