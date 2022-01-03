@@ -146,23 +146,23 @@ workflows:
           name: test-python-install-3.7
           version: "3.7"
           requires:
-            - build
+            - build_verify_lint
       - test-python-install:
           name: test-python-install-3.8
           version: "3.8"
           requires:
-            - build
+            - build_verify_lint
       - test-python-install:
           name: test-python-install-3.9
           version: "3.9"
           requires:
-            - build
+            - build_verify_lint
       - test-python-install:
           name: test-python-install-3.10
           version: "3.10"
           requires:
-            - build
+            - build_verify_lint
       - deploy:
           <<: *release_only
           requires:
-            - build
+            - build_verify_lint
