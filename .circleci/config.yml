@@ -140,7 +140,7 @@ jobs:
 workflows:
   build_and_deploy:
     jobs:
-      - build:
+      - build_verify_lint:
           <<: *always_run
       - test-python-install:
           name: test-python-install-3.7
