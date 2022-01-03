@@ -10,9 +10,9 @@ import click
 from click_default_group import \
     DefaultGroup  # https://pypi.org/project/click-default-group/
 
-from src.config import Config
-from src.ergo_cli import ErgoCli
-from src.ergo_cmd import ErgoCmd
+from ergo.config import Config
+from ergo.ergo_cli import ErgoCli
+from ergo.ergo_cmd import ErgoCmd
 
 ERGO_CLI = ErgoCli()
 

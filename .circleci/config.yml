@@ -1,6 +1,19 @@
 version: 2.1
+
+always_run: &always_run
+  filters:
+    tags:
+      only: /.*/
+
+release_only: &release_only
+  filters:
+    tags:
+      only: /[0-9]+(\.[0-9]+)*\-alpha/
+    branches:
+      ignore: /.*/
+
 jobs:
-  build:
+  build_verify_lint:
     docker:
       - image: circleci/python:3.7
       - image: rabbitmq:3.8.16-management-alpine
@@ -26,8 +39,21 @@ jobs:
             . venv/bin/activate
             make test
             codecov
+      - run:
+          name: "Enforce PEP8"
+          command: |
+            autopep8 --aggressive --aggressive --recursive ./ergo --diff --exit-code
+      - run:
+          name: "Enforce black style"
+          command: |
+            black -S --line-length 512 ./ergo --check --diff
+      - run:
+          name: "Enforce isort"
+          command: |
+            isort ./ergo/*.py -c
       - store_artifacts:
           path: htmlcov/
+
   test-python-install:
     parameters:
       version:
@@ -110,13 +136,12 @@ jobs:
             . venv/bin/activate
             pip install twine
             twine upload dist/*
+
 workflows:
   build_and_deploy:
     jobs:
       - build:
-          filters:
-            tags:
-              only: /.*/
+          <<: *always_run
       - test-python-install:
           name: test-python-install-3.7
           version: "3.7"
@@ -138,10 +163,6 @@ workflows:
           requires:
             - build
       - deploy:
+          <<: *release_only
           requires:
             - build
-          filters:
-            tags:
-              only: /[0-9]+(\.[0-9]+)*\-alpha/
-            branches:
-              ignore: /.*/

@@ -1,7 +1,8 @@
 """Summary."""
 import json
-import pydash
 from typing import Dict, List, Optional
+
+import pydash
 
 
 class Payload:
@@ -16,7 +17,7 @@ class Payload:
         """
         self._data: Dict[str, str] = data or {}
 
-    def get(self, key: str, default = None) -> Optional[str]:
+    def get(self, key: str, default=None) -> Optional[str]:
         """Summary.
 
         Args:

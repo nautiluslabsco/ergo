@@ -1,9 +1,10 @@
 """Summary."""
-from typing import Dict, Optional
-
-from src.topic import PubTopic, SubTopic, Topic
 import copy
 from collections import OrderedDict
+from typing import Dict, Optional
+
+from ergo.topic import PubTopic, SubTopic, Topic
+
 
 class Config:
     """Summary."""
