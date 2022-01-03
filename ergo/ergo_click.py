@@ -7,8 +7,7 @@ Attributes:
 from typing import Tuple
 
 import click
-from click_default_group import \
-    DefaultGroup  # https://pypi.org/project/click-default-group/
+from click_default_group import DefaultGroup  # https://pypi.org/project/click-default-group/
 
 from ergo.config import Config
 from ergo.ergo_cli import ErgoCli
