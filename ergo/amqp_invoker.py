@@ -135,6 +135,7 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
+                    await message.ack()
                     data_in = json.loads(message.body.decode('utf-8'))
                     yield Payload(data_in)
 
