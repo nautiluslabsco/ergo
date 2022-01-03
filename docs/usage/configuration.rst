@@ -81,7 +81,7 @@ Imagine there is some business logic like so in ``my_func.py``:
 
 An example config (``my_config.yaml``) might then look like:
 
-.. code-block:: guess
+.. code-block:: python
 
    namespace: my_namespace.yaml
    func: my_func.py:sum
