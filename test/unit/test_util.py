@@ -1,6 +1,6 @@
 import sys
 import unittest
-import src.util as util
+import ergo.util as util
 
 
 class TestUtil(unittest.TestCase):
@@ -33,3 +33,24 @@ class TestUtil(unittest.TestCase):
         frames = f1()
         for code, frame in zip(['f3', 'f2', 'f1'], frames):
             assert code in str(frame.f_code), f'code is: {code}, frame is: {frame}'
+
+    def test_extract(self):
+        def f3():
+            raise IndexError('zeke')
+
+        def f2():
+            try:
+                f3()
+            except IndexError as inner_e:
+                raise ValueError('reyna') from inner_e
+
+        def f1():
+            try:
+                f2()
+            except Exception as e:
+                return util.extract_from_stack(e)
+
+        filename, lineno, function_name = f1()
+        assert filename == 'test_util.py'
+        assert lineno == '45'
+        assert function_name == 'f2'

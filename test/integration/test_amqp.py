@@ -1,11 +1,12 @@
-import pytest
+import json
+from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
+from test.integration.utils import ergo, retries
+
 import pika
 import pika.exceptions
-import json
-from test.integration.utils import ergo, retries
-from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
-from src.topic import PubTopic, SubTopic
+import pytest
 
+from ergo.topic import PubTopic, SubTopic
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 
@@ -31,9 +32,9 @@ def test_product_amqp(rabbitmq):
         "pubtopic": "product.out",
     }
     with ergo("start", manifest=manifest, namespace=namespace):
-        payload = json.dumps({"data": {"x": 4, "y": 5}})
+        payload = json.dumps({"x": 4, "y": 5})
         result = next(rpc(payload, **manifest, **namespace))
-        assert result == 20.0
+        assert result == {'data': 20.0, 'key': 'out.product', 'log': []}
 
 
 def get_dict():
@@ -58,7 +59,12 @@ def test_get_two_dicts(rabbitmq):
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
         results = rpc(payload, **manifest, **namespace)
-        assert next(results) == get_two_dicts()
+        expected = {
+            'data': get_two_dicts(),
+            'key': 'get_two_dicts.out',
+            'log': []
+        }
+        assert next(results) == expected
 
 
 def yield_two_dicts():
@@ -80,8 +86,33 @@ def test_yield_two_dicts(rabbitmq):
     with ergo("start", manifest=manifest, namespace=namespace):
         payload = '{"data": {}}'
         results = rpc(payload, **manifest, **namespace)
-        assert next(results) == get_dict()
-        assert next(results) == get_dict()
+        expected = {
+            'data': get_dict(),
+            'key': 'out.yield_two_dicts',
+            'log': []
+        }
+        assert next(results) == expected
+        assert next(results) == expected
+
+
+def assert_false():
+    assert False
+
+
+def test_error_path(rabbitmq):
+    manifest = {
+        "func": f"{__file__}:assert_false",
+    }
+    namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "assert_false.in",
+        "pubtopic": "assert_false.out",
+    }
+    with ergo("start", manifest=manifest, namespace=namespace):
+        with pytest.raises(ComponentFailure):
+            next(rpc("{}", **manifest, **namespace))
 
 
 def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
@@ -103,10 +134,10 @@ def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     while True:
         _, _, body = next(error_channel.consume(f"{func}_error", inactivity_timeout=0.1))
         if body:
-            raise RuntimeError(json.loads(body)["error"])
+            raise ComponentFailure(json.loads(body)["error"])
         _, _, body = next(channel.consume(queue_name, inactivity_timeout=0.1))
         if body:
-            yield json.loads(body)["data"]
+            yield json.loads(body)
 
 
 def publish(host, exchange, routing_key, payload: str):
@@ -122,3 +153,7 @@ def publish(host, exchange, routing_key, payload: str):
     finally:
         channel.close()
         connection.close()
+
+
+class ComponentFailure(BaseException):
+    pass

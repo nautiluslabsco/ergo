@@ -5,13 +5,13 @@ Attributes:
 
 """
 from typing import Tuple
-import click
-from click_default_group import \
-    DefaultGroup  # https://pypi.org/project/click-default-group/
 
-from src.config import Config
-from src.ergo_cli import ErgoCli
-from src.ergo_cmd import ErgoCmd
+import click
+from click_default_group import DefaultGroup  # https://pypi.org/project/click-default-group/
+
+from ergo.config import Config
+from ergo.ergo_cli import ErgoCli
+from ergo.ergo_cmd import ErgoCmd
 
 ERGO_CLI = ErgoCli()
 
@@ -129,6 +129,7 @@ def start(ref: str, arg: Tuple[str]) -> int:
 
     """
     return ERGO_CLI.start(ref, *list(arg))
+
 
 @main.command()
 @click.argument('ref', type=click.STRING)

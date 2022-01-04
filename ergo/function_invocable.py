@@ -4,14 +4,15 @@ import inspect
 import os
 import re
 import sys
+from collections import OrderedDict
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
-from src.config import Config
-from src.types import TYPE_PAYLOAD, TYPE_RETURN
-from src.util import log, print_exc_plus
+from ergo.config import Config
+from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
+from ergo.util import print_exc_plus
 
 
 class FunctionInvocable:
@@ -75,14 +76,13 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            result = self._func(**data_in)
+            args = [data_in.get(self.config.args[arg]) for arg in self.config.args]
+            result = self._func(*args)
             if inspect.isgenerator(result):
                 yield from result
             else:
                 yield result
-
         except BaseException as err:
-
             raise Exception(print_exc_plus()) from err
 
     def inject(self) -> None:
@@ -119,3 +119,4 @@ class FunctionInvocable:
 
         method_name: str = matches.group(5)
         self._func = getattr(scope, method_name)
+        self._config.args = OrderedDict((signature_arg, self._config.args.get(signature_arg, signature_arg)) for signature_arg in inspect.getfullargspec(self._func)[0])

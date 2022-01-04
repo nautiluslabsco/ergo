@@ -1,7 +1,7 @@
 """Summary."""
 from abc import ABC, abstractmethod
 
-from src.function_invocable import FunctionInvocable
+from ergo.function_invocable import FunctionInvocable
 
 
 class Invoker(ABC):
