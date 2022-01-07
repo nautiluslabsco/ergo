@@ -6,6 +6,8 @@ import yaml
 from colors import color
 
 from ergo.amqp_invoker import AmqpInvoker
+from ergo.rpc_invocable import RPCInvocable
+from ergo.function_invocable import FunctionInvocable
 from ergo.config import Config
 from ergo.flask_http_invoker import FlaskHttpInvoker
 from ergo.function_invocable import FunctionInvocable
@@ -132,12 +134,12 @@ class ErgoCli:
         config = Config({'func': func})
         return self._http(config)
 
-    def _http(self, config: Config):
-        host: HttpInvoker = FlaskHttpInvoker(FunctionInvocable(config))
+    def _http(self, invocable):
+        host: HttpInvoker = FlaskHttpInvoker(invocable)
         host.start()
         return 0
 
-    def amqp(self, config: Config, *args: str) -> int:
+    def amqp(self, invocable, *args: str) -> int:
         """Summary.
 
         Args:
@@ -148,7 +150,7 @@ class ErgoCli:
             int: Description
 
         """
-        host: AmqpInvoker = AmqpInvoker(FunctionInvocable(config))
+        host: AmqpInvoker = AmqpInvoker(invocable)
         host.start()
         return 0
 
@@ -172,10 +174,15 @@ class ErgoCli:
                 conf.update(namespace_cfg)
                 config = Config(conf)
 
+                if config.rpc_target:
+                    invocable = RPCInvocable(config)
+                else:
+                    invocable = FunctionInvocable(config)
+
                 if config.protocol == 'amqp':
-                    return self.amqp(config)
+                    return self.amqp(invocable)
                 if config.protocol == 'http':
-                    return self._http(config)
+                    return self._http(invocable)
                 raise ValueError(f'unexpected protocol: {config.protocol}')
 
     def graph(self, *args: str) -> int:

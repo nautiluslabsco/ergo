@@ -27,6 +27,7 @@ class Config:
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
         self._args: OrderedDict[str, str] = config.get('args', {})
+        self._rpc_target: Optional[str] = config.get('rpc_target')
 
     def copy(self):
         return copy.deepcopy(self)
@@ -129,3 +130,7 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
+
+    @property
+    def rpc_target(self) -> Optional[str]:
+        return self._rpc_target
