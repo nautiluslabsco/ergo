@@ -1,20 +1,10 @@
 import json
-from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
+from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure
 from test.integration.utils import ergo, retries
-from typing import Dict
-
 import pika
 import pika.exceptions
 import pytest
-
-from ergo.topic import PubTopic, SubTopic
-
-AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
-
-
-@pytest.fixture(scope="session")
-def rabbitmq():
-    start_rabbitmq_broker()
+from ergo.topic import SubTopic
 
 
 def product(x, y):
@@ -167,7 +157,7 @@ def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
     channel.queue_purge(queue_name)
     channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=str(SubTopic(pubtopic)))
 
-    publish(host, exchange, subtopic, payload)
+    publish(subtopic, payload)
 
     while True:
         _, _, body = next(error_channel.consume(f"{func}_error", inactivity_timeout=0.1))
@@ -178,20 +168,3 @@ def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
             yield json.loads(body)
 
 
-def publish(host, exchange, routing_key, payload: str):
-    connection = pika.BlockingConnection(pika.URLParameters(host))
-    channel = connection.channel()
-    try:
-        # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
-        # of the dead letter queue.
-        channel.confirm_delivery()
-        for retry in retries(10, 0.5, pika.exceptions.UnroutableError):
-            with retry():
-                channel.basic_publish(exchange=exchange, routing_key=str(PubTopic(routing_key)), body=payload, mandatory=True)
-    finally:
-        channel.close()
-        connection.close()
-
-
-class ComponentFailure(BaseException):
-    pass

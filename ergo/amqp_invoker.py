@@ -13,6 +13,7 @@ from ergo.invoker import Invoker
 from ergo.payload import Payload
 from ergo.types import TYPE_PAYLOAD
 from ergo.util import extract_from_stack
+from ergo.context import Context
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -94,11 +95,18 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
-                    data_in.set('context', self._invocable.config.copy())
+                    # data_in.set('context', self._invocable.config.copy())
+                    ctx = Context()
+                    data_in.set('context', ctx)
 
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=str(data_out).encode('utf-8'))
                         routing_key = str(data_in.get('context').pubtopic)
+                        # data_out["context"] = spawn(ctx)
+                        message = aio_pika.Message(body=json.dumps(data_out).encode())
+                        conf = self._invocable.config
+                        pubtopic = ctx._pubtopic or conf.pubtopic
+                        routing_key = str(pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except

@@ -2,7 +2,7 @@
 import copy
 from collections import OrderedDict
 from typing import Dict, Optional
-
+import uuid
 from ergo.topic import PubTopic, SubTopic, Topic
 
 
@@ -20,13 +20,14 @@ class Config:
         """
         self._func: str = config['func']
         self._namespace: Optional[str] = config.get('namespace', 'local')
-        self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
-        self._subtopic: Topic = SubTopic(config.get('subtopic'))
+        self._pubtopic: PubTopic = PubTopic(config.get('pubtopic'))
+        self._subtopic: SubTopic = SubTopic(config.get('subtopic'))
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
         self._args: OrderedDict[str, str] = config.get('args', {})
+        self._transaction_id = None
 
     def copy(self):
         return copy.deepcopy(self)
@@ -59,7 +60,7 @@ class Config:
         return self._namespace
 
     @property
-    def subtopic(self) -> Topic:
+    def subtopic(self) -> SubTopic:
         """Summary.
 
         Returns:
@@ -68,7 +69,7 @@ class Config:
         return self._subtopic
 
     @property
-    def pubtopic(self) -> Topic:
+    def pubtopic(self) -> PubTopic:
         """Summary.
 
         Returns:
@@ -129,3 +130,7 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
+
+    def open_transaction(self):
+        if not self._transaction_id:
+            self._transaction_id = str(uuid.uuid4())
