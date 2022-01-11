@@ -1,6 +1,7 @@
 import json
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
 from test.integration.utils import ergo, retries
+from typing import Dict
 
 import pika
 import pika.exceptions
@@ -35,6 +36,43 @@ def test_product_amqp(rabbitmq):
         payload = json.dumps({"x": 4, "y": 5})
         result = next(rpc(payload, **manifest, **namespace))
         assert result == {'data': 20.0, 'key': 'out.product', 'log': []}
+
+
+def return_three():
+    return 3
+
+
+def double_three(context, data: float):
+    return 2 * data
+
+
+def test_make_six(rabbitmq):
+    return_three_manifest = {
+        "func": f"{__file__}:return_three",
+    }
+    return_three_namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "return_six.in",
+        "pubtopic": "double_three.in",
+    }
+    double_three_manifest = {
+        "func": f"{__file__}:double_three",
+    }
+    double_three_namespace = {
+        "protocol": "amqp",
+        "host": AMQP_HOST,
+        "exchange": "test_exchange",
+        "subtopic": "double_three.in",
+        "pubtopic": "return_six.out",
+    }
+    with ergo("start", manifest=return_three_manifest, namespace=return_three_namespace):
+        with ergo("start", manifest=double_three_manifest, namespace=double_three_namespace):
+            kwargs = {**double_three_manifest, **double_three_namespace}
+            kwargs.update({"subtopic": "return_six.in", "pubtopic": "return_six.out"})
+            result = next(rpc("{}", **kwargs))
+        assert result == {'data': 6, 'key': 'out.return_six', 'log': []}
 
 
 def get_dict():

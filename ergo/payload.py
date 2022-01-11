@@ -23,7 +23,7 @@ class Payload:
 
     @classmethod
     def from_dict(cls, data: Dict):
-        key = data.get("key")
+        key = data.pop("key", None)
         log = data.pop("log", [])
         payload = cls(key=key, log=log, data=data)
         return payload

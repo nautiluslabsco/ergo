@@ -78,7 +78,7 @@ class FunctionInvocable:
         try:
             args = []
             for arg in self.config.args:
-                args.append(data_in.get(arg, data_in.get(f"data.{arg}")))
+                args.append(data_in.get(f"data.{arg}", data_in.get(arg)))
             result = self._func(*args)
             if inspect.isgenerator(result):
                 yield from result

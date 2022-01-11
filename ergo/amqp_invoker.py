@@ -135,7 +135,8 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    yield Payload.from_string(message.body.decode('utf-8'))
+                    payload = Payload.from_string(message.body.decode('utf-8'))
+                    yield payload
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
