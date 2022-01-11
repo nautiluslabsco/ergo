@@ -30,7 +30,7 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_in: TYPE_PAYLOAD = Payload(request.args)
+            data_in: TYPE_PAYLOAD = Payload.from_dict(dict(request.args))
             data_out: List[TYPE_PAYLOAD] = list(self._invocable.invoke(data_in))
             if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]

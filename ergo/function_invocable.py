@@ -76,7 +76,9 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            args = [data_in.get(self.config.args[arg]) for arg in self.config.args]
+            args = []
+            for arg in self.config.args:
+                args.append(data_in.get(arg, data_in.get(f"data.{arg}")))
             result = self._func(*args)
             if inspect.isgenerator(result):
                 yield from result

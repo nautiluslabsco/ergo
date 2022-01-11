@@ -97,7 +97,7 @@ class AmqpInvoker(Invoker):
                     data_in.set('context', self._invocable.config.copy())
 
                     async for data_out in self.do_work(data_in):
-                        message = aio_pika.Message(body=json.dumps(data_out).encode())
+                        message = aio_pika.Message(body=str(data_out).encode('utf-8'))
                         routing_key = str(data_in.get('context').pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
@@ -135,8 +135,7 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    data_in = json.loads(message.body.decode('utf-8'))
-                    yield Payload(data_in)
+                    yield Payload.from_string(message.body.decode('utf-8'))
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -152,7 +151,7 @@ class AmqpInvoker(Invoker):
             await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
+    def do_work(self, data_in: Payload) -> Iterable[Payload]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -165,4 +164,5 @@ class AmqpInvoker(Invoker):
         """
 
         for data_out in self._invocable.invoke(data_in):
-            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}
+            key = str(data_in.get('context').pubtopic)
+            yield Payload(key=key, log=data_in.log, data=data_out)
