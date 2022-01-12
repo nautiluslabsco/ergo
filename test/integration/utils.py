@@ -66,6 +66,8 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
 class Component(ABC):
     def __init__(self, func: Callable):
         self.func = func
+        self.queue = f"{inspect.getfile(func)}:{func.__name__}"
+        self.error_queue = f"{self.queue}_error"
 
     @property
     @classmethod

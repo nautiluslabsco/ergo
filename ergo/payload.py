@@ -1,4 +1,5 @@
 """Summary."""
+import copy
 import json
 from typing import Any, Dict, List, Optional, TypedDict
 from ergo.transaction import TransactionStack
@@ -86,6 +87,8 @@ class Payload:
         for key, default in kwargs.items():
             if key == "context":
                 values[key] = self.context
+            elif key == "data":
+                values[key] = self._data
             else:
                 values[key] = pydash.get(self._data, key, default)
         yield values
@@ -125,7 +128,4 @@ class Payload:
             str: Description
 
         """
-        return json.dumps({
-            "metadata": self.meta,
-            "data": self._data,
-        })
+        return json.dumps({"metadata": self.meta, **self._data})

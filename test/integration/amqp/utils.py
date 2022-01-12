@@ -1,16 +1,18 @@
 import inspect
-
 import json
 import pika
 import pika.exceptions
 from ergo.topic import SubTopic
 from pika.adapters.blocking_connection import BlockingChannel
 from test.integration.utils import Component, retries
-from typing import Iterable, Callable, Optional
+from typing import Iterator, Callable, Optional
 from ergo.topic import PubTopic
+from contextlib import contextmanager
+from collections import defaultdict
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "test_exchange"
+_LIVE_COMPONENTS = defaultdict(int)
 
 
 class AMQPComponent(Component):
@@ -22,8 +24,6 @@ class AMQPComponent(Component):
         self.subtopic = subtopic
         self.pubtopic = pubtopic
         self.channel = new_channel()
-        self.error_queue = f"{inspect.getfile(func)}:{func.__name__}_error"
-        purge_queue(self.error_queue)
 
     @property
     def namespace(self):
@@ -34,19 +34,38 @@ class AMQPComponent(Component):
         return ns
 
     def rpc(self, **payload):
-        subscription = subscribe(str(SubTopic(self.pubtopic)))
+        subscription = self.subscribe()
         self.publish(channel=self.channel, **payload)
         yield from subscription
 
     def publish(self, **payload):
         publish(str(PubTopic(self.subtopic)), **payload)
 
+    def subscribe(self, inactivity_timeout=None):
+        return subscribe(str(SubTopic(self.pubtopic)), inactivity_timeout=inactivity_timeout)
+
     def propagate_error(self, inactivity_timeout=None):
-        method, _, body = next(consume(self.error_queue, inactivity_timeout))
+        body = next(consume(self.error_queue, inactivity_timeout=inactivity_timeout))
         if body:
-            self.channel.basic_ack(method.delivery_tag)
-            error = json.loads(body)["error"]
-            raise ComponentFailure(error)
+            raise ComponentFailure(body["metadata"]["traceback"])
+
+
+@contextmanager
+def amqp_component(func: Callable, subtopic: str, pubtopic: Optional[str]) -> AMQPComponent:
+    component = AMQPComponent(func, subtopic=subtopic, pubtopic=pubtopic)
+    with component.start():
+        for retry in retries(200, 0.01, pika.exceptions.ChannelClosedByBroker):
+            with retry():
+                purge_queue(component.error_queue)
+                break
+        key = component.func
+        if not _LIVE_COMPONENTS[key]:
+            purge_queue(component.queue)
+        _LIVE_COMPONENTS[key] += 1
+        try:
+            yield component
+        finally:
+            _LIVE_COMPONENTS[key] -= 1
 
 
 def publish(routing_key, channel=None, **payload):
@@ -68,17 +87,17 @@ def subscribe(routing_key, inactivity_timeout=None):
     ).method.queue
     channel.queue_bind(queue_name, EXCHANGE, routing_key=routing_key)
 
-    def consumer():
-        for _, _, body in channel.consume(queue_name, inactivity_timeout=inactivity_timeout):
-            yield json.loads(body)
-
-    return consumer()
+    return consume(queue_name, inactivity_timeout=inactivity_timeout, channel=channel)
 
 
-def consume(queue_name, inactivity_timeout=None):
-    channel = new_channel()
+def consume(queue_name, inactivity_timeout=None, channel=None) -> Iterator:
+    channel = channel or new_channel()
     try:
-        yield from channel.consume(queue_name, inactivity_timeout=inactivity_timeout)
+        for _, _, body in channel.consume(queue_name, inactivity_timeout=inactivity_timeout):
+            if body:
+                yield json.loads(body)
+            else:
+                yield None
     finally:
         channel.close()
 
@@ -100,7 +119,6 @@ def new_channel() -> BlockingChannel:
     for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
         with retry():
             channel = connection.channel()
-            # channel.exchange_declare(EXCHANGE, passive=True)
 
     return channel
 

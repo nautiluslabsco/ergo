@@ -24,7 +24,7 @@ def test_product_amqp(rabbitmq):
     component = AMQPComponent(product, subtopic="product.in", pubtopic="product.out")
     with component.start():
         result = next(component.rpc(x=4, y=5))
-        assert result == 20.0
+        assert result["data"] == 20.0
 
 
 def return_three():

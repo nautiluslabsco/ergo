@@ -164,5 +164,10 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
+        # yield from self._invocable.invoke(data_in)
+
         for data_out in self._invocable.invoke(data_in):
-            yield Payload(data=data_out)
+            try:
+                yield Payload(**data_out)
+            except TypeError:
+                yield Payload(data=data_out)

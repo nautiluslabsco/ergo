@@ -60,7 +60,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: Payload) -> Generator[Payload, Payload, None]:
+    def invoke(self, data_in: Payload) -> Generator:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
