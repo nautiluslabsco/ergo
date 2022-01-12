@@ -7,7 +7,16 @@ import pytest
 from ergo.topic import SubTopic
 
 
-def product(x, y):
+
+
+# class Product:
+#     def __call__(self, x, y=1):
+#         pass
+#
+# product = Product()
+
+
+def product(x, y=1):
     return float(x) * float(y)
 
 

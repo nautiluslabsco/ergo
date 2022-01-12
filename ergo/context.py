@@ -1,28 +1,32 @@
-from ergo.topic import PubTopic
-from typing import Optional, TypedDict, List
-import uuid
+from typing import Optional, Union
 from contextlib import contextmanager
-
-
-Transaction = uuid.UUID
-TransactionLineage = List[Transaction]
+from ergo.transaction import Transaction
+from ergo.topic import PubTopic
 
 
 class Context:
-    def __init__(self, lineage: Optional[TransactionLineage] = None):
-        self._lineage: TransactionLineage = lineage or []
-        self._owns_current_transaction: bool = False
-        self._pubtopic: Optional[str] = None
+    def __init__(self):
+        self._transaction: Optional[Transaction] = None
+        self._pubtopic: Optional[PubTopic] = None
 
     def open_transaction(self):
-        if not self._owns_current_transaction:
-            self._owns_current_transaction = True
-            self._lineage.append(uuid.uuid4())
+        if not self._transaction:
+            self._transaction = Transaction()
 
-    @contextmanager
-    def set_pubtopic(self, pubtopic: str):
-        try:
-            self._pubtopic = pubtopic
-            yield
-        finally:
-            self._pubtopic = None
+    @property
+    def pubtopic(self) -> Optional[PubTopic]:
+        return self._pubtopic
+
+    @pubtopic.setter
+    def pubtopic(self, value: Union[str, PubTopic]):
+        if isinstance(value, str):
+            value = PubTopic(value)
+        self._pubtopic = value
+
+    # @contextmanager
+    # def set_pubtopic(self, pubtopic: str):
+    #     try:
+    #         self._pubtopic = pubtopic
+    #         yield
+    #     finally:
+    #         self._pubtopic = None

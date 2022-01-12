@@ -1,7 +1,7 @@
 """Summary."""
 import asyncio
 import json
-from typing import Dict, Iterable
+from typing import Dict, Iterable, AsyncIterable
 from urllib.parse import urlparse
 
 import aio_pika
@@ -95,31 +95,23 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
-                    # data_in.set('context', self._invocable.config.copy())
-                    ctx = Context()
-                    data_in.set('context', ctx)
-
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=str(data_out).encode('utf-8'))
-                        routing_key = str(data_in.get('context').pubtopic)
-                        # data_out["context"] = spawn(ctx)
-                        message = aio_pika.Message(body=json.dumps(data_out).encode())
                         conf = self._invocable.config
-                        pubtopic = ctx._pubtopic or conf.pubtopic
+                        pubtopic = data_in.context.pubtopic or conf.pubtopic
                         routing_key = str(pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_in.set('error', make_error_output(err))
-                    data_in.set('traceback', str(err))
-                    data_in.unset('context')
+                    data_in.meta['error'] = make_error_output(err)
+                    data_in.meta['traceback'] = str(err)
                     message = aio_pika.Message(body=str(data_in).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
         return connection
 
-    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> Iterable[TYPE_PAYLOAD]:
+    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> AsyncIterable[Payload]:
         """
         Re-acquires handles to `channel`, `exchange`, and `queue` before continuously consuming `aio_pika.IncomingMessage`.
 
@@ -143,8 +135,8 @@ class AmqpInvoker(Invoker):
 
             async for message in queue:
                 async with message.process():
-                    payload = Payload.from_string(message.body.decode('utf-8'))
-                    yield payload
+                    data_in = json.loads(message.body.decode('utf-8'))
+                    yield Payload(**data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -160,7 +152,7 @@ class AmqpInvoker(Invoker):
             await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Payload) -> Iterable[Payload]:
+    def do_work(self, data_in: Payload) -> AsyncIterable[Payload]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -173,5 +165,4 @@ class AmqpInvoker(Invoker):
         """
 
         for data_out in self._invocable.invoke(data_in):
-            key = str(data_in.get('context').pubtopic)
-            yield Payload(key=key, log=data_in.log, data=data_out)
+            yield Payload(data=data_out)

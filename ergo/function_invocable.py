@@ -12,6 +12,7 @@ from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
 from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
+from ergo.payload import Payload
 from ergo.util import print_exc_plus
 
 
@@ -59,7 +60,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
+    def invoke(self, data_in: Payload) -> Generator[Payload, Payload, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -76,10 +77,8 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            args = []
-            for arg in self.config.args:
-                args.append(data_in.get(f"data.{arg}", data_in.get(arg)))
-            result = self._func(*args)
+            with data_in.share(**self._config.parameters) as kwargs:
+                result = self._func(**kwargs)
             if inspect.isgenerator(result):
                 yield from result
             else:
@@ -121,4 +120,5 @@ class FunctionInvocable:
 
         method_name: str = matches.group(5)
         self._func = getattr(scope, method_name)
-        self._config.args = OrderedDict((signature_arg, self._config.args.get(signature_arg, signature_arg)) for signature_arg in inspect.getfullargspec(self._func)[0])
+        if self._func:
+            self._config.parameters = inspect.signature(self._func).parameters
