@@ -1,5 +1,5 @@
 import json
-from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure
+from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure, AMQPComponent
 from test.integration.utils import ergo, retries
 import pika
 import pika.exceptions
@@ -21,20 +21,10 @@ def product(x, y=1):
 
 
 def test_product_amqp(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:product",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "product.in",
-        "pubtopic": "product.out",
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
-        payload = json.dumps({"x": 4, "y": 5})
-        result = next(rpc(payload, **manifest, **namespace))
-        assert result == {'data': 20.0, 'key': 'out.product', 'log': []}
+    component = AMQPComponent(product, subtopic="product.in", pubtopic="product.out")
+    with component.start():
+        result = next(component.rpc(x=4, y=5))
+        assert result == 20.0
 
 
 def return_three():

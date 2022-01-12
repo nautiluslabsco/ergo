@@ -1,7 +1,7 @@
 import json
 
-from test.integration.amqp.utils import AMQP_HOST, publish, subscribe, poll_errors, Component
-from test.integration.utils import ergo
+from test.integration.amqp.utils import AMQP_HOST, publish, subscribe, poll_errors
+from test.integration.utils import ergo, Component
 
 
 def outer_transaction(context):

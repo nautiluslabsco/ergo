@@ -1,10 +1,13 @@
+import inspect
+import json
 import time
 import multiprocessing
 import yaml
 import tempfile
-from typing import Type
+from typing import Type, Callable, Optional
 from contextlib import contextmanager
 from ergo.ergo_cli import ErgoCli
+from abc import ABC, abstractmethod
 
 
 @contextmanager
@@ -58,3 +61,40 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
                 time.sleep(backoff_seconds)
 
         yield retry
+
+
+class Component(ABC):
+    def __init__(self, func: Callable):
+        self.func = func
+
+    @property
+    @classmethod
+    @abstractmethod
+    def protocol(cls):
+        return NotImplementedError
+
+    @property
+    @classmethod
+    @abstractmethod
+    def host(cls):
+        return NotImplementedError
+
+    @property
+    def manifest(self):
+        return {
+            "func": f"{inspect.getfile(self.func)}:{self.func.__name__}"
+        }
+
+    @property
+    def namespace(self):
+        namespace = {
+            "protocol": self.protocol,
+            "host": self.host,
+            "exchange": "test_exchange",
+        }
+        return namespace
+
+    @contextmanager
+    def start(self):
+        with ergo("start", manifest=self.manifest, namespace=self.namespace):
+            yield
