@@ -10,7 +10,7 @@ from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
-from ergo.payload import Payload
+from ergo.payload import Payload, Metadata
 from ergo.types import TYPE_PAYLOAD
 from ergo.util import extract_from_stack
 from ergo.context import Context
@@ -98,7 +98,7 @@ class AmqpInvoker(Invoker):
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=str(data_out).encode('utf-8'))
                         conf = self._invocable.config
-                        pubtopic = data_in.context.pubtopic or conf.pubtopic
+                        pubtopic = data_in.meta.get("pubtopic") or conf.pubtopic
                         routing_key = str(pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
@@ -164,10 +164,11 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        # yield from self._invocable.invoke(data_in)
-
-        for data_out in self._invocable.invoke(data_in):
-            try:
-                yield Payload(**data_out)
-            except TypeError:
-                yield Payload(data=data_out)
+        ctx = Context()
+        for data_out in self._invocable.invoke(ctx, data_in):
+            stack = data_in.meta.get('transaction_stack', [])
+            if ctx._transaction:
+                stack.append(ctx._transaction)
+            meta = Metadata(pubtopic=ctx.pubtopic, transaction_stack=stack)
+            payload_out = Payload.new(data=data_out, metadata=meta)
+            yield payload_out

@@ -24,8 +24,14 @@ from contextlib import contextmanager
 #     "traceback": str
 # })
 
+DATA_PARAM = "data"
 
-class Metadata(TypedDict, total=False):
+
+class _TransparentMetadata(TypedDict, total=False):
+    pubtopic: str
+
+
+class Metadata(_TransparentMetadata, total=False):
     key: str
     log: List
     transaction_stack: TransactionStack
@@ -35,6 +41,12 @@ class Metadata(TypedDict, total=False):
 
 class Payload:
     """Summary."""
+    @classmethod
+    def new(cls, data: Any, metadata: Metadata):
+        try:
+            return cls(metadata=metadata, **data)
+        except TypeError:
+            return cls(metadata=metadata, DATA_PARAM=data)
 
     def __init__(self, metadata: Optional[Metadata] = None, **data) -> None:
         """Summary.
@@ -45,7 +57,6 @@ class Payload:
         """
         self._data: Dict = data
         self.metadata: Metadata = metadata or Metadata()
-        self.context = Context()
 
 
     # @classmethod
@@ -54,72 +65,35 @@ class Payload:
     #
     # @classmethod
     # def from_dict(cls, data: Dict):
-    #     key = data.pop("key", None)
-    #     log = data.pop("log", [])
-    #     transaction_stack = data.pop("transaction_stack", [])
+    #     meta = data.pop("metadata")
     #     payload = cls(key=key, log=log, transaction_stack=transaction_stack, data=data)
     #     return payload
-    #
-    # def get(self, key: str, default=None):
-    #     """Summary.
-    #
-    #     Args:
-    #         key (str): Description
-    #
-    #     Returns:
-    #         Optional[str]: Description
-    #
-    #     """
-    #     if key == "context":
-    #         return self.context
-    #     return pydash.get(self._data, key, default)
+
 
     @property
     def meta(self) -> Dict:
         return self.metadata
 
-    @contextmanager
-    def share(self, *args: str, **kwargs: str) -> Dict:
-        # values = {key: self.data.get(key) for key in args}
-        # values.update({key: self.data.get(key, default) for key, default in kwargs.items()})
-        kwargs.update({arg: None for arg in args})
-        values = {}
-        for key, default in kwargs.items():
-            if key == "context":
-                values[key] = self.context
-            elif key == "data":
-                values[key] = self._data
-            else:
-                values[key] = pydash.get(self._data, key, default)
-        yield values
-
-    def set(self, key: str, value: str) -> None:
+    def get(self, key: str, default=None):
         """Summary.
 
         Args:
             key (str): Description
-            value (str): Description
-
-        """
-        self._data[key] = value
-
-    def unset(self, key: str):
-        """Summary.
-
-        Args:
-            key (str): Description
-
-        """
-        return self._data.pop(key, None)
-
-    def list(self) -> List[str]:
-        """Summary.
 
         Returns:
-            List[str]: Description
+            Optional[str]: Description
 
         """
-        return list(self._data.values())
+
+        if key in _TransparentMetadata.__annotations__:
+            if key in self.metadata:
+                return self.metadata[key]
+        value = pydash.get(self._data, key)
+        if value:
+            return value
+        if key == DATA_PARAM:
+            return self._data
+        return default
 
     def __str__(self) -> str:
         """Summary.

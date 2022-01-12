@@ -12,6 +12,7 @@ from collections import defaultdict
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "test_exchange"
+SHORT_TIMEOUT = 0.01
 _LIVE_COMPONENTS = defaultdict(int)
 
 
@@ -34,15 +35,24 @@ class AMQPComponent(Component):
         return ns
 
     def rpc(self, **payload):
-        subscription = self.subscribe()
+        subscription = self.new_subscription()
         self.publish(channel=self.channel, **payload)
         yield from subscription
 
     def publish(self, **payload):
         publish(str(PubTopic(self.subtopic)), **payload)
 
-    def subscribe(self, inactivity_timeout=None):
-        return subscribe(str(SubTopic(self.pubtopic)), inactivity_timeout=inactivity_timeout)
+    def new_subscription(self, inactivity_timeout=None):
+        subscription = subscribe(str(SubTopic(self.pubtopic)), inactivity_timeout=inactivity_timeout)
+
+        def subscription_with_errors():
+            while True:
+                message = next(subscription)
+                if not message:
+                    self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
+                yield message
+
+        return subscription_with_errors()
 
     def propagate_error(self, inactivity_timeout=None):
         body = next(consume(self.error_queue, inactivity_timeout=inactivity_timeout))

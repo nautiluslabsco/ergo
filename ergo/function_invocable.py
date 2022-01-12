@@ -14,6 +14,7 @@ from ergo.config import Config
 from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
 from ergo.payload import Payload
 from ergo.util import print_exc_plus
+from ergo.context import Context
 
 
 class FunctionInvocable:
@@ -60,7 +61,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: Payload) -> Generator:
+    def invoke(self, ctx: Context, data_in: Payload) -> Generator:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -77,8 +78,13 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            with data_in.share(**self._config.parameters) as kwargs:
-                result = self._func(**kwargs)
+            kwargs = {}
+            for param, default in self._config.parameters.items():
+                if param == "context":
+                    kwargs[param] = ctx
+                else:
+                    kwargs[param] = data_in.get(param, default)
+            result = self._func(**kwargs)
             if inspect.isgenerator(result):
                 yield from result
             else:
@@ -120,5 +126,12 @@ class FunctionInvocable:
 
         method_name: str = matches.group(5)
         self._func = getattr(scope, method_name)
+
         if self._func:
-            self._config.parameters = inspect.signature(self._func).parameters
+            params = {}
+            for name, info in inspect.signature(self._func).parameters.items():
+                default = info.default
+                if default is inspect.Parameter.empty:
+                    default = None
+                params[name] = default
+            self._config.parameters = params
