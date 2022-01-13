@@ -1,4 +1,3 @@
-import inspect
 import json
 import pika
 import pika.exceptions
@@ -12,9 +11,9 @@ except ImportError:
     from typing import Generator
 from ergo.topic import PubTopic
 from collections import defaultdict
+import uuid
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
-# EXCHANGE = "test_exchange"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
 _LIVE_COMPONENTS: Dict = defaultdict(int)
@@ -24,10 +23,11 @@ class AMQPComponent(Component):
     protocol = "amqp"
     host = AMQP_HOST
 
-    def __init__(self, func: Callable, subtopic: str, pubtopic: Optional[str]=None):
+    def __init__(self, func: Callable, subtopic: Optional[str]=None, pubtopic: Optional[str]=None):
         super().__init__(func)
-        self.subtopic = subtopic
-        self.pubtopic = pubtopic
+        random_id = str(uuid.uuid4())
+        self.subtopic = subtopic or f"{func.__name__}_{random_id}_sub"
+        self.pubtopic = pubtopic or f"{func.__name__}_{random_id}_pub"
         self.channel = new_channel()
 
     @property
@@ -39,12 +39,12 @@ class AMQPComponent(Component):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, payload: Dict):
-        subscription = self.new_subscription()
-        self.publish(payload)
+    def rpc(self, payload: Dict, inactivity_timeout=None):
+        subscription = self.new_subscription(inactivity_timeout=inactivity_timeout)
+        self.send(payload)
         yield from subscription
 
-    def publish(self, payload: Dict):
+    def send(self, payload: Dict):
         publish(str(PubTopic(self.subtopic)), payload, channel=self.channel)
 
     def new_subscription(self, inactivity_timeout=None):
@@ -77,25 +77,6 @@ class amqp_component(AMQPComponent):
     def __exit__(self, exc_type, exc_val, exc_tb):
         _LIVE_COMPONENTS[self.func] -= 1
         super().__exit__(exc_type, exc_val, exc_tb)
-
-
-#
-# @contextmanager
-# def amqp_component(func: Callable, subtopic: str, pubtopic: Optional[str]=None) -> Generator[AMQPComponent, None, None]:
-#     component = AMQPComponent(func, subtopic=subtopic, pubtopic=pubtopic)
-#     with component.start():
-#         for retry in retries(200, 0.01, pika.exceptions.ChannelClosedByBroker):
-#             with retry():
-#                 purge_queue(component.error_queue)
-#                 break
-#         key = component.func
-#         if not _LIVE_COMPONENTS[key]:
-#             purge_queue(component.queue)
-#         _LIVE_COMPONENTS[key] += 1
-#         try:
-#             yield component
-#         finally:
-#             _LIVE_COMPONENTS[key] -= 1
 
 
 def publish(routing_key, payload: Dict, channel=None):

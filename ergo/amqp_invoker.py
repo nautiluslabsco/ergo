@@ -98,7 +98,7 @@ class AmqpInvoker(Invoker):
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=str(data_out).encode('utf-8'))
                         conf = self._invocable.config
-                        pubtopic = data_in.meta.get("pubtopic") or conf.pubtopic
+                        pubtopic = data_out.meta.get("pubtopic") or conf.pubtopic
                         routing_key = str(pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
@@ -169,6 +169,8 @@ class AmqpInvoker(Invoker):
             stack = data_in.meta.get('transaction_stack', [])
             if ctx._transaction:
                 stack.append(ctx._transaction)
-            meta = Metadata(pubtopic=ctx.pubtopic, transaction_stack=stack)
+            meta = Metadata(transaction_stack=stack)
+            if ctx.pubtopic:
+                meta["pubtopic"] = ctx.pubtopic
             payload_out = Payload(ErgoMessage(data=data_out, metadata=meta))
             yield payload_out

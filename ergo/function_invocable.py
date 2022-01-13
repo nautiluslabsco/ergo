@@ -125,9 +125,13 @@ class FunctionInvocable:
             scope = getattr(scope, class_name)
 
         method_name: str = matches.group(5)
-        self._func = getattr(scope, method_name)
+        func = getattr(scope, method_name)
 
-        if self._func:
+        if func:
+            if inspect.isclass(func):
+                func = func.__call__
+            self._func = func
+
             params = {}
             for name, info in inspect.signature(self._func).parameters.items():
                 default = info.default

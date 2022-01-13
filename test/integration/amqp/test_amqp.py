@@ -5,14 +5,7 @@ import pika
 import pika.exceptions
 import pytest
 from ergo.topic import SubTopic
-
-
-
-# class Product:
-#     def __call__(self, x, y=1):
-#         pass
-#
-# product = Product()
+from ergo.context import Context
 
 
 def product(x, y=1):
@@ -20,57 +13,21 @@ def product(x, y=1):
 
 
 def test_product_amqp(rabbitmq):
-    with amqp_component(product, subtopic="product.in", pubtopic="product.out") as component:
+    with amqp_component(product) as component:
         result = next(component.rpc({"x": 4, "y": 5}))
         assert result["data"] == 20.0
 
 
-def send_three():
-    return 3
+class Product:
+    @classmethod
+    def __call__(cls, x, y):
+        return x * y
 
 
-def double(context, x: float):
-    return 2 * x
-
-
-def test_make_six(rabbitmq):
-    with amqp_component(send_three, subtopic="send_three") as send_three_component:
-        with amqp_component(double, subtopic="double_in", pubtopic="double_out") as double_component:
-            send_three_component.publish({"metadata": {"pubtopic"}})
-
-
-
-# def test_make_sixx(rabbitmq):
-#     return_three_component = AMQPComponent(return_three, subtopic="return_six.in", pubtopic="double_three.in")
-#     double_three_component = AMQPComponent(double_three, )
-#     
-#     
-#     return_three_manifest = {
-#         "func": f"{__file__}:return_three",
-#     }
-#     return_three_namespace = {
-#         "protocol": "amqp",
-#         "host": AMQP_HOST,
-#         "exchange": "test_exchange",
-#         "subtopic": "return_six.in",
-#         "pubtopic": "double_three.in",
-#     }
-#     double_three_manifest = {
-#         "func": f"{__file__}:double_three",
-#     }
-#     double_three_namespace = {
-#         "protocol": "amqp",
-#         "host": AMQP_HOST,
-#         "exchange": "test_exchange",
-#         "subtopic": "double_three.in",
-#         "pubtopic": "return_six.out",
-#     }
-#     with ergo("start", manifest=return_three_manifest, namespace=return_three_namespace):
-#         with ergo("start", manifest=double_three_manifest, namespace=double_three_namespace):
-#             kwargs = {**double_three_manifest, **double_three_namespace}
-#             kwargs.update({"subtopic": "return_six.in", "pubtopic": "return_six.out"})
-#             result = next(rpc("{}", **kwargs))
-#         assert result == {'data': 6, 'key': 'out.return_six', 'log': []}
+def test_product_class(rabbitmq):
+    with amqp_component(Product) as component:
+        result = next(component.rpc({"x": 4, "y": 5}))
+        assert result["data"] == 20.0
 
 
 def get_dict():
@@ -82,25 +39,9 @@ def get_two_dicts():
 
 
 def test_get_two_dicts(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:get_two_dicts",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "get_two_dicts.in",
-        "pubtopic": "get_two_dicts.out",
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
-        payload = '{"data": {}}'
-        results = rpc(payload, **manifest, **namespace)
-        expected = {
-            'data': get_two_dicts(),
-            'key': 'get_two_dicts.out',
-            'log': []
-        }
-        assert next(results) == expected
+    with amqp_component(get_two_dicts) as component:
+        result = next(component.rpc({}))
+        assert result["data"] == get_two_dicts()
 
 
 def yield_two_dicts():
@@ -109,26 +50,10 @@ def yield_two_dicts():
 
 
 def test_yield_two_dicts(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:yield_two_dicts",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "yield_two_dicts.in",
-        "pubtopic": "yield_two_dicts.out",
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
-        payload = '{"data": {}}'
-        results = rpc(payload, **manifest, **namespace)
-        expected = {
-            'data': get_dict(),
-            'key': 'out.yield_two_dicts',
-            'log': []
-        }
-        assert next(results) == expected
-        assert next(results) == expected
+    with amqp_component(yield_two_dicts) as component:
+        results = component.rpc({})
+        assert next(results)["data"] == get_dict()
+        assert next(results)["data"] == get_dict()
 
 
 def assert_false():
@@ -136,43 +61,72 @@ def assert_false():
 
 
 def test_error_path(rabbitmq):
-    manifest = {
-        "func": f"{__file__}:assert_false",
-    }
-    namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "assert_false.in",
-        "pubtopic": "assert_false.out",
-    }
-    with ergo("start", manifest=manifest, namespace=namespace):
+    with amqp_component(assert_false) as component:
         with pytest.raises(ComponentFailure):
-            next(rpc("{}", **manifest, **namespace))
+            component.send({})
+            component.propagate_error()
 
 
-def rpc(payload, func, host, exchange, pubtopic, subtopic, **_):
-    connection = pika.BlockingConnection(pika.URLParameters(host))
-    for retry in retries(20, 0.5, pika.exceptions.ChannelClosedByBroker, pika.exceptions.ChannelWrongStateError):
-        with retry():
-            channel = connection.channel()
-            channel.exchange_declare(exchange, passive=True)
-            error_channel = connection.channel()
-            error_channel.queue_purge(queue=f"{func}_error")
-
-    queue_name = f"{func}_rpc"
-    channel.queue_declare(queue=queue_name)
-    channel.queue_purge(queue_name)
-    channel.queue_bind(exchange=exchange, queue=queue_name, routing_key=str(SubTopic(pubtopic)))
-
-    publish(subtopic, payload)
-
-    while True:
-        _, _, body = next(error_channel.consume(f"{func}_error", inactivity_timeout=0.1))
-        if body:
-            raise ComponentFailure(json.loads(body)["error"])
-        _, _, body = next(channel.consume(queue_name, inactivity_timeout=0.1))
-        if body:
-            yield json.loads(body)
+def make_six(context: Context):
+    context.pubtopic = "forward"
+    return {"recipient": "double_in", "x": 3}
 
 
+def forward(context, data):
+    context.pubtopic = data.pop("recipient")
+    return data
+
+
+def double(x: float):
+    return 2 * x
+
+
+def test_make_six(rabbitmq):
+    with amqp_component(make_six, subtopic="make_six") as make_six_component:
+        with amqp_component(forward, subtopic="forward") as forward_component:
+            with amqp_component(double, subtopic="double_in", pubtopic="double_out") as double_component:
+                double_sub = double_component.new_subscription(inactivity_timeout=0.1)
+                make_six_component.send({})
+                for attempt in range(20):
+                    result = next(double_sub)
+                    if result:
+                        break
+                    make_six_component.propagate_error(inactivity_timeout=0.1)
+                    forward_component.propagate_error(inactivity_timeout=0.1)
+                assert result["data"] == 6
+
+
+def outer_transaction(context):
+    assert context._transaction is None
+    context.open_transaction()
+    assert context._transaction is not None
+
+
+def inner_transaction(context):
+    assert context._transaction is None
+    context.open_transaction()
+    assert context._transaction is not None
+    return {"success": True}
+
+
+def test_transaction(rabbitmq):
+    with amqp_component(outer_transaction, subtopic="outer_transaction_sub", pubtopic="outer_transaction_pub") as outer_transaction_component:
+        with amqp_component(inner_transaction, subtopic="outer_transaction_pub", pubtopic="inner_transaction_pub") as inner_transaction_component:
+            outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
+            inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
+            outer_transaction_component.send({})
+            outer_txn_result = inner_txn_result = None
+            for attempt in range(10):
+                if outer_txn_result and inner_txn_result:
+                    break
+                elif not outer_txn_result:
+                    outer_transaction_component.propagate_error(0.1)
+                    outer_txn_result = next(outer_sub)
+                elif not inner_txn_result:
+                    inner_transaction_component.propagate_error(0.1)
+                    inner_txn_result = next(inner_sub)
+            outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
+            assert len(outer_txn_stack) == 1
+            inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
+            assert len(inner_txn_stack) == 2
+            assert inner_txn_stack[0] == outer_txn_stack[0]
