@@ -5,22 +5,26 @@ import pika.exceptions
 from ergo.topic import SubTopic
 from pika.adapters.blocking_connection import BlockingChannel
 from test.integration.utils import Component, retries
-from typing import Iterator, Callable, Optional
+from typing import Iterator, Callable, Optional, Dict
+try:
+    from collections.abc import Generator
+except ImportError:
+    from typing import Generator
 from ergo.topic import PubTopic
-from contextlib import contextmanager
 from collections import defaultdict
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
-EXCHANGE = "test_exchange"
+# EXCHANGE = "test_exchange"
+EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
-_LIVE_COMPONENTS = defaultdict(int)
+_LIVE_COMPONENTS: Dict = defaultdict(int)
 
 
 class AMQPComponent(Component):
     protocol = "amqp"
     host = AMQP_HOST
 
-    def __init__(self, func: Callable, subtopic: str, pubtopic: Optional[str]):
+    def __init__(self, func: Callable, subtopic: str, pubtopic: Optional[str]=None):
         super().__init__(func)
         self.subtopic = subtopic
         self.pubtopic = pubtopic
@@ -29,18 +33,19 @@ class AMQPComponent(Component):
     @property
     def namespace(self):
         ns = super().namespace
+        ns["exchange"] = EXCHANGE
         ns["subtopic"] = self.subtopic
         if self.pubtopic:
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, **payload):
+    def rpc(self, payload: Dict):
         subscription = self.new_subscription()
-        self.publish(channel=self.channel, **payload)
+        self.publish(payload)
         yield from subscription
 
-    def publish(self, **payload):
-        publish(str(PubTopic(self.subtopic)), **payload)
+    def publish(self, payload: Dict):
+        publish(str(PubTopic(self.subtopic)), payload, channel=self.channel)
 
     def new_subscription(self, inactivity_timeout=None):
         subscription = subscribe(str(SubTopic(self.pubtopic)), inactivity_timeout=inactivity_timeout)
@@ -60,30 +65,45 @@ class AMQPComponent(Component):
             raise ComponentFailure(body["metadata"]["traceback"])
 
 
-@contextmanager
-def amqp_component(func: Callable, subtopic: str, pubtopic: Optional[str]) -> AMQPComponent:
-    component = AMQPComponent(func, subtopic=subtopic, pubtopic=pubtopic)
-    with component.start():
-        for retry in retries(200, 0.01, pika.exceptions.ChannelClosedByBroker):
-            with retry():
-                purge_queue(component.error_queue)
-                break
-        key = component.func
-        if not _LIVE_COMPONENTS[key]:
-            purge_queue(component.queue)
-        _LIVE_COMPONENTS[key] += 1
-        try:
-            yield component
-        finally:
-            _LIVE_COMPONENTS[key] -= 1
+class amqp_component(AMQPComponent):
+    def __enter__(self) -> AMQPComponent:
+        super().__enter__()
+        purge_queue(self.error_queue)
+        if not _LIVE_COMPONENTS[self.func]:
+            purge_queue(self.queue)
+        _LIVE_COMPONENTS[self.func] += 1
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _LIVE_COMPONENTS[self.func] -= 1
+        super().__exit__(exc_type, exc_val, exc_tb)
 
 
-def publish(routing_key, channel=None, **payload):
+#
+# @contextmanager
+# def amqp_component(func: Callable, subtopic: str, pubtopic: Optional[str]=None) -> Generator[AMQPComponent, None, None]:
+#     component = AMQPComponent(func, subtopic=subtopic, pubtopic=pubtopic)
+#     with component.start():
+#         for retry in retries(200, 0.01, pika.exceptions.ChannelClosedByBroker):
+#             with retry():
+#                 purge_queue(component.error_queue)
+#                 break
+#         key = component.func
+#         if not _LIVE_COMPONENTS[key]:
+#             purge_queue(component.queue)
+#         _LIVE_COMPONENTS[key] += 1
+#         try:
+#             yield component
+#         finally:
+#             _LIVE_COMPONENTS[key] -= 1
+
+
+def publish(routing_key, payload: Dict, channel=None):
     channel = channel or new_channel()
     # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
     # of the dead letter queue.
     channel.confirm_delivery()
-    for retry in retries(20, 0.5, pika.exceptions.UnroutableError):
+    for retry in retries(200, 0.1, pika.exceptions.UnroutableError):
         with retry():
             body = json.dumps(payload).encode()
             channel.basic_publish(exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)), body=body, mandatory=True)

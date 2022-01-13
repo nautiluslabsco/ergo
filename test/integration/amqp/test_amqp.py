@@ -1,11 +1,10 @@
 import json
-from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure, AMQPComponent
+from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure, amqp_component, AMQPComponent
 from test.integration.utils import ergo, retries
 import pika
 import pika.exceptions
 import pytest
 from ergo.topic import SubTopic
-
 
 
 
@@ -21,47 +20,57 @@ def product(x, y=1):
 
 
 def test_product_amqp(rabbitmq):
-    component = AMQPComponent(product, subtopic="product.in", pubtopic="product.out")
-    with component.start():
-        result = next(component.rpc(x=4, y=5))
+    with amqp_component(product, subtopic="product.in", pubtopic="product.out") as component:
+        result = next(component.rpc({"x": 4, "y": 5}))
         assert result["data"] == 20.0
 
 
-def return_three():
+def send_three():
     return 3
 
 
-def double_three(context, data: float):
-    return 2 * data
+def double(context, x: float):
+    return 2 * x
 
 
 def test_make_six(rabbitmq):
-    return_three_manifest = {
-        "func": f"{__file__}:return_three",
-    }
-    return_three_namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "return_six.in",
-        "pubtopic": "double_three.in",
-    }
-    double_three_manifest = {
-        "func": f"{__file__}:double_three",
-    }
-    double_three_namespace = {
-        "protocol": "amqp",
-        "host": AMQP_HOST,
-        "exchange": "test_exchange",
-        "subtopic": "double_three.in",
-        "pubtopic": "return_six.out",
-    }
-    with ergo("start", manifest=return_three_manifest, namespace=return_three_namespace):
-        with ergo("start", manifest=double_three_manifest, namespace=double_three_namespace):
-            kwargs = {**double_three_manifest, **double_three_namespace}
-            kwargs.update({"subtopic": "return_six.in", "pubtopic": "return_six.out"})
-            result = next(rpc("{}", **kwargs))
-        assert result == {'data': 6, 'key': 'out.return_six', 'log': []}
+    with amqp_component(send_three, subtopic="send_three") as send_three_component:
+        with amqp_component(double, subtopic="double_in", pubtopic="double_out") as double_component:
+            send_three_component.publish({"metadata": {"pubtopic"}})
+
+
+
+# def test_make_sixx(rabbitmq):
+#     return_three_component = AMQPComponent(return_three, subtopic="return_six.in", pubtopic="double_three.in")
+#     double_three_component = AMQPComponent(double_three, )
+#     
+#     
+#     return_three_manifest = {
+#         "func": f"{__file__}:return_three",
+#     }
+#     return_three_namespace = {
+#         "protocol": "amqp",
+#         "host": AMQP_HOST,
+#         "exchange": "test_exchange",
+#         "subtopic": "return_six.in",
+#         "pubtopic": "double_three.in",
+#     }
+#     double_three_manifest = {
+#         "func": f"{__file__}:double_three",
+#     }
+#     double_three_namespace = {
+#         "protocol": "amqp",
+#         "host": AMQP_HOST,
+#         "exchange": "test_exchange",
+#         "subtopic": "double_three.in",
+#         "pubtopic": "return_six.out",
+#     }
+#     with ergo("start", manifest=return_three_manifest, namespace=return_three_namespace):
+#         with ergo("start", manifest=double_three_manifest, namespace=double_three_namespace):
+#             kwargs = {**double_three_manifest, **double_three_namespace}
+#             kwargs.update({"subtopic": "return_six.in", "pubtopic": "return_six.out"})
+#             result = next(rpc("{}", **kwargs))
+#         assert result == {'data': 6, 'key': 'out.return_six', 'log': []}
 
 
 def get_dict():

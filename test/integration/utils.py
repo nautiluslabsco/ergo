@@ -4,7 +4,7 @@ import time
 import multiprocessing
 import yaml
 import tempfile
-from typing import Type, Callable, Optional
+from typing import Type, Callable, Dict, Optional
 from contextlib import contextmanager
 from ergo.ergo_cli import ErgoCli
 from abc import ABC, abstractmethod
@@ -42,6 +42,28 @@ def _ergo_inner(command, *args):
         yield
     finally:
         ergo_process.terminate()
+        
+        
+class ComponentInstance:
+    def __init__(self, manifest: Dict, namespace: Dict):
+        self.manifest_file = tempfile.NamedTemporaryFile(mode="w")
+        self.manifest_file.write(yaml.dump(manifest))
+        self.manifest_file.seek(0)
+        self.namespace_file = tempfile.NamedTemporaryFile(mode="w")
+        self.namespace_file.write(yaml.dump(namespace))
+        self.namespace_file.seek(0)
+        self.process = multiprocessing.Process(
+            target=ErgoCli().start,
+            args=(self.manifest_file.name, self.namespace_file.name),
+        )
+
+    def __enter__(self):
+        self.process.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.manifest_file.close()
+        self.namespace_file.close()
+        self.process.terminate()
 
 
 def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
@@ -68,17 +90,16 @@ class Component(ABC):
         self.func = func
         self.queue = f"{inspect.getfile(func)}:{func.__name__}"
         self.error_queue = f"{self.queue}_error"
+        self._instance: Optional[ComponentInstance] = None
 
     @property
-    @classmethod
     @abstractmethod
-    def protocol(cls):
+    def protocol(self):
         return NotImplementedError
 
     @property
-    @classmethod
     @abstractmethod
-    def host(cls):
+    def host(self):
         return NotImplementedError
 
     @property
@@ -92,9 +113,15 @@ class Component(ABC):
         namespace = {
             "protocol": self.protocol,
             "host": self.host,
-            "exchange": "test_exchange",
         }
         return namespace
+
+    def __enter__(self):
+        self._instance = ComponentInstance(self.manifest, self.namespace)
+        self._instance.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._instance.__exit__(exc_type, exc_val, exc_tb)
 
     @contextmanager
     def start(self):
