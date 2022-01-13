@@ -68,8 +68,8 @@ class AMQPComponent(Component):
 class amqp_component(AMQPComponent):
     def __enter__(self) -> AMQPComponent:
         super().__enter__()
-        purge_queue(self.error_queue)
         if not _LIVE_COMPONENTS[self.func]:
+            purge_queue(self.error_queue)
             purge_queue(self.queue)
         _LIVE_COMPONENTS[self.func] += 1
         return self
@@ -103,14 +103,11 @@ def subscribe(routing_key, inactivity_timeout=None):
 
 def consume(queue_name, inactivity_timeout=None, channel=None) -> Iterator:
     channel = channel or new_channel()
-    try:
-        for _, _, body in channel.consume(queue_name, inactivity_timeout=inactivity_timeout):
-            if body:
-                yield json.loads(body)
-            else:
-                yield None
-    finally:
-        channel.close()
+    for _, _, body in channel.consume(queue_name, inactivity_timeout=inactivity_timeout):
+        if body:
+            yield json.loads(body)
+        else:
+            yield None
 
 
 def purge_queue(queue_name: str):

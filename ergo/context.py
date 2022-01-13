@@ -1,5 +1,4 @@
-from typing import Optional, Union
-from contextlib import contextmanager
+from typing import Optional
 from ergo.transaction import Transaction
 
 
@@ -12,6 +11,9 @@ class Context:
         if not self._transaction:
             self._transaction = Transaction()
 
+    def close_transaction(self):
+        self._transaction = None
+
     @property
     def pubtopic(self) -> Optional[str]:
         return self._pubtopic
@@ -19,11 +21,3 @@ class Context:
     @pubtopic.setter
     def pubtopic(self, value: str):
         self._pubtopic = value
-
-    # @contextmanager
-    # def set_pubtopic(self, pubtopic: str):
-    #     try:
-    #         self._pubtopic = pubtopic
-    #         yield
-    #     finally:
-    #         self._pubtopic = None

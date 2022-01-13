@@ -95,31 +95,41 @@ def outer_transaction(context):
     assert context._transaction is None
     context.open_transaction()
     assert context._transaction is not None
+    return True
+
+
+def intermediate_temporary_transaction(context):
+    context.open_transaction()
+    context.close_transaction()
+    assert context._transaction is None
+    return True
 
 
 def inner_transaction(context):
     assert context._transaction is None
     context.open_transaction()
     assert context._transaction is not None
-    return {"success": True}
+    return True
 
 
 def test_transaction(rabbitmq):
-    with amqp_component(outer_transaction, subtopic="a", pubtopic="b") as outer_transaction_component:
-        with amqp_component(inner_transaction, subtopic="b", pubtopic="c") as inner_transaction_component:
-            outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
-            inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
-            outer_transaction_component.send({})
-            outer_txn_result = inner_txn_result = None
-            for attempt in range(20):
-                outer_txn_result = outer_txn_result or next(outer_sub)
-                inner_txn_result = inner_txn_result or next(inner_sub)
-                if outer_txn_result and inner_txn_result:
-                    break
-                outer_transaction_component.propagate_error(0.1)
-                inner_transaction_component.propagate_error(0.1)
-            outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
-            assert len(outer_txn_stack) == 1
-            inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
-            assert len(inner_txn_stack) == 2
-            assert inner_txn_stack[0] == outer_txn_stack[0]
+    with amqp_component(outer_transaction) as outer_transaction_component:
+        with amqp_component(intermediate_temporary_transaction, subtopic=outer_transaction_component.pubtopic) as intermediate_component:
+            with amqp_component(inner_transaction, subtopic=intermediate_component.pubtopic) as inner_transaction_component:
+                outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
+                inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
+                outer_transaction_component.send({})
+                outer_txn_result = inner_txn_result = None
+                for attempt in range(20):
+                    outer_txn_result = outer_txn_result or next(outer_sub)
+                    inner_txn_result = inner_txn_result or next(inner_sub)
+                    if outer_txn_result and inner_txn_result:
+                        break
+                    outer_transaction_component.propagate_error(0.1)
+                    intermediate_component.propagate_error(0.1)
+                    inner_transaction_component.propagate_error(0.1)
+                outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
+                assert len(outer_txn_stack) == 1
+                inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
+                assert len(inner_txn_stack) == 2
+                assert inner_txn_stack[0] == outer_txn_stack[0]
