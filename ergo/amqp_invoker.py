@@ -10,7 +10,7 @@ from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
-from ergo.payload import Payload, Metadata
+from ergo.payload import Payload, Metadata, ErgoMessage
 from ergo.types import TYPE_PAYLOAD
 from ergo.util import extract_from_stack
 from ergo.context import Context
@@ -136,7 +136,7 @@ class AmqpInvoker(Invoker):
             async for message in queue:
                 async with message.process():
                     data_in = json.loads(message.body.decode('utf-8'))
-                    yield Payload(**data_in)
+                    yield Payload.assemble(**data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -170,5 +170,5 @@ class AmqpInvoker(Invoker):
             if ctx._transaction:
                 stack.append(ctx._transaction)
             meta = Metadata(pubtopic=ctx.pubtopic, transaction_stack=stack)
-            payload_out = Payload.new(data=data_out, metadata=meta)
+            payload_out = Payload(ErgoMessage(data=data_out, metadata=meta))
             yield payload_out
