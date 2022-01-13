@@ -6,8 +6,8 @@ from typing import List
 from flask import Flask, request  # , abort
 
 from ergo.http_invoker import HttpInvoker
-from ergo.payload import Payload
-from ergo.types import TYPE_PAYLOAD
+from ergo.payload import InboundPayload, OutboundPayload
+from ergo.context import Context
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -30,8 +30,8 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_in: TYPE_PAYLOAD = Payload.from_dict(dict(request.args))
-            data_out: List[TYPE_PAYLOAD] = list(self._invocable.invoke(data_in))
+            data_in: InboundPayload = InboundPayload(Context(), **request.args)
+            data_out: List[OutboundPayload] = list(self._invocable.invoke(data_in))
             if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]
             return json.dumps(data_out)

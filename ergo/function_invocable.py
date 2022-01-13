@@ -11,8 +11,8 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
-from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
-from ergo.payload import Payload
+from ergo.types import TYPE_RETURN
+from ergo.payload import InboundPayload, OutboundPayload
 from ergo.util import print_exc_plus
 from ergo.context import Context
 
@@ -61,7 +61,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, ctx: Context, data_in: Payload) -> Generator:
+    def invoke(self, data_in: InboundPayload) -> Generator:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -78,12 +78,7 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            kwargs = {}
-            for param, default in self._config.parameters.items():
-                if param == "context":
-                    kwargs[param] = ctx
-                else:
-                    kwargs[param] = data_in.get(param, default)
+            kwargs = {param: data_in.get(param, default) for param, default in self._config.parameters.items()}
             result = self._func(**kwargs)
             if inspect.isgenerator(result):
                 yield from result

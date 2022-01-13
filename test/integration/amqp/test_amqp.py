@@ -1,10 +1,5 @@
-import json
-from test.integration.amqp.utils import publish, AMQP_HOST, ComponentFailure, amqp_component, AMQPComponent
-from test.integration.utils import ergo, retries
-import pika
-import pika.exceptions
+from test.integration.amqp.utils import ComponentFailure, amqp_component
 import pytest
-from ergo.topic import SubTopic
 from ergo.context import Context
 
 
@@ -110,21 +105,19 @@ def inner_transaction(context):
 
 
 def test_transaction(rabbitmq):
-    with amqp_component(outer_transaction, subtopic="outer_transaction_sub", pubtopic="outer_transaction_pub") as outer_transaction_component:
-        with amqp_component(inner_transaction, subtopic="outer_transaction_pub", pubtopic="inner_transaction_pub") as inner_transaction_component:
+    with amqp_component(outer_transaction, subtopic="a", pubtopic="b") as outer_transaction_component:
+        with amqp_component(inner_transaction, subtopic="b", pubtopic="c") as inner_transaction_component:
             outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
             inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
             outer_transaction_component.send({})
             outer_txn_result = inner_txn_result = None
-            for attempt in range(10):
+            for attempt in range(20):
+                outer_txn_result = outer_txn_result or next(outer_sub)
+                inner_txn_result = inner_txn_result or next(inner_sub)
                 if outer_txn_result and inner_txn_result:
                     break
-                elif not outer_txn_result:
-                    outer_transaction_component.propagate_error(0.1)
-                    outer_txn_result = next(outer_sub)
-                elif not inner_txn_result:
-                    inner_transaction_component.propagate_error(0.1)
-                    inner_txn_result = next(inner_sub)
+                outer_transaction_component.propagate_error(0.1)
+                inner_transaction_component.propagate_error(0.1)
             outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
             assert len(outer_txn_stack) == 1
             inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
