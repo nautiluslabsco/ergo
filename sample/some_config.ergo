@@ -1,0 +1,7 @@
+namespace: some_namespace.yaml
+func: some_python_file.py:some_function
+args:
+  x: data.a
+  y: data.b
+pubtopic: pub.topic
+subtopic: sub.topic

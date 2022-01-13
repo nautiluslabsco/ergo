@@ -2,6 +2,8 @@
 import json
 from typing import Dict, List, Optional
 
+import pydash
+
 
 class Payload:
     """Summary."""
@@ -15,7 +17,7 @@ class Payload:
         """
         self._data: Dict[str, str] = data or {}
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str, default=None) -> Optional[str]:
         """Summary.
 
         Args:
@@ -25,7 +27,7 @@ class Payload:
             Optional[str]: Description
 
         """
-        return self._data.get(key)
+        return pydash.get(self._data, key) or default
 
     def set(self, key: str, value: str) -> None:
         """Summary.
@@ -36,6 +38,16 @@ class Payload:
 
         """
         self._data[key] = value
+
+    def unset(self, key: str) -> str:
+        """Summary.
+
+        Args:
+            key (str): Description
+            value (str): Description
+
+        """
+        return self._data.pop(key, None)
 
     def list(self) -> List[str]:
         """Summary.

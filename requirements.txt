@@ -8,3 +8,4 @@ PyYAML
 aio-pika
 retry
 aiomisc
+pydash

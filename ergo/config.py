@@ -1,7 +1,9 @@
 """Summary."""
+import copy
+from collections import OrderedDict
 from typing import Dict, Optional
 
-from src.topic import PubTopic, SubTopic, Topic
+from ergo.topic import PubTopic, SubTopic, Topic
 
 
 class Config:
@@ -24,6 +26,28 @@ class Config:
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
+        self._args: OrderedDict[str, str] = config.get('args', {})
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    @property
+    def args(self):
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._args
+
+    @args.setter
+    def args(self, val) -> None:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        self._args = val
 
     @property
     def namespace(self) -> Optional[str]:
@@ -51,6 +75,15 @@ class Config:
             TYPE: Description
         """
         return self._pubtopic
+
+    @pubtopic.setter
+    def pubtopic(self, val: str) -> None:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        self._pubtopic = val
 
     @property
     def func(self) -> str:

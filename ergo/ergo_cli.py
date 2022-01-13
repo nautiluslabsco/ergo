@@ -5,13 +5,13 @@ import os
 import yaml
 from colors import color
 
-from src.amqp_invoker import AmqpInvoker
-from src.config import Config
-from src.flask_http_invoker import FlaskHttpInvoker
-from src.function_invocable import FunctionInvocable
-from src.http_invoker import HttpInvoker
-from src.schematic import graph as ergograph
-from src.version import get_version
+from ergo.amqp_invoker import AmqpInvoker
+from ergo.config import Config
+from ergo.flask_http_invoker import FlaskHttpInvoker
+from ergo.function_invocable import FunctionInvocable
+from ergo.http_invoker import HttpInvoker
+from ergo.schematic import graph as ergograph
+from ergo.version import get_version
 
 
 def format_date(sec: float) -> str:
@@ -129,7 +129,7 @@ class ErgoCli:
             int: Description
 
         """
-        config = Config({"func": func})
+        config = Config({'func': func})
         return self._http(config)
 
     def _http(self, config: Config):
@@ -172,12 +172,11 @@ class ErgoCli:
                 conf.update(namespace_cfg)
                 config = Config(conf)
 
-                if config.protocol == "amqp":
+                if config.protocol == 'amqp':
                     return self.amqp(config)
-                elif config.protocol == "http":
+                if config.protocol == 'http':
                     return self._http(config)
-                else:
-                    raise ValueError(f"unexpected protocol: {config.protocol}")
+                raise ValueError(f'unexpected protocol: {config.protocol}')
 
     def graph(self, *args: str) -> int:
         """Summary.

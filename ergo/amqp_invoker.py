@@ -1,21 +1,22 @@
 """Summary."""
-import aio_pika
-import aiomisc
 import asyncio
 import json
-
-from retry import retry
-from typing import Iterable
+from typing import Dict, Iterable
 from urllib.parse import urlparse
 
-from src.function_invocable import FunctionInvocable
-from src.invoker import Invoker
-from src.types import TYPE_PAYLOAD
+import aio_pika
+import aiomisc
+from retry import retry
+
+from ergo.function_invocable import FunctionInvocable
+from ergo.invoker import Invoker
+from ergo.payload import Payload
+from ergo.types import TYPE_PAYLOAD
+from ergo.util import extract_from_stack
 
 # content_type: application/json
 # {"x":5,"y":7}
 
-# TODO(ahuman-bean): requires fine-tuning
 MAX_THREADS = 2
 
 
@@ -24,6 +25,19 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
     uri, new_param = urlparse(host), f'{param_key}={param_val}'
     params = [p for p in uri.query.split('&') if param_key not in p] + [new_param]
     return uri._replace(query='&'.join(params)).geturl()
+
+
+def make_error_output(err: Exception) -> Dict[str, str]:
+    """Make a more digestable error output."""
+    orig = err.__context__ or err
+    err_output = {
+        'type': type(orig).__name__,
+        'message': str(orig),
+    }
+    filename, lineno, function_name = extract_from_stack(orig)
+    if None not in (filename, lineno, function_name):
+        err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}
+    return err_output
 
 
 class AmqpInvoker(Invoker):
@@ -41,8 +55,7 @@ class AmqpInvoker(Invoker):
 
     def start(self) -> int:
         """
-        Starts a new event loop that maintains a persistent AMQP connection.
-        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
+        Starts a new event loop that maintains a persistent AMQP connection. The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
 
         Returns:
             exit_code
@@ -59,8 +72,7 @@ class AmqpInvoker(Invoker):
 
     @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """
-        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
+        """Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
         Runs continuous `consume` -> `do_work` -> `publish` event loop.
 
         Parameters:
@@ -76,31 +88,25 @@ class AmqpInvoker(Invoker):
         # Pool for consuming and publishing
         channel_pool = aio_pika.pool.Pool[aio_pika.RobustChannel](get_channel, max_size=2, loop=loop)
         async with channel_pool.acquire() as channel:
-            await channel.declare_exchange(
-                name=self.exchange_name,
-                type=aio_pika.ExchangeType.TOPIC,
-                passive=False,
-                durable=True,
-                auto_delete=False,
-                internal=False,
-                arguments=None
-            )
+            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
 
         # Consume-Publish loop
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
+                    data_in.set('context', self._invocable.config.copy())
+
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=json.dumps(data_out).encode())
-                        routing_key = str(self._invocable.config.pubtopic)
+                        routing_key = str(data_in.get('context').pubtopic)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    # TODO(ahuman-bean): cleaner error messages
-                    data_in['error'] = str(err)
-                    # NOTE(ahuman-bean): have to nest metadata so error consumers can actually have access to them
-                    message = aio_pika.Message(body=json.dumps({"data": data_in}).encode())
-                    routing_key = f'{self.queue_name.replace(".", "_")}_error'
+                    data_in.set('error', make_error_output(err))
+                    data_in.set('traceback', str(err))
+                    data_in.unset('context')
+                    message = aio_pika.Message(body=str(data_in).encode())
+                    routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
         return connection
@@ -125,17 +131,17 @@ class AmqpInvoker(Invoker):
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
             await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name.replace(".", "_")}_error')
+            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
             async with queue.iterator() as iter:
                 async for message in iter:
-                    data_in: TYPE_PAYLOAD = dict(json.loads(message.body.decode('utf-8')))
+                    data_in = json.loads(message.body.decode('utf-8'))
                     # Subsequent processing work could still fail, but message delivery is considered to be successful since the `message` was not structurally malformed
                     # Therefore, acknowledgement is sent upon successful receipt and deserialization of `message`
                     # This is performed prior to processing due to the `consumer_timeout` (default 30 minutes) on the broker side
                     # See: https://www.rabbitmq.com/consumers.html#acknowledgement-timeout
                     await message.ack()
-                    yield data_in
+                    yield Payload(data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -162,9 +168,6 @@ class AmqpInvoker(Invoker):
         Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-        for data_out in self._invocable.invoke(data_in["data"]):
-            yield {
-                "data": data_out,
-                "key": str(self._invocable.config.pubtopic),
-                "log": data_in.get("log", [])
-            }
+
+        for data_out in self._invocable.invoke(data_in):
+            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}
