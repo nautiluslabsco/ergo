@@ -94,20 +94,30 @@ class AmqpInvoker(Invoker):
         async with connection, channel_pool:
             async for data_in in self.consume(channel_pool):
                 try:
-                    async for data_out in self.do_work(data_in):
-                        message = aio_pika.Message(body=data_out.serialize().encode('utf-8'))
-                        routing_key = str(data_out.meta["key"])
+                    conf = self._invocable.config
+                    ctx = Context(pubtopic=conf.pubtopic.raw())
+                    async for data_out in self.do_work(ctx, data_in):
+                        payload_out = self.process_work(ctx, data_in, data_out)
+                        message = aio_pika.Message(body=str(payload_out).encode('utf-8'))
+                        routing_key = str(payload_out.meta["key"])
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
                     data_out = OutboundPayload(data_in._message)
                     data_out.meta["error"] = make_error_output(err)
                     data_out.meta["traceback"] = str(err)
-                    message = aio_pika.Message(body=data_out.serialize().encode())
+                    message = aio_pika.Message(body=str(data_out).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
         return connection
+
+    def process_work(self, ctx: Context, data_in: InboundPayload, data_out) -> OutboundPayload:
+        stack = data_in.meta["transaction_stack"]
+        stack.extend(ctx._transaction_stack)
+        meta = Metadata(transaction_stack=stack, key=ctx.pubtopic)
+        payload_out = OutboundPayload(ErgoMessage(data=data_out, metadata=meta))
+        return payload_out
 
     async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> AsyncIterable[InboundPayload]:
         """
@@ -150,7 +160,7 @@ class AmqpInvoker(Invoker):
             await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: InboundPayload) -> AsyncIterable[OutboundPayload]:
+    def do_work(self, ctx: Context, data_in: InboundPayload) -> AsyncIterable[OutboundPayload]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -162,11 +172,5 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        conf = self._invocable.config
-        ctx = Context(pubtopic=conf.pubtopic.raw())
-        for data_out in self._invocable.invoke(ctx, data_in):
-            stack = data_in.meta["transaction_stack"]
-            stack.extend(ctx._transaction_stack)
-            meta = Metadata(transaction_stack=stack, key=ctx.pubtopic)
-            payload_out = OutboundPayload(ErgoMessage(data=data_out, metadata=meta))
-            yield payload_out
+        yield from self._invocable.invoke(ctx, data_in)
+

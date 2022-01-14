@@ -15,6 +15,7 @@ import uuid
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
+DIRECT_EXCHANGE = "amq.direct"
 SHORT_TIMEOUT = 0.01
 _LIVE_COMPONENTS: Dict = defaultdict(int)
 
@@ -32,6 +33,15 @@ class AMQPComponent(Component):
         self.subtopic = subtopic or f"{func.__name__}_{random_id}_sub"
         self.pubtopic = pubtopic or f"{func.__name__}_{random_id}_pub"
         self.channel = new_channel()
+        self.channel.basic_qos(prefetch_count=0, global_qos=True)
+        self._subscription_queue = self.channel.queue_declare(
+            queue="",
+            exclusive=True,
+        ).method.queue
+        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(self.pubtopic))
+        self.channel.queue_bind(self._subscription_queue, DIRECT_EXCHANGE, routing_key=self._subscription_queue)
+        publish(self._subscription_queue, {}, self.channel, DIRECT_EXCHANGE)
+        consume(self._subscription_queue, channel=self.channel)
 
     @property
     def namespace(self):
@@ -43,33 +53,54 @@ class AMQPComponent(Component):
         return ns
 
     def rpc(self, payload: Dict, inactivity_timeout=None):
-        subscription = self.new_subscription(inactivity_timeout=inactivity_timeout)
         self.send(payload)
-        yield from subscription
+        return self.consume(inactivity_timeout=inactivity_timeout)
 
     def send(self, payload: Dict):
-        publish(str(PubTopic(self.subtopic)), payload, channel=self.channel)
+        publish(str(PubTopic(self.subtopic)), payload, channel=self.channel, exchange=EXCHANGE)
 
-    def new_subscription(self, inactivity_timeout=None):
-        subscription = subscribe(str(SubTopic(self.pubtopic)), inactivity_timeout=inactivity_timeout)
+    def consume(self, inactivity_timeout=5):
+        attempt = 0
+        while True:
+            value = consume(self._subscription_queue, channel=self.channel, inactivity_timeout=0.01)
+            if value:
+                return value
+            self.propagate_error(inactivity_timeout=0.01)
+            attempt += 1
+            if inactivity_timeout and attempt >= inactivity_timeout * 20:
+                return None
 
-        def subscription_with_errors():
-            while True:
-                message = next(subscription)
-                if not message:
-                    self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
-                yield message
-
-        return subscription_with_errors()
+    # def new_subscription(self, inactivity_timeout=None):
+    #     # subscription = consume(self._subscription_queue, channel=self.channel, inactivity_timeout=inactivity_timeout)
+    #     # subscription = subscribe(str(SubTopic(self.pubtopic)), channel=self.channel, inactivity_timeout=inactivity_timeout)
+    #     # subscription = self._subscription
+    #
+    #     def subscription_with_errors():
+    #         while True:
+    #             message = next(subscription)
+    #             if not message:
+    #                 self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
+    #             yield message
+    #
+    #     return subscription_with_errors()
 
     def propagate_error(self, inactivity_timeout=None):
-        body = next(consume(self.error_queue, inactivity_timeout=inactivity_timeout))
+        body = consume(self.error_queue, inactivity_timeout=inactivity_timeout)
         if body:
             raise ComponentFailure(body["metadata"]["traceback"])
+
+    def await_startup(self):
+        for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):
+            with retry():
+                channel = new_channel()
+                publish(self.queue, {"ping": "pong"}, channel, DIRECT_EXCHANGE)
+        response = consume(self.queue, inactivity_timeout=10, channel=channel)
+        assert response
 
     def __enter__(self) -> AMQPComponentType:
         super().__enter__()
         if not _LIVE_COMPONENTS[self.func]:
+            self.await_startup()
             purge_queue(self.error_queue)
             purge_queue(self.queue)
         _LIVE_COMPONENTS[self.func] += 1
@@ -80,35 +111,43 @@ class AMQPComponent(Component):
         super().__exit__(exc_type, exc_val, exc_tb)
 
 
-def publish(routing_key, payload: Dict, channel=None):
-    channel = channel or new_channel()
-    # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
-    # of the dead letter queue.
+# def publish(routing_key, payload: Dict, channel=None):
+#     channel = channel or new_channel()
+#     # The ergo consumer may still be booting, so we have to retry publishing the message until it lands outside
+#     # of the dead letter queue.
+#     channel.confirm_delivery()
+#     for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
+#         with retry():
+#             body = json.dumps(payload).encode()
+#             channel.basic_publish(exchange=EXCHANGE, routing_key=routing_key, body=body, mandatory=True)
+
+
+def publish(routing_key, payload, channel, exchange):
     channel.confirm_delivery()
-    for retry in retries(200, 0.1, pika.exceptions.UnroutableError):
+    for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
         with retry():
             body = json.dumps(payload).encode()
-            channel.basic_publish(exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)), body=body, mandatory=True)
+            channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, mandatory=True)
 
 
 def subscribe(routing_key, inactivity_timeout=None):
     channel = new_channel()
     queue_name = channel.queue_declare(
         queue="",
-        exclusive=True,
+        auto_delete=True,
     ).method.queue
     channel.queue_bind(queue_name, EXCHANGE, routing_key=routing_key)
 
     return consume(queue_name, inactivity_timeout=inactivity_timeout, channel=channel)
 
 
-def consume(queue_name, inactivity_timeout=None, channel=None) -> Iterator:
+def consume(queue_name, inactivity_timeout=None, channel=None):
     channel = channel or new_channel()
-    for _, _, body in channel.consume(queue_name, inactivity_timeout=inactivity_timeout):
-        if body:
-            yield json.loads(body)
-        else:
-            yield None
+    method, _, body = next(channel.consume(queue_name, inactivity_timeout=inactivity_timeout))
+    if body:
+        channel.basic_ack(method.delivery_tag)
+        return json.loads(body)
+    return None
 
 
 def purge_queue(queue_name: str):

@@ -1,11 +1,12 @@
+import json
 from abc import ABC, abstractmethod
 
 
-class Serializable(ABC):
+class ErgoSerializable(ABC):
     @classmethod
     @abstractmethod
-    def deserialize(cls, s):
+    def from_json(cls, s):
         raise NotImplementedError
 
-    def serialize(self) -> str:
+    def to_json(self) -> str:
         raise NotImplementedError

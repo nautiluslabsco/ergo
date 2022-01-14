@@ -1,8 +1,8 @@
 """Summary."""
 import json
 from typing import Any, Dict, List, Optional, TypedDict
-from ergo.transaction import TransactionStack, Transaction, new_transaction_stack
-import dataclasses
+from ergo.transaction import TransactionStack, Transaction
+from ergo.codec import ErgoSerializable
 import pydash
 
 
@@ -18,7 +18,7 @@ class Metadata(TypedDict, total=False):
 
 
 def new_metadata() -> Metadata:
-    return Metadata(log=[], transaction_stack=new_transaction_stack())
+    return Metadata(log=[], transaction_stack=TransactionStack())
 
 
 class ErgoMessage(TypedDict):
@@ -76,5 +76,12 @@ class OutboundPayload(Payload):
     def __init__(self, message: ErgoMessage) -> None:
         super().__init__(message)
 
-    def serialize(self) -> str:
-        return json.dumps(self._message)
+    def __str__(self):
+        return json.dumps(self._message, cls=PayloadEncoder)
+
+
+class PayloadEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ErgoSerializable):
+            return o.to_json()
+        return super().default(o)
