@@ -1,35 +1,17 @@
 import uuid
-from typing import List, Optional, TypeVar
+from typing import List, TypedDict
 
 
-class Transaction:
-    def __init__(self):
-        self.id: str = str(uuid.uuid4())
-
-    def __str__(self):
-        return self.id
+class Transaction(TypedDict):
+    id: str
 
 
-TransactionStackType = TypeVar('TransactionStackType', bound='TransactionStack')
+def new_transaction() -> Transaction:
+    return Transaction(id=str(uuid.uuid4()))
 
 
-class TransactionStack:
-    def __init__(self):
-        self._stack: List[Transaction] = []
+TransactionStack = List[Transaction]
 
-    def push(self):
-        self._stack.append(Transaction())
 
-    def pop(self) -> Transaction:
-        return self._stack.pop()
-
-    def top(self) -> Optional[Transaction]:
-        if self._stack:
-            return self._stack[-1]
-        return None
-
-    def extend(self, stack: TransactionStackType):
-        self._stack.extend(stack._stack)
-
-    def __str__(self):
-        return self._stack.__str__()
+def new_transaction_stack() -> TransactionStack:
+    return []

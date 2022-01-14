@@ -95,15 +95,15 @@ class AmqpInvoker(Invoker):
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
-                        message = aio_pika.Message(body=str(data_out).encode('utf-8'))
-                        routing_key = str(data_out.meta.key)
+                        message = aio_pika.Message(body=data_out.serialize().encode('utf-8'))
+                        routing_key = str(data_out.meta["key"])
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
                     data_out = OutboundPayload(data_in._message)
-                    data_out.meta.error = make_error_output(err)
-                    data_out.meta.traceback = str(err)
-                    message = aio_pika.Message(body=str(data_out).encode())
+                    data_out.meta["error"] = make_error_output(err)
+                    data_out.meta["traceback"] = str(err)
+                    message = aio_pika.Message(body=data_out.serialize().encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 
@@ -165,7 +165,7 @@ class AmqpInvoker(Invoker):
         conf = self._invocable.config
         ctx = Context(pubtopic=conf.pubtopic.raw())
         for data_out in self._invocable.invoke(ctx, data_in):
-            stack = data_in.meta.transaction_stack
+            stack = data_in.meta["transaction_stack"]
             stack.extend(ctx._transaction_stack)
             meta = Metadata(transaction_stack=stack, key=ctx.pubtopic)
             payload_out = OutboundPayload(ErgoMessage(data=data_out, metadata=meta))

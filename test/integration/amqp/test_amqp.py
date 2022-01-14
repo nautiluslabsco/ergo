@@ -92,48 +92,46 @@ def test_make_six(rabbitmq):
                 assert result["data"] == 6
 
 
-def outer_transaction(context, pubtopic):
-    assert context._transaction is None
+def outer_transaction(context):
+    assert len(context._transaction_stack) == 0
     context.open_transaction()
-    assert context._transaction is not None
+    assert len(context._transaction_stack) == 1
     return True
 
 
-def intermediate_temporary_transaction(context):
-    context.open_transaction()
-    context.close_transaction()  # what else should this do?
-    assert context._transaction is None
-    return True
+# def intermediate_temporary_transaction(context):
+#     assert len(context._transaction_stack) == 0
+#     context.open_transaction()
+#     context.close_transaction()  # what else should this do?
+#     assert len(context._transaction_stack) == 0
+#     return True
 
 
 def inner_transaction(context):
-    assert context._transaction is None
+    assert len(context._transaction_stack) == 0
     context.open_transaction()
-    assert context._transaction is not None
     return True
 
 
 def test_transaction(rabbitmq):
     with AMQPComponent(outer_transaction) as outer_transaction_component:
-        with AMQPComponent(intermediate_temporary_transaction, subtopic=outer_transaction_component.pubtopic) as intermediate_component:
-            with AMQPComponent(inner_transaction, subtopic=intermediate_component.pubtopic) as inner_transaction_component:
-                outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
-                inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
-                outer_transaction_component.send({})
-                outer_txn_result = inner_txn_result = None
-                for attempt in range(20):
-                    outer_txn_result = outer_txn_result or next(outer_sub)
-                    inner_txn_result = inner_txn_result or next(inner_sub)
-                    if outer_txn_result and inner_txn_result:
-                        break
-                    outer_transaction_component.propagate_error(0.1)
-                    intermediate_component.propagate_error(0.1)
-                    inner_transaction_component.propagate_error(0.1)
-                outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
-                assert len(outer_txn_stack) == 1
-                inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
-                assert len(inner_txn_stack) == 2
-                assert inner_txn_stack[0] == outer_txn_stack[0]
+        with AMQPComponent(inner_transaction, subtopic=outer_transaction_component.pubtopic) as inner_transaction_component:
+            outer_sub = outer_transaction_component.new_subscription(inactivity_timeout=0.1)
+            inner_sub = inner_transaction_component.new_subscription(inactivity_timeout=0.1)
+            outer_transaction_component.send({})
+            outer_txn_result = inner_txn_result = None
+            for attempt in range(20):
+                outer_txn_result = outer_txn_result or next(outer_sub)
+                inner_txn_result = inner_txn_result or next(inner_sub)
+                if outer_txn_result and inner_txn_result:
+                    break
+                outer_transaction_component.propagate_error(0.1)
+                inner_transaction_component.propagate_error(0.1)
+            outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
+            assert len(outer_txn_stack) == 1
+            inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
+            assert len(inner_txn_stack) == 2
+            assert inner_txn_stack[0] == outer_txn_stack[0]
 
 
 def assemble_sandwich(ergo, order: List):
@@ -142,7 +140,7 @@ def assemble_sandwich(ergo, order: List):
     for future in futures:
         topping = yield future
         sandwich.append(topping)
-    bill_future = ergo.future(INTERNAL_BIILLING_TOPIC, order=order)
+    bill_future = ergo.future(MY_PRIVATE_BIILLING_TOPIC, order=order)
     yield {"sandwich": sandwich, "bill_future": bill_future}
 
 
