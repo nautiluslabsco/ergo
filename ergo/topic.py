@@ -17,6 +17,9 @@ class Topic:
         if topic_str:
             self._keys = [Key(key_str) for key_str in topic_str.split('.')]
 
+    def raw(self) -> str:
+        return '.'.join([str(key) for key in self._keys])
+
     def __str__(self) -> str:
         """Summary.
 

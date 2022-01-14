@@ -96,15 +96,13 @@ class AmqpInvoker(Invoker):
                 try:
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=str(data_out).encode('utf-8'))
-                        conf = self._invocable.config
-                        pubtopic = data_out.meta.get("pubtopic") or conf.pubtopic
-                        routing_key = str(pubtopic)
+                        routing_key = str(data_out.meta.key)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_out = OutboundPayload(ErgoMessage(**data_in._message))
-                    data_out.meta['error'] = make_error_output(err)
-                    data_out.meta['traceback'] = str(err)
+                    data_out = OutboundPayload(data_in._message)
+                    data_out.meta.error = make_error_output(err)
+                    data_out.meta.traceback = str(err)
                     message = aio_pika.Message(body=str(data_out).encode())
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
@@ -136,8 +134,7 @@ class AmqpInvoker(Invoker):
             async for message in queue:
                 async with message.process():
                     data_in = json.loads(message.body.decode('utf-8'))
-                    ctx = Context()
-                    yield InboundPayload(ctx, **data_in)
+                    yield InboundPayload(**data_in)
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -165,13 +162,11 @@ class AmqpInvoker(Invoker):
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
-        ctx = data_in.context
-        for data_out in self._invocable.invoke(data_in):
-            stack = data_in.meta.get('transaction_stack', [])
-            if ctx._transaction:
-                stack.append(ctx._transaction)
-            meta = Metadata(transaction_stack=stack)
-            if ctx.pubtopic:
-                meta["pubtopic"] = ctx.pubtopic
+        conf = self._invocable.config
+        ctx = Context(pubtopic=conf.pubtopic.raw())
+        for data_out in self._invocable.invoke(ctx, data_in):
+            stack = data_in.meta.transaction_stack
+            stack.extend(ctx._transaction_stack)
+            meta = Metadata(transaction_stack=stack, key=ctx.pubtopic)
             payload_out = OutboundPayload(ErgoMessage(data=data_out, metadata=meta))
             yield payload_out

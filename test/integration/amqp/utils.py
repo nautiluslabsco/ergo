@@ -4,7 +4,7 @@ import pika.exceptions
 from ergo.topic import SubTopic
 from pika.adapters.blocking_connection import BlockingChannel
 from test.integration.utils import Component, retries
-from typing import Iterator, Callable, Optional, Dict
+from typing import Iterator, Callable, Optional, Dict, TypeVar
 try:
     from collections.abc import Generator
 except ImportError:
@@ -17,6 +17,9 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
 _LIVE_COMPONENTS: Dict = defaultdict(int)
+
+
+AMQPComponentType = TypeVar('AMQPComponentType', bound='AMQPComponent')
 
 
 class AMQPComponent(Component):
@@ -64,9 +67,7 @@ class AMQPComponent(Component):
         if body:
             raise ComponentFailure(body["metadata"]["traceback"])
 
-
-class amqp_component(AMQPComponent):
-    def __enter__(self) -> AMQPComponent:
+    def __enter__(self) -> AMQPComponentType:
         super().__enter__()
         if not _LIVE_COMPONENTS[self.func]:
             purge_queue(self.error_queue)

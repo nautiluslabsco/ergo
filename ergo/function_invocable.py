@@ -61,7 +61,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: InboundPayload) -> Generator:
+    def invoke(self, ctx: Context, data_in: InboundPayload) -> Generator:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -78,7 +78,12 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            kwargs = {param: data_in.get(param, default) for param, default in self._config.parameters.items()}
+            kwargs = {}
+            for param, default in self._config.parameters.items():
+                if param == "context":
+                    kwargs["context"] = ctx
+                else:
+                    kwargs[param] = data_in.get(param, default)
             result = self._func(**kwargs)
             if inspect.isgenerator(result):
                 yield from result
