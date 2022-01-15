@@ -10,10 +10,8 @@ from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
-from ergo.payload import Payload, Metadata, PayloadContents, decode_message
+from ergo.payload import Payload, decode_message
 from ergo.util import extract_from_stack
-from ergo.context import Context
-from ergo.serializer import serialize
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -96,14 +94,14 @@ class AmqpInvoker(Invoker):
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
-                        message = aio_pika.Message(body=serialize(data_out).encode('utf-8'))
+                        message = aio_pika.Message(body=str(data_out).encode('utf-8'))
                         routing_key = str(data_out.meta["key"])
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
                     data_in.meta["error"] = make_error_output(err)
                     data_in.meta["traceback"] = str(err)
-                    message = aio_pika.Message(body=serialize(data_in).encode())
+                    message = aio_pika.Message(body=str(data_in).encode('utf-8'))
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
 

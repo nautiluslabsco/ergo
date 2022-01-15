@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from ergo.function_invocable import FunctionInvocable
 from ergo.payload import Payload, Metadata
 from ergo.context import Context
+from ergo.transaction import new_transaction_stack
 from typing import Generator
 
 
@@ -31,10 +32,12 @@ class Invoker(ABC):
         raise NotImplementedError()
 
     def invoke_handler(self, payload_in: Payload) -> Generator[Payload, None, None]:
-        ctx = Context(pubtopic=self._invocable.config.pubtopic.raw())
+        new_stack = new_transaction_stack()
+        ctx = Context(pubtopic=self._invocable.config.pubtopic.raw(), transaction_stack=new_stack)
         for data_out in self._invocable.invoke(ctx, payload_in):
-            stack = payload_in.meta["transaction_stack"]
-            stack.extend(ctx._transaction_stack)
-            meta = Metadata(transaction_stack=stack, key=ctx.pubtopic)
+            parent_stack = payload_in.meta["transaction_stack"]
+            if new_stack:
+                parent_stack.extend(new_stack)
+            meta = Metadata(transaction_stack=parent_stack, key=ctx.pubtopic)
             payload_out = Payload({"data": data_out, "metadata": meta})
             yield payload_out

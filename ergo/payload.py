@@ -1,7 +1,7 @@
 """Summary."""
 from typing import Any, Dict, List, Optional, TypedDict
-from ergo.transaction import TransactionStack
-from ergo.serializer import JSONEncodable
+from ergo.transaction import TransactionStack, TransactionStackData, new_transaction_stack
+from ergo.container import Container
 import pydash
 
 
@@ -17,11 +17,11 @@ class Metadata(TypedDict, total=False):
 
 
 def new_metadata() -> Metadata:
-    return Metadata(log=[], transaction_stack=TransactionStack())
+    return Metadata(log=[], transaction_stack=new_transaction_stack())
 
 
 def decode_metadata(raw_metadata) -> Metadata:
-    transaction_stack = TransactionStack(raw_metadata.pop("transaction_stack", None))
+    transaction_stack = TransactionStack(raw_metadata.pop("transaction_stack", new_transaction_stack()))
     return Metadata(transaction_stack=transaction_stack, **raw_metadata)
 
 
@@ -30,10 +30,7 @@ class PayloadContents(TypedDict):
     data: Any
 
 
-class Payload(JSONEncodable):
-    def __init__(self, contents: PayloadContents):
-        self._contents = contents
-
+class Payload(Container[PayloadContents]):
     @property
     def meta(self) -> Metadata:
         return self._contents["metadata"]
@@ -54,9 +51,6 @@ class Payload(JSONEncodable):
         if key == DATA_KEY:
             return self._contents["data"]
         return default
-
-    def json(self):
-        return self._contents
 
 
 def decode_message(data=None, metadata: Optional[Dict] = None, **kwargs) -> Payload:
