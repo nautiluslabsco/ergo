@@ -1,9 +1,6 @@
 import uuid
 from typing import List, TypedDict, TypeVar, Optional
-
-import json
-
-from ergo.codec import ErgoSerializable
+from ergo.serializer import JSONEncodable
 
 
 class Transaction(TypedDict):
@@ -17,7 +14,7 @@ def new_transaction() -> Transaction:
 TransactionStackType = TypeVar('TransactionStackType', bound='TransactionStack')
 
 
-class TransactionStack(ErgoSerializable):
+class TransactionStack(JSONEncodable):
     def __init__(self, transactions: Optional[List[Transaction]]=None):
         self._stack: List[Transaction] = transactions or []
 
@@ -35,13 +32,7 @@ class TransactionStack(ErgoSerializable):
     def extend(self, stack: TransactionStackType):
         self._stack.extend(stack._stack)
 
-    @classmethod
-    def from_json(cls, s):
-        stack = TransactionStack()
-        stack._stack = json.loads(s)
-        return stack
-
-    def to_json(self):
+    def json(self):
         return self._stack
 
     def __len__(self):

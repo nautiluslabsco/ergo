@@ -21,7 +21,7 @@ class Product:
 
 def test_product_class(rabbitmq):
     with AMQPComponent(Product) as component:
-        result = next(component.rpc({"x": 4, "y": 5}))
+        result = component.rpc({"x": 4, "y": 5})
         assert result["data"] == 20.0
 
 
@@ -35,7 +35,7 @@ def get_two_dicts():
 
 def test_get_two_dicts(rabbitmq):
     with AMQPComponent(get_two_dicts) as component:
-        result = next(component.rpc({}))
+        result = component.rpc({})
         assert result["data"] == get_two_dicts()
 
 
@@ -46,9 +46,9 @@ def yield_two_dicts():
 
 def test_yield_two_dicts(rabbitmq):
     with AMQPComponent(yield_two_dicts) as component:
-        results = component.rpc({})
-        assert next(results)["data"] == get_dict()
-        assert next(results)["data"] == get_dict()
+        component.send({})
+        assert component.consume()["data"] == get_dict()
+        assert component.consume()["data"] == get_dict()
 
 
 def assert_false():

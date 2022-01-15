@@ -4,7 +4,6 @@ import inspect
 import os
 import re
 import sys
-from collections import OrderedDict
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
@@ -12,7 +11,7 @@ from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
 from ergo.types import TYPE_RETURN
-from ergo.payload import InboundPayload, OutboundPayload
+from ergo.payload import Payload
 from ergo.util import print_exc_plus
 from ergo.context import Context
 
@@ -61,7 +60,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, ctx: Context, data_in: InboundPayload) -> Generator:
+    def invoke(self, ctx: Context, data_in: Payload) -> Generator:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.

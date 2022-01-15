@@ -23,7 +23,7 @@ def test_product():
         resp = session.get("http://localhost?x=4&y=5")
         assert resp.status_code == 200
         result = resp.json()
-        assert result == 20.0
+        assert result["data"] == 20.0
 
 
 def test_product__post_request():
@@ -31,7 +31,7 @@ def test_product__post_request():
         resp = session.post("http://localhost?x=4&y=5")
         assert resp.status_code == 200
         result = resp.json()
-        assert result == 20.0
+        assert result["data"] == 20.0
 
 
 def test_product__ergo_start():
@@ -45,7 +45,7 @@ def test_product__ergo_start():
         resp = session.get("http://localhost", params={"x": 2.5, "y": 3})
         assert resp.status_code == 200
         result = resp.json()
-        assert result == 7.5
+        assert result["data"] == 7.5
 
 
 def get_dict():
@@ -96,10 +96,12 @@ def test_get_data(getter):
     with ergo("start", manifest=manifest, namespace=namespace):
         resp = session.get("http://localhost")
         assert resp.ok
-        actual = resp.json()
+        response = resp.json()
         if inspect.isgeneratorfunction(getter):
             expected = [i for i in getter()]
+            actual = [d["data"] for d in response]
         else:
             expected = getter()
+            actual = response["data"]
 
         assert actual == expected

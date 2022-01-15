@@ -1,8 +1,7 @@
 """Summary."""
-import json
 from typing import Any, Dict, List, Optional, TypedDict
-from ergo.transaction import TransactionStack, Transaction
-from ergo.codec import ErgoSerializable
+from ergo.transaction import TransactionStack
+from ergo.serializer import JSONEncodable
 import pydash
 
 
@@ -26,38 +25,18 @@ def decode_metadata(raw_metadata) -> Metadata:
     return Metadata(transaction_stack=transaction_stack, **raw_metadata)
 
 
-class ErgoMessage(TypedDict):
+class PayloadContents(TypedDict):
     metadata: Metadata
     data: Any
 
 
-class Payload:
-    def __init__(self, message: ErgoMessage):
-        self._message = message
+class Payload(JSONEncodable):
+    def __init__(self, contents: PayloadContents):
+        self._contents = contents
 
     @property
     def meta(self) -> Metadata:
-        return self._message["metadata"]
-
-
-class InboundPayload(Payload):
-    def __init__(self, data=None, metadata: Optional[Dict] = None, **kwargs):
-        # TODO after all messages written with the old schema have been consumed
-        # data = data or raw_metadata
-        # metadata = metadata or {}
-        # return cls(context, ErgoMessage(data=data, metadata=metadata))
-
-        if data:
-            # assume _message is normalized
-            # metadata in its own key means _message _message was written with the new schema
-            # metadata in unpacked raw_metadata means _message was written with the old deprecated schema
-            meta: Metadata = decode_metadata(metadata or kwargs)
-        else:
-            # assume _message is un-normalized (not sent by ergo)
-            data = kwargs
-            meta = new_metadata()
-
-        super().__init__(ErgoMessage(data=data, metadata=meta))
+        return self._contents["metadata"]
 
     def get(self, key: str, default=None):
         """Summary.
@@ -69,24 +48,31 @@ class InboundPayload(Payload):
             Optional[str]: Description
 
         """
-        value = pydash.get(self._message["data"], key)
+        value = pydash.get(self._contents["data"], key)
         if value:
             return value
         if key == DATA_KEY:
-            return self._message["data"]
+            return self._contents["data"]
         return default
 
-
-class OutboundPayload(Payload):
-    def __init__(self, message: ErgoMessage) -> None:
-        super().__init__(message)
-
-    def __str__(self):
-        return json.dumps(self._message, cls=PayloadEncoder)
+    def json(self):
+        return self._contents
 
 
-class PayloadEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, ErgoSerializable):
-            return o.to_json()
-        return super().default(o)
+def decode_message(data=None, metadata: Optional[Dict] = None, **kwargs) -> Payload:
+    # TODO after all messages written with the old schema have been consumed
+    # data = data or raw_metadata
+    # metadata = metadata or {}
+    # return cls(context, PayloadContents(data=data, metadata=metadata))
+
+    if data:
+        # assume _contents is normalized
+        # metadata in its own key means _contents _contents was written with the new schema
+        # metadata in unpacked raw_metadata means _contents was written with the old deprecated schema
+        meta: Metadata = decode_metadata(metadata or kwargs)
+    else:
+        # assume _contents is un-normalized (not sent by ergo)
+        data = kwargs
+        meta = new_metadata()
+
+    return Payload(PayloadContents(data=data, metadata=meta))
