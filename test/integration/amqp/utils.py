@@ -29,9 +29,8 @@ class AMQPComponent(Component):
 
     def __init__(self, func: Callable, subtopic: Optional[str]=None, pubtopic: Optional[str]=None):
         super().__init__(func)
-        random_id = str(uuid.uuid4())
-        self.subtopic = subtopic or f"{func.__name__}_{random_id}_sub"
-        self.pubtopic = pubtopic or f"{func.__name__}_{random_id}_pub"
+        self.subtopic = subtopic or f"{self.queue}_sub"
+        self.pubtopic = pubtopic or f"{self.queue}_pub"
         self.channel = new_channel()
         self.channel.basic_qos(prefetch_count=0, global_qos=True)
         self._subscription_queue = self.channel.queue_declare(
@@ -70,20 +69,6 @@ class AMQPComponent(Component):
             if inactivity_timeout and attempt >= inactivity_timeout * 20:
                 return None
 
-    # def new_subscription(self, inactivity_timeout=None):
-    #     # subscription = consume(self._subscription_queue, channel=self.channel, inactivity_timeout=inactivity_timeout)
-    #     # subscription = subscribe(str(SubTopic(self.pubtopic)), channel=self.channel, inactivity_timeout=inactivity_timeout)
-    #     # subscription = self._subscription
-    #
-    #     def subscription_with_errors():
-    #         while True:
-    #             message = next(subscription)
-    #             if not message:
-    #                 self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
-    #             yield message
-    #
-    #     return subscription_with_errors()
-
     def propagate_error(self, inactivity_timeout=None):
         body = consume(self.error_queue, inactivity_timeout=inactivity_timeout)
         if body:
@@ -93,16 +78,23 @@ class AMQPComponent(Component):
         for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):
             with retry():
                 channel = new_channel()
-                publish(self.queue, {"ping": "pong"}, channel, DIRECT_EXCHANGE)
-        response = consume(self.queue, inactivity_timeout=10, channel=channel)
-        assert response
+                channel.queue_declare(self.queue, passive=True)
+
+        # for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker, pika.exceptions.UnroutableError):
+        #     with retry():
+        #         channel = new_channel()
+        #         channel.queue_bind(self.queue, DIRECT_EXCHANGE, routing_key=self.queue)
+        #         publish(self.queue, {"ping": "pong"}, channel, DIRECT_EXCHANGE)
+        # response = consume(self.queue, inactivity_timeout=10, channel=channel)
+        # assert response
+        # channel.queue_unbind(self.queue, DIRECT_EXCHANGE)
+        purge_queue(self.error_queue)
+        purge_queue(self.queue)
 
     def __enter__(self) -> AMQPComponentType:
         super().__enter__()
         if not _LIVE_COMPONENTS[self.func]:
             self.await_startup()
-            purge_queue(self.error_queue)
-            purge_queue(self.queue)
         _LIVE_COMPONENTS[self.func] += 1
         return self
 

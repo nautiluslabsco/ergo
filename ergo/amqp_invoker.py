@@ -13,6 +13,7 @@ from ergo.invoker import Invoker
 from ergo.payload import InboundPayload, OutboundPayload, Metadata, ErgoMessage
 from ergo.util import extract_from_stack
 from ergo.context import Context
+from ergo.codec import deserialize
 
 # content_type: application/json
 # {"x":5,"y":7}

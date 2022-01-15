@@ -102,13 +102,14 @@ def inner_transaction(context):
 
 
 def test_transaction(rabbitmq):
-    with AMQPComponent(outer_transaction) as outer_transaction_component:
-        with AMQPComponent(inner_transaction, subtopic=outer_transaction_component.pubtopic) as inner_transaction_component:
+    with AMQPComponent(inner_transaction, subtopic="outer_transaction_pub") as inner_transaction_component:
+        with AMQPComponent(outer_transaction, pubtopic="outer_transaction_pub") as outer_transaction_component:
             outer_transaction_component.send({})
             inner_txn_result = inner_transaction_component.consume()
             outer_txn_result = outer_transaction_component.consume()
-    outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
-    assert len(outer_txn_stack) == 1
-    inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
-    assert len(inner_txn_stack) == 2
-    assert inner_txn_stack[0] == outer_txn_stack[0]
+
+            outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
+            assert len(outer_txn_stack) == 1
+            inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
+            assert len(inner_txn_stack) == 2
+            assert inner_txn_stack[0] == outer_txn_stack[0]

@@ -18,8 +18,8 @@ TransactionStackType = TypeVar('TransactionStackType', bound='TransactionStack')
 
 
 class TransactionStack(ErgoSerializable):
-    def __init__(self):
-        self._stack: List[Transaction] = []
+    def __init__(self, transactions: Optional[List[Transaction]]=None):
+        self._stack: List[Transaction] = transactions or []
 
     def push(self):
         self._stack.append(new_transaction())
