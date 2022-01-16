@@ -1,13 +1,15 @@
 import inspect
 import json
-import time
 import multiprocessing
-import yaml
 import tempfile
-from typing import Type, Callable, Dict, Optional
-from contextlib import contextmanager
-from ergo.ergo_cli import ErgoCli
+import time
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from typing import Callable, Dict, Optional, Type
+
+import yaml
+
+from ergo.ergo_cli import ErgoCli
 
 
 @contextmanager

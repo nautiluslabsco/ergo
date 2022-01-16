@@ -1,12 +1,12 @@
 """Summary."""
 import inspect
-import json
 from typing import List
 
+import jsons
 from flask import Flask, request  # , abort
 
 from ergo.http_invoker import HttpInvoker
-from ergo.payload import Payload, decode_message
+from ergo.payload import Payload, decode, encodes
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -29,11 +29,11 @@ class FlaskHttpInvoker(HttpInvoker):
                 str: Description
 
             """
-            data_in: Payload = decode_message(**request.args)
+            data_in: Payload = decode(**request.args)
             data_out: List[Payload] = list(self.invoke_handler(data_in))
             if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]
-            return str(data_out)
+            return encodes(data_out)
 
         app.run(host='0.0.0.0', port=self._port)
         return 0

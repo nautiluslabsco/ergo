@@ -1,72 +1,58 @@
 """Summary."""
-from typing import Any, Dict, List, Optional, TypedDict
-from ergo.transaction import TransactionStack, TransactionStackData, new_transaction_stack
-from ergo.container import Container
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Union
+
+import jsons
 import pydash
 
+from ergo.transaction import Stack
 
 DATA_KEY = "data"
 
 
-class Metadata(TypedDict, total=False):
-    key: str
-    log: List
-    transaction_stack: TransactionStack
-    error: Dict[str, str]
-    traceback: str
+@dataclass
+class Metadata:
+    key: Optional[str] = None
+    log: List = field(default_factory=list)
+    stack: Stack = field(default_factory=Stack)
+    error: Optional[Dict[str, str]] = None
+    traceback: Optional[str] = None
 
 
-def new_metadata() -> Metadata:
-    return Metadata(log=[], transaction_stack=new_transaction_stack())
-
-
-def decode_metadata(raw_metadata) -> Metadata:
-    transaction_stack = TransactionStack(raw_metadata.pop("transaction_stack", new_transaction_stack()))
-    return Metadata(transaction_stack=transaction_stack, **raw_metadata)
-
-
-class PayloadContents(TypedDict):
-    metadata: Metadata
-    data: Any
-
-
-class Payload(Container[PayloadContents]):
-    @property
-    def meta(self) -> Metadata:
-        return self._contents["metadata"]
+@dataclass
+class Payload:
+    data: Any = field(default=None)
+    metadata: Metadata = field(default_factory=Metadata)
 
     def get(self, key: str, default=None):
-        """Summary.
-
-        Args:
-            key (str): Description
-
-        Returns:
-            Optional[str]: Description
-
-        """
-        value = pydash.get(self._contents["data"], key)
+        value = pydash.get(self.data, key)
         if value:
             return value
         if key == DATA_KEY:
-            return self._contents["data"]
+            return self.data
         return default
 
 
-def decode_message(data=None, metadata: Optional[Dict] = None, **kwargs) -> Payload:
+def decodes(s: str) -> Payload:
+    return decode(**jsons.loads(s))
+
+
+def decode(data=None, metadata=None, **kwargs) -> Payload:
     # TODO after all messages written with the old schema have been consumed
-    # data = data or raw_metadata
-    # metadata = metadata or {}
-    # return cls(context, PayloadContents(data=data, metadata=metadata))
+    # return jsons.load({"data": data or kwargs, "metadata": metadata or {}}, cls=Payload)
 
     if data:
-        # assume _contents is normalized
-        # metadata in its own key means _contents _contents was written with the new schema
-        # metadata in unpacked raw_metadata means _contents was written with the old deprecated schema
-        meta: Metadata = decode_metadata(metadata or kwargs)
+        # assume data and metadata are already normalized (sent by an upstream component)
+        # metadata in its own key means it was written with the new schema {"data": None, "key": "my_key", ...}
+        # metadata in unpacked kwargs means it was written with the old deprecated schema {"data": None, "metadata": {"key": "my_key", ...}}
+        metadata = metadata or kwargs
     else:
-        # assume _contents is un-normalized (not sent by ergo)
+        # assume _contents is un-normalized (not sent by a component)
         data = kwargs
-        meta = new_metadata()
+        metadata = {}
 
-    return Payload(PayloadContents(data=data, metadata=meta))
+    return jsons.load({"data": data, "metadata": metadata}, cls=Payload)
+
+
+def encodes(data: Union[Payload, Iterable[Payload]]) -> str:
+    return jsons.dumps(data)

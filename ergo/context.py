@@ -1,13 +1,13 @@
-from ergo.transaction import TransactionStack, new_transaction
+from ergo.transaction import Stack, Transaction
 
 
 class Context:
-    def __init__(self, pubtopic: str, transaction_stack: TransactionStack):
+    def __init__(self, pubtopic: str, stack: Stack):
         self.pubtopic = pubtopic
-        self._transaction_stack = transaction_stack
+        self._stack = stack
 
     def open_transaction(self):
-        self._transaction_stack.push(new_transaction())
+        self._stack.push(Transaction())
 
     def close_transaction(self):
-        self._transaction_stack.pop()
+        self._stack.pop()

@@ -9,3 +9,4 @@ aio-pika
 retry
 aiomisc
 pydash
+jsons

@@ -1,9 +1,11 @@
-from test.integration.amqp.utils import ComponentFailure, AMQPComponent
+from test.integration.amqp.utils import AMQPComponent, ComponentFailure
+
 import pytest
+
 from ergo.context import Context
 
 
-def product(x, y=1):
+def product(x, y):
     return float(x) * float(y)
 
 
@@ -15,14 +17,14 @@ def test_product_amqp(rabbitmq):
 
 class Product:
     @classmethod
-    def __call__(cls, x, y):
+    def __call__(cls, x, y=2):
         return x * y
 
 
 def test_product_class(rabbitmq):
     with AMQPComponent(Product) as component:
-        result = component.rpc({"x": 4, "y": 5})
-        assert result["data"] == 20.0
+        result = component.rpc({"x": 4})
+        assert result["data"] == 8.0
 
 
 def get_dict():
@@ -89,14 +91,14 @@ def test_make_six(rabbitmq):
 
 
 def outer_transaction(context):
-    assert len(context._transaction_stack) == 0
+    assert len(context._stack) == 0
     context.open_transaction()
-    assert len(context._transaction_stack) == 1
+    assert len(context._stack) == 1
     return True
 
 
 def inner_transaction(context):
-    assert len(context._transaction_stack) == 0
+    assert len(context._stack) == 0
     context.open_transaction()
     return True
 
@@ -108,8 +110,8 @@ def test_transaction(rabbitmq):
             inner_txn_result = inner_transaction_component.consume()
             outer_txn_result = outer_transaction_component.consume()
 
-            outer_txn_stack = outer_txn_result["metadata"]["transaction_stack"]
+            outer_txn_stack = outer_txn_result["metadata"]["stack"]
             assert len(outer_txn_stack) == 1
-            inner_txn_stack = inner_txn_result["metadata"]["transaction_stack"]
+            inner_txn_stack = inner_txn_result["metadata"]["stack"]
             assert len(inner_txn_stack) == 2
             assert inner_txn_stack[0] == outer_txn_stack[0]

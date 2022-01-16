@@ -1,11 +1,10 @@
 import inspect
+from test.integration.utils import ergo
 
 import pytest
 import requests
-from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from test.integration.utils import ergo
-
+from urllib3.util.retry import Retry
 
 # HTTP requests need to retry on ConnectionError while the Flask server boots.
 session = requests.Session()

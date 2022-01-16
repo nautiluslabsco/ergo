@@ -1,8 +1,9 @@
 """Summary."""
 import copy
+import uuid
 from collections import OrderedDict
 from typing import Dict, Optional
-import uuid
+
 from ergo.topic import PubTopic, SubTopic, Topic
 
 

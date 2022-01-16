@@ -1,48 +1,36 @@
 import uuid
-from typing import List, TypedDict, Optional, TypeVar
-
-import ergo.container
-
-
-class TransactionData(TypedDict):
-    id: str
+from dataclasses import dataclass, field
+from typing import List, Optional, TypeVar
 
 
-class Transaction(ergo.container.Container[TransactionData]):
-    pass
+@dataclass
+class Transaction:
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
-def new_transaction() -> Transaction:
-    return Transaction(TransactionData(id=str(uuid.uuid4())))
+_Stack = TypeVar('_Stack', bound='Stack')
 
 
-TransactionStackData = List[Transaction]
+class Stack:
+    def __init__(self, transactions: Optional[List[Transaction]] = None):
+        self._transactions = transactions or []
 
-
-_TransactionStack = TypeVar('_TransactionStack', bound='TransactionStack')
-
-
-class TransactionStack(ergo.container.Container[TransactionStackData]):
-    def push(self, txn: Transaction):
-        self._contents.append(txn)
+    def push(self, transaction: Transaction):
+        self._transactions.append(transaction)
 
     def pop(self) -> Transaction:
-        return self._contents.pop()
+        return self._transactions.pop()
 
     def top(self) -> Optional[Transaction]:
-        if self._contents:
-            return self._contents[-1]
+        if self._transactions:
+            return self._transactions[-1]
         return None
 
-    def extend(self, stack: _TransactionStack):
-        self._contents.extend(stack._contents)
+    def extend(self, stack: _Stack):
+        self._transactions.extend(stack._transactions)
 
     def __len__(self):
-        return len(self._contents)
+        return len(self._transactions)
 
     def __iter__(self):
-        return self._contents.__iter__()
-
-
-def new_transaction_stack():
-    return TransactionStack([])
+        return self._transactions.__iter__()

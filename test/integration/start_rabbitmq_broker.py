@@ -1,8 +1,8 @@
+from test.integration.utils import retries
+
 import docker
 import pika
 import pika.exceptions
-from test.integration.utils import retries
-
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 

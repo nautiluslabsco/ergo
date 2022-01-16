@@ -10,10 +10,10 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
-from ergo.types import TYPE_RETURN
-from ergo.payload import Payload
-from ergo.util import print_exc_plus
 from ergo.context import Context
+from ergo.payload import Payload
+from ergo.types import TYPE_RETURN
+from ergo.util import print_exc_plus
 
 
 class FunctionInvocable:
