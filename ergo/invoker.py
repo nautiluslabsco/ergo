@@ -5,7 +5,6 @@ from typing import Generator
 from ergo.context import Context
 from ergo.function_invocable import FunctionInvocable
 from ergo.payload import Payload
-from ergo.transaction import Stack
 
 
 class Invoker(ABC):
@@ -32,8 +31,7 @@ class Invoker(ABC):
         raise NotImplementedError()
 
     def invoke_handler(self, payload_in: Payload) -> Generator[Payload, None, None]:
-        parent_stack = payload_in.stack
-        context = Context(pubtopic=self._invocable.config.pubtopic.raw(), stack=parent_stack)
+        context = Context(pubtopic=self._invocable.config.pubtopic.raw(), stack=payload_in.stack)
         for data_out in self._invocable.invoke(context, payload_in):
-            payload_out = Payload(data=data_out, stack=parent_stack, key=context.pubtopic)
+            payload_out = Payload(data=data_out, stack=context.stack, key=context.pubtopic)
             yield payload_out

@@ -1,6 +1,5 @@
 """Summary."""
 import copy
-import uuid
 from collections import OrderedDict
 from typing import Dict, Optional
 
@@ -21,8 +20,8 @@ class Config:
         """
         self._func: str = config['func']
         self._namespace: Optional[str] = config.get('namespace', 'local')
-        self._pubtopic: PubTopic = PubTopic(config.get('pubtopic'))
-        self._subtopic: SubTopic = SubTopic(config.get('subtopic'))
+        self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
+        self._subtopic: Topic = SubTopic(config.get('subtopic'))
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
@@ -60,7 +59,7 @@ class Config:
         return self._namespace
 
     @property
-    def subtopic(self) -> SubTopic:
+    def subtopic(self) -> Topic:
         """Summary.
 
         Returns:
@@ -69,7 +68,7 @@ class Config:
         return self._subtopic
 
     @property
-    def pubtopic(self) -> PubTopic:
+    def pubtopic(self) -> Topic:
         """Summary.
 
         Returns:
@@ -130,7 +129,3 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
-
-    def open_transaction(self):
-        if not self._transaction_id:
-            self._transaction_id = str(uuid.uuid4())

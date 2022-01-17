@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import jsons
 import pydash
 
-from ergo.transaction import Stack
+from ergo.stack import Stack
 
 DATA_KEY = "data"
 
@@ -15,7 +15,7 @@ class Payload:
     data: Any = field(default=None)
     key: Optional[str] = None
     log: List = field(default_factory=list)
-    stack: Stack = field(default_factory=Stack)
+    stack: Optional[Stack] = None
     error: Optional[Dict[str, str]] = None
     traceback: Optional[str] = None
 

@@ -1,13 +1,19 @@
-from ergo.transaction import Stack, Transaction
+from typing import Optional
+
+from ergo.stack import Stack
 
 
 class Context:
-    def __init__(self, pubtopic: str, stack: Stack):
+    def __init__(self, pubtopic: str, stack: Optional[Stack]):
         self.pubtopic = pubtopic
-        self._stack = stack
+        self.stack = stack
 
     def open_transaction(self):
-        self._stack.push(Transaction())
+        if self.stack:
+            self.stack = self.stack.push()
+        else:
+            self.stack = Stack()
 
     def close_transaction(self):
-        self._stack.pop()
+        if self.stack:
+            self.stack = self.stack.pop()
