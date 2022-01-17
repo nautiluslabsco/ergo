@@ -11,6 +11,7 @@ from retry import retry
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.payload import Payload, decodes, encodes
+from ergo.topic import PubTopic
 from ergo.util import extract_from_stack
 
 # content_type: application/json
@@ -95,7 +96,7 @@ class AmqpInvoker(Invoker):
                 try:
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=encodes(data_out).encode('utf-8'))
-                        routing_key = str(data_out.key)
+                        routing_key = str(PubTopic(data_out.key))
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
@@ -115,7 +116,7 @@ class AmqpInvoker(Invoker):
             channel_pool: Pool of valid `Channel` handles
 
         Yields:
-            payload: json-deserialized object
+            payload: JSON-deserialized object
         """
 
         async with channel_pool.acquire() as channel:
