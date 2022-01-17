@@ -3,9 +3,13 @@ from dataclasses import dataclass, field
 from typing import List, Optional, TypeVar
 
 
+def new_transaction_id() -> str:
+    return str(uuid.uuid4())
+
+
 @dataclass
 class Transaction:
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    id: str = field(default_factory=new_transaction_id)
 
 
 _Stack = TypeVar('_Stack', bound='Stack')

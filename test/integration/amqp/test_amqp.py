@@ -90,28 +90,57 @@ def test_make_six(rabbitmq):
                 assert result["data"] == 6
 
 
-def outer_transaction(context):
-    assert len(context._stack) == 0
+def upstream_transaction(context):
     context.open_transaction()
-    assert len(context._stack) == 1
-    return True
+    yield True
+    yield True
 
 
-def inner_transaction(context):
-    assert len(context._stack) == 0
+def downstream_transaction(context):
     context.open_transaction()
     return True
 
 
 def test_transaction(rabbitmq):
-    with AMQPComponent(inner_transaction, subtopic="outer_transaction_pub") as inner_transaction_component:
-        with AMQPComponent(outer_transaction, pubtopic="outer_transaction_pub") as outer_transaction_component:
-            outer_transaction_component.send({})
-            inner_txn_result = inner_transaction_component.consume()
-            outer_txn_result = outer_transaction_component.consume()
+    with AMQPComponent(downstream_transaction, subtopic="upstream_transaction_pub") as downstream_transaction_component:
+        with AMQPComponent(upstream_transaction, pubtopic="upstream_transaction_pub") as upstream_transaction_component:
+            upstream_transaction_component.send({})
+            upstream_stack_1 = upstream_transaction_component.consume()["stack"]
+            upstream_stack_2 = upstream_transaction_component.consume()["stack"]
+            downstream_stack_1 = downstream_transaction_component.consume()["stack"]
+            downstream_stack_2 = downstream_transaction_component.consume()["stack"]
 
-            outer_txn_stack = outer_txn_result["metadata"]["stack"]
-            assert len(outer_txn_stack) == 1
-            inner_txn_stack = inner_txn_result["metadata"]["stack"]
-            assert len(inner_txn_stack) == 2
-            assert inner_txn_stack[0] == outer_txn_stack[0]
+            assert len(upstream_stack_1) == 1
+            assert len(upstream_stack_2) == 1
+            assert len(downstream_stack_1) == 2
+            assert len(downstream_stack_2) == 2
+            assert upstream_stack_1 == upstream_stack_2
+            assert downstream_stack_1[0] == upstream_stack_1[0]
+            assert downstream_stack_2[0] == upstream_stack_1[0]
+            assert downstream_stack_1[1] != downstream_stack_2[1]
+
+
+def nested_upstream_transaction(context):
+    context.open_transaction()
+    yield
+    context.open_transaction()
+    yield
+
+
+def test_nested_transaction(rabbitmq):
+    with AMQPComponent(downstream_transaction, subtopic="upstream_transaction_pub") as downstream_transaction_component:
+        with AMQPComponent(nested_upstream_transaction, pubtopic="upstream_transaction_pub") as upstream_transaction_component:
+            upstream_transaction_component.send({})
+            upstream_stack_1 = upstream_transaction_component.consume()["metadata"]["stack"]
+            upstream_stack_2 = upstream_transaction_component.consume()["metadata"]["stack"]
+            downstream_stack_1 = downstream_transaction_component.consume()["metadata"]["stack"]
+            downstream_stack_2 = downstream_transaction_component.consume()["metadata"]["stack"]
+
+            assert len(upstream_stack_1) == 1
+            assert len(upstream_stack_2) == 1
+            assert len(downstream_stack_1) == 2
+            assert len(downstream_stack_2) == 2
+            assert upstream_stack_1 == upstream_stack_2
+            assert downstream_stack_1[0] == upstream_stack_1[0]
+            assert downstream_stack_2[0] == upstream_stack_1[0]
+            assert downstream_stack_1[1] != downstream_stack_2[1]

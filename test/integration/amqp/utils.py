@@ -69,7 +69,7 @@ class AMQPComponent(Component):
     def propagate_error(self, inactivity_timeout=None):
         body = consume(self.error_queue, inactivity_timeout=inactivity_timeout)
         if body:
-            raise ComponentFailure(body["metadata"]["traceback"])
+            raise ComponentFailure(body["traceback"])
 
     def await_startup(self):
         for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):

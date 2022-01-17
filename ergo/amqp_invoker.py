@@ -95,12 +95,12 @@ class AmqpInvoker(Invoker):
                 try:
                     async for data_out in self.do_work(data_in):
                         message = aio_pika.Message(body=encodes(data_out).encode('utf-8'))
-                        routing_key = str(data_out.metadata.key)
+                        routing_key = str(data_out.key)
                         await self.publish(channel_pool, message, routing_key=routing_key)
 
                 except Exception as err:  # pylint: disable=broad-except
-                    data_in.metadata.error = make_error_output(err)
-                    data_in.metadata.traceback = str(err)
+                    data_in.error = make_error_output(err)
+                    data_in.traceback = str(err)
                     message = aio_pika.Message(body=jsons.dumps(data_in).encode('utf-8'))
                     routing_key = f'{self.queue_name}_error'
                     await self.publish(channel_pool, message, routing_key)
