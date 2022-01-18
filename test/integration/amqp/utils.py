@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 from test.integration.utils import Component, retries
 from typing import Callable, Dict, Optional, TypeVar
@@ -19,9 +20,6 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
 _LIVE_COMPONENTS: Dict = defaultdict(int)
-
-
-AMQPComponentType = TypeVar('AMQPComponentType', bound='AMQPComponent')
 
 
 class AMQPComponent(Component):
@@ -79,7 +77,7 @@ class AMQPComponent(Component):
         purge_queue(self.error_queue)
         purge_queue(self.queue)
 
-    def __enter__(self) -> AMQPComponentType:
+    def __enter__(self):
         super().__enter__()
         if not _LIVE_COMPONENTS[self.func]:
             self.await_startup()
