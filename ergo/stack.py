@@ -1,11 +1,13 @@
 from __future__ import annotations
-import uuid
+
 from typing import Optional
+
+from ergo.util import uniqueid
 
 
 class Stack:
     def __init__(self, id: Optional[str] = None, parent=None):
-        self.id = id or str(uuid.uuid4())
+        self.id = id or uniqueid()
         self.parent: Optional[Stack] = parent
 
     def push(self: Stack) -> Stack:
