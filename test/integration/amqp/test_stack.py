@@ -3,13 +3,13 @@ from typing import Dict
 
 
 def upstream_transaction(context):
-    context.open_transaction()
+    context._open_transaction()
     yield True
     yield True
 
 
 def downstream_transaction(context):
-    context.open_transaction()
+    context._open_transaction()
     return True
 
 
@@ -32,9 +32,9 @@ def test_transaction(rabbitmq):
 
 
 def nested_transaction(context):
-    context.open_transaction()
+    context._open_transaction()
     yield
-    context.open_transaction()
+    context._open_transaction()
     yield
 
 
@@ -49,9 +49,9 @@ def test_nested_transaction(rabbitmq):
 
 
 def closing_transaction(context):
-    context.open_transaction()
+    context._open_transaction()
     yield
-    context.close_transaction()
+    context._close_transaction()
     yield
 
 
