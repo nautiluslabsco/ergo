@@ -78,7 +78,7 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             kwargs = {}
-            for param, default in self._config.parameters.items():
+            for param, default in self._config.args.items():
                 if param == "context":
                     kwargs["context"] = ctx
                 else:
@@ -137,4 +137,4 @@ class FunctionInvocable:
                 if default is inspect.Parameter.empty:
                     default = None
                 params[name] = default
-            self._config.parameters = params
+            self._config.args = params

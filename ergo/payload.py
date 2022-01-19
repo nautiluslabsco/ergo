@@ -32,10 +32,13 @@ def decodes(s: str) -> Payload:
     return decode(**jsons.loads(s))
 
 
-def decode(data=None, **kwargs) -> Payload:
-    # if `data` is non-null, assume this payload was sent by an upstream component, and the other kwargs are metadata
+def decode(**kwargs) -> Payload:
+    # if kwargs includes `data`, assume this payload was sent by an upstream component, and the other kwargs are
+    #   metadata
     # otherwise, assume this payload came from outside of ergo, and bind all kwargs to `data`.
-    return jsons.load({"data": data or kwargs, **kwargs}, cls=Payload)
+    if "data" not in kwargs:
+        kwargs = {"data": kwargs}
+    return jsons.load(kwargs, cls=Payload)
 
 
 def encodes(data: Union[Payload, Iterable[Payload]]) -> str:

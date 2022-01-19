@@ -26,28 +26,28 @@ class Config:
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
-        self._parameters: Optional[OrderedDict] = None
+        self._args: Optional[OrderedDict] = None
 
     def copy(self):
         return copy.deepcopy(self)
 
     @property
-    def parameters(self):
+    def args(self):
         """Summary.
 
         Returns:
             TYPE: Description
         """
-        return self._parameters
+        return self._args
 
-    @parameters.setter
-    def parameters(self, val: OrderedDict) -> None:
+    @args.setter
+    def args(self, val: OrderedDict) -> None:
         """Summary.
 
         Returns:
             TYPE: Description
         """
-        self._parameters = val
+        self._args = val
 
     @property
     def namespace(self) -> Optional[str]:
