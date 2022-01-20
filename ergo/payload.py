@@ -37,7 +37,7 @@ def decode(**kwargs) -> Payload:
     #   metadata
     # otherwise, assume this payload came from outside of ergo, and bind all kwargs to `data`.
     if "data" not in kwargs:
-        kwargs = {"data": kwargs}
+        kwargs = {"data": kwargs or None}
     return jsons.load(kwargs, cls=Payload)
 
 
