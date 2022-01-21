@@ -2,9 +2,9 @@
 from abc import ABC, abstractmethod
 from typing import Generator
 
-from ergo.context import Context
 from ergo.function_invocable import FunctionInvocable
 from ergo.payload import Payload
+from ergo.util import instance_id
 
 
 class Invoker(ABC):
@@ -18,6 +18,7 @@ class Invoker(ABC):
 
         """
         super().__init__()
+        self.instance_id = instance_id()
         self._invocable = invocable
 
     @abstractmethod

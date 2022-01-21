@@ -12,6 +12,7 @@ from typing import Callable, Generator, Match, Optional
 from ergo.config import Config
 from ergo.context import Context
 from ergo.payload import Payload
+from ergo.results_stream import ResultsStream
 from ergo.types import TYPE_RETURN
 from ergo.util import print_exc_plus
 
@@ -77,18 +78,19 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            ctx = Context(pubtopic=self.config.pubtopic, stack=data_in.stack)
-            kwargs = {}
-            for param, default in self._config.args.items():
-                if param == "context":
-                    kwargs["context"] = ctx
-                else:
-                    kwargs[param] = data_in.get(param, default)
+            results_stream = ResultsStream()
+            ctx = Context(pubtopic=self.config.pubtopic, stack=data_in.stack, results_stream=results_stream)
+            kwargs = {param: data_in.get(param, default) for param, default in self._config.args.items()}
+            if "context" in kwargs:
+                kwargs["context"] = ctx
             results = self._func(**kwargs)
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                yield Payload(data=result, stack=ctx._stack, key=ctx.pubtopic)
+                if result is not None:
+                    results_stream.send(Payload(key=ctx.pubtopic, stack=ctx._stack, data=result))
+            yield from results_stream
+
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 

@@ -95,6 +95,8 @@ class AmqpInvoker(Invoker):
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
+                        if data_in.stack and data_in.stack.get_callback_key():
+                            data_out.key = f"{data_out.key}.response"
                         message = aio_pika.Message(body=encodes(data_out).encode('utf-8'))
                         routing_key = str(PubTopic(data_out.key))
                         await self.publish(channel_pool, message, routing_key=routing_key)
@@ -127,12 +129,18 @@ class AmqpInvoker(Invoker):
             queue = await channel.declare_queue(name=self.queue_name)
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
-            await queue.bind(exchange=exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)))
+            await self.subscribe(self._invocable.config.subtopic, queue, exchange)
+            response_topic = f"{self.instance_id}.response"
+            await self.subscribe(response_topic, queue, exchange)
             await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
             async for message in queue:
                 async with message.process():
                     yield decodes(message.body.decode('utf-8'))
+
+    async def subscribe(self, routing_key: str, queue: aio_pika.Queue, exchange: aio_pika.Exchange):
+        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
+        return queue
 
     async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
         """
@@ -159,5 +167,4 @@ class AmqpInvoker(Invoker):
         Yields:
             payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-
         yield from self.invoke_handler(data_in)

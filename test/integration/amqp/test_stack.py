@@ -43,9 +43,9 @@ test_nested_transaction
 
 def nested_transaction(context):
     context._open_transaction()
-    yield
+    yield True
     context._open_transaction()
-    yield
+    yield True
 
 
 @amqp_component(nested_transaction)
@@ -65,9 +65,9 @@ test_closing_transaction
 
 def closing_transaction(context):
     context._open_transaction()
-    yield
+    yield True
     context._close_transaction()
-    yield
+    yield True
 
 
 @amqp_component(closing_transaction)

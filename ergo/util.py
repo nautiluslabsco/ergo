@@ -3,6 +3,7 @@ import re
 import sys
 import time
 import traceback
+from functools import lru_cache
 from types import FrameType, TracebackType
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -126,3 +127,8 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
         if len(matches) == 3:  # for mypy
             return matches[0], matches[1], matches[2]
     return None, None, None
+
+
+@lru_cache(1)
+def instance_id() -> str:
+    return uniqueid()
