@@ -161,7 +161,6 @@ def new_channel() -> BlockingChannel:
     return connection.channel()
 
 
-@lru_cache()
 def get_connection() -> pika.BlockingConnection:
     return pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
 
