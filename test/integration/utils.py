@@ -1,10 +1,10 @@
 import inspect
-import json
+import re
 import multiprocessing
 import tempfile
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from contextlib import contextmanager, ContextDecorator
 from typing import Callable, Dict, Optional, Type
 
 import yaml
@@ -87,10 +87,20 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
         yield retry
 
 
-class Component(ABC):
+class Component(ABC, ContextDecorator):
     def __init__(self, func: Callable):
         self.func = func
-        self.queue = f"{inspect.getfile(func)}:{func.__name__}"
+        if inspect.isfunction(func):
+            self.handler_path = inspect.getfile(func)
+            self.handler_name = func.__name__
+        else:
+            # func is an instance method, and we have to get hacky to find the module variable it was assigned to
+            frame = inspect.currentframe()
+            frame = inspect.getouterframes(frame)[2]
+            string = inspect.getframeinfo(frame[0]).code_context[0].strip()
+            self.handler_path = inspect.getfile(func.__call__)
+            self.handler_name = re.search("\((.*?)[,)]", string).group(1)
+        self.queue = f"{self.handler_path}:{self.handler_name}"
         self.error_queue = f"{self.queue}_error"
         self._instance: Optional[ComponentInstance] = None
 
@@ -107,7 +117,7 @@ class Component(ABC):
     @property
     def manifest(self):
         return {
-            "func": f"{inspect.getfile(self.func)}:{self.func.__name__}"
+            "func": f"{self.handler_path}:{self.handler_name}"
         }
 
     @property

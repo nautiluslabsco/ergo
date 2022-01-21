@@ -127,7 +127,8 @@ class FunctionInvocable:
         func = getattr(scope, method_name)
 
         if func:
-            if inspect.isclass(func):
+            if inspect.ismethod(func.__call__):
+                # func is a non-function class or instance, and we want to inject its __call__ method
                 func = func.__call__
             self._func = func
 

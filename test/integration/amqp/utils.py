@@ -1,11 +1,17 @@
 from __future__ import annotations
+
 import json
+import pathlib
 from test.integration.utils import Component, retries
-from typing import Callable, Dict, Optional, TypeVar
+from typing import Callable, Dict, Optional, List
+from functools import partial, lru_cache, wraps
+import pytest
 
 import pika
 import pika.exceptions
 from pika.adapters.blocking_connection import BlockingChannel
+
+from ergo.topic import SubTopic
 
 try:
     from collections.abc import Generator
@@ -19,23 +25,26 @@ from ergo.topic import PubTopic
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
+LONG_TIMEOUT = 5
 _LIVE_COMPONENTS: Dict = defaultdict(int)
 
 
 class AMQPComponent(Component):
     protocol = "amqp"
     host = AMQP_HOST
+    instances: List[AMQPComponent] = []
 
-    def __init__(self, func: Callable, subtopic: Optional[str]=None, pubtopic: Optional[str]=None):
+    def __init__(self, func: Callable, subtopic: Optional[str] = None, pubtopic: Optional[str] = None):
         super().__init__(func)
-        self.subtopic = subtopic or f"{self.queue}_sub"
-        self.pubtopic = pubtopic or f"{self.queue}_pub"
+        handler_module = pathlib.Path(self.handler_path).with_suffix("").name
+        self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
+        self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
         self.channel = new_channel()
         self._subscription_queue = self.channel.queue_declare(
             queue="",
             exclusive=True,
         ).method.queue
-        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(self.pubtopic))
+        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
 
     @property
     def namespace(self):
@@ -46,14 +55,14 @@ class AMQPComponent(Component):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, payload: Dict, inactivity_timeout=None):
-        self.send(payload)
+    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **payload):
+        self.send(**payload)
         return self.consume(inactivity_timeout=inactivity_timeout)
 
-    def send(self, payload: Dict):
+    def send(self, **payload):
         publish(str(PubTopic(self.subtopic)), payload, channel=self.channel, exchange=EXCHANGE)
 
-    def consume(self, inactivity_timeout=5):
+    def consume(self, inactivity_timeout=LONG_TIMEOUT):
         attempt = 0
         while True:
             value = consume(self._subscription_queue, channel=self.channel, inactivity_timeout=SHORT_TIMEOUT)
@@ -77,7 +86,24 @@ class AMQPComponent(Component):
         purge_queue(self.error_queue)
         purge_queue(self.queue)
 
+    def await_teardown(self):
+        try:
+            channel = new_channel()
+            channel.queue_delete(self.queue)
+        except pika.exceptions.ChannelClosedByBroker:
+            pass
+
+    def __call__(self, test):
+        @wraps(test)
+        @pytest.mark.parametrize("components", [AMQPComponent.instances])
+        def test_with_component(*args, components=None, **kwargs):
+            with self:
+                return test(*args, components=components, **kwargs)
+        return test_with_component
+
     def __enter__(self):
+        self.instances.append(self)
+        self.await_teardown()
         super().__enter__()
         if not _LIVE_COMPONENTS[self.func]:
             self.await_startup()
@@ -85,8 +111,12 @@ class AMQPComponent(Component):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.instances.pop()
         _LIVE_COMPONENTS[self.func] -= 1
         super().__exit__(exc_type, exc_val, exc_tb)
+
+
+amqp_component = AMQPComponent
 
 
 def publish(routing_key, payload, channel, exchange):
@@ -97,15 +127,15 @@ def publish(routing_key, payload, channel, exchange):
             channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, mandatory=True)
 
 
-def subscribe(routing_key, inactivity_timeout=None):
+def subscribe(routing_key):
     channel = new_channel()
     queue_name = channel.queue_declare(
         queue="",
-        auto_delete=True,
+        exclusive=True,
     ).method.queue
-    channel.queue_bind(queue_name, EXCHANGE, routing_key=routing_key)
+    channel.queue_bind(queue_name, EXCHANGE, routing_key=str(SubTopic(routing_key)))
 
-    return consume(queue_name, inactivity_timeout=inactivity_timeout, channel=channel)
+    return partial(consume, queue_name=queue_name, channel=channel)
 
 
 def consume(queue_name, inactivity_timeout=None, channel=None):
@@ -127,8 +157,13 @@ def purge_queue(queue_name: str):
 
 
 def new_channel() -> BlockingChannel:
-    connection = pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
+    connection = get_connection()
     return connection.channel()
+
+
+@lru_cache()
+def get_connection() -> pika.BlockingConnection:
+    return pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
 
 
 class ComponentFailure(BaseException):
