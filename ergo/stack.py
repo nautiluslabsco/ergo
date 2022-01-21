@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from typing import Optional
-
+from dataclasses import dataclass, field
 from ergo.util import uniqueid
 
 
+@dataclass
 class Stack:
-    def __init__(self, id: Optional[str] = None, parent=None):
-        self.id = id or uniqueid()
-        self.parent: Optional[Stack] = parent
+    id: str = field(default_factory=uniqueid)
+    parent: Optional[Stack] = None
 
     def push(self: Stack) -> Stack:
         return Stack(parent=self)

@@ -31,7 +31,4 @@ class Invoker(ABC):
         raise NotImplementedError()
 
     def invoke_handler(self, payload_in: Payload) -> Generator[Payload, None, None]:
-        context = Context(pubtopic=self._invocable.config.pubtopic, stack=payload_in.stack)
-        for data_out in self._invocable.invoke(context, payload_in):
-            payload_out = Payload(data=data_out, stack=context._stack, key=context.pubtopic)
-            yield payload_out
+        yield from self._invocable.invoke(payload_in)
