@@ -11,7 +11,7 @@ from retry import retry
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.payload import Payload, decodes, encodes
-from ergo.topic import PubTopic
+from ergo.topic import PubTopic, SubTopic
 from ergo.util import extract_from_stack
 
 # content_type: application/json
@@ -127,7 +127,7 @@ class AmqpInvoker(Invoker):
             queue = await channel.declare_queue(name=self.queue_name)
             queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
 
-            await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
+            await queue.bind(exchange=exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)))
             await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
 
             async for message in queue:

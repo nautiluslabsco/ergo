@@ -20,8 +20,8 @@ class Config:
         """
         self._func: str = config['func']
         self._namespace: Optional[str] = config.get('namespace', 'local')
-        self._pubtopic: Topic = PubTopic(config.get('pubtopic'))
-        self._subtopic: Topic = SubTopic(config.get('subtopic'))
+        self._pubtopic: str = config.get('pubtopic')
+        self._subtopic: str = config.get('subtopic')
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
@@ -59,7 +59,7 @@ class Config:
         return self._namespace
 
     @property
-    def subtopic(self) -> Topic:
+    def subtopic(self) -> str:
         """Summary.
 
         Returns:
@@ -68,7 +68,7 @@ class Config:
         return self._subtopic
 
     @property
-    def pubtopic(self) -> Topic:
+    def pubtopic(self) -> str:
         """Summary.
 
         Returns:
