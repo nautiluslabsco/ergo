@@ -48,14 +48,14 @@ def nested_transaction(context):
     yield
 
 
-def test_nested_transaction():
-    with amqp_component(nested_transaction) as component:
-        component.send()
-        stacks = [component.consume()["stack"] for _ in range(2)]
-        stacks = sorted(stacks, key=stack_depth)
-        assert stack_depth(stacks[0]) == 1
-        assert stack_depth(stacks[1]) == 2
-        assert stacks[1]["parent"] == stacks[0]
+@amqp_component(nested_transaction)
+def test_nested_transaction(component):
+    component.send()
+    stacks = [component.consume()["stack"] for _ in range(2)]
+    stacks = sorted(stacks, key=stack_depth)
+    assert stack_depth(stacks[0]) == 1
+    assert stack_depth(stacks[1]) == 2
+    assert stacks[1]["parent"] == stacks[0]
 
 
 """
@@ -70,13 +70,13 @@ def closing_transaction(context):
     yield
 
 
-def test_closing_transaction():
-    with amqp_component(closing_transaction) as component:
-        component.send()
-        stacks = [component.consume()["stack"] for _ in range(2)]
-        stacks = sorted(stacks, key=stack_depth)
-        assert stacks[0] is None
-        assert stack_depth(stacks[1]) == 1
+@amqp_component(closing_transaction)
+def test_closing_transaction(component):
+    component.send()
+    stacks = [component.consume()["stack"] for _ in range(2)]
+    stacks = sorted(stacks, key=stack_depth)
+    assert stacks[0] is None
+    assert stack_depth(stacks[1]) == 1
 
 
 def stack_depth(stack) -> int:

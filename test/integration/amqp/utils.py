@@ -4,7 +4,8 @@ import json
 import pathlib
 from test.integration.utils import Component, retries
 from typing import Callable, Dict, Optional, List
-from functools import partial, lru_cache, wraps
+from functools import partial, wraps
+import inspect
 import pytest
 
 import pika
@@ -94,12 +95,23 @@ class AMQPComponent(Component):
             pass
 
     def __call__(self, test):
-        @wraps(test)
-        @pytest.mark.parametrize("components", [AMQPComponent.instances])
-        def test_with_component(*args, components=None, **kwargs):
-            with self:
-                return test(*args, components=components, **kwargs)
-        return test_with_component
+        params = inspect.signature(test).parameters
+
+        if "component" in params:
+            @wraps(test)
+            @pytest.mark.parametrize("component", [self])
+            def test_with_component(*args, component=None, **kwargs):
+                with self:
+                    return test(*args, component=component, **kwargs)
+            return test_with_component
+        if "components" in params:
+            @wraps(test)
+            @pytest.mark.parametrize("components", [AMQPComponent.instances])
+            def test_with_component(*args, components=None, **kwargs):
+                with self:
+                    return test(*args, components=components, **kwargs)
+            return test_with_component
+        return test
 
     def __enter__(self):
         self.instances.append(self)

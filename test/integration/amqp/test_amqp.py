@@ -14,10 +14,10 @@ def product(x, y):
     return float(x) * float(y)
 
 
-def test_product_amqp():
-    with amqp_component(product) as component:
-        result = component.rpc(x=4, y=5)
-        assert result["data"] == 20.0
+@amqp_component(product)
+def test_product_amqp(component):
+    result = component.rpc(x=4, y=5)
+    assert result["data"] == 20.0
 
 
 """
@@ -38,16 +38,16 @@ class Product:
 product_instance = Product()
 
 
-def test_product_class():
-    with amqp_component(Product) as component:
-        result = component.rpc(x=4)
-        assert result["data"] == 8.0
+@amqp_component(Product)
+def test_product_class(component):
+    result = component.rpc(x=4)
+    assert result["data"] == 8.0
 
 
-def test_product_instance():
-    with amqp_component(product_instance) as component:
-        result = component.rpc(x=4, inactivity_timeout=None)
-        assert result["data"] == 8.0
+@amqp_component(product_instance)
+def test_product_instance(component):
+    result = component.rpc(x=4, inactivity_timeout=None)
+    assert result["data"] == 8.0
 
 
 """
@@ -63,10 +63,10 @@ def get_two_dicts():
     return [get_dict(), get_dict()]
 
 
-def test_get_two_dicts():
-    with amqp_component(get_two_dicts) as component:
-        result = component.rpc()
-        assert result["data"] == get_two_dicts()
+@amqp_component(get_two_dicts)
+def test_get_two_dicts(component):
+    result = component.rpc()
+    assert result["data"] == get_two_dicts()
 
 
 """
@@ -79,11 +79,11 @@ def yield_two_dicts():
     yield get_dict()
 
 
-def test_yield_two_dicts():
-    with amqp_component(yield_two_dicts) as component:
-        component.send()
-        assert component.consume()["data"] == get_dict()
-        assert component.consume()["data"] == get_dict()
+@amqp_component(yield_two_dicts)
+def test_yield_two_dicts(component):
+    component.send()
+    assert component.consume()["data"] == get_dict()
+    assert component.consume()["data"] == get_dict()
 
 
 """
@@ -95,11 +95,11 @@ def assert_false():
     assert False
 
 
-def test_error_path():
-    with amqp_component(assert_false) as component:
-        with pytest.raises(ComponentFailure):
-            component.send()
-            component.propagate_error()
+@amqp_component(assert_false)
+def test_error_path(component):
+    with pytest.raises(ComponentFailure):
+        component.send()
+        component.propagate_error()
 
 
 """
