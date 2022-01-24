@@ -17,14 +17,14 @@ class Context:
 
     def request(self, topic: str, **kwargs):
         with self._transaction():
-            self._stack.set_callback_key(instance_id())
+            self._stack.set_reply_to(instance_id())
             self._results_stream.send(Payload(data=kwargs or None, key=f"{topic}.request", stack=self._stack))
 
     def respond(self, data=None, **kwargs):
-        if self._stack.get_callback_key() == instance_id():
+        if self._stack.get_reply_to() == instance_id():
             self._close_transaction()
         if self._stack:
-            key = self._stack.get_callback_key()
+            key = self._stack.get_reply_to()
         else:
             key = self.pubtopic
         self._results_stream.send(Payload(data=data or kwargs, key=key, stack=self._stack))

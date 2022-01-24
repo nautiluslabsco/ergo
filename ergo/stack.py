@@ -18,8 +18,8 @@ class Stack:
     def pop(self) -> Optional[Stack]:
         return self.parent
 
-    def get_callback_key(self) -> Optional[str]:
-        return self.data.get("callback_key")
+    def get_reply_to(self) -> Optional[str]:
+        return self.data.get('reply_to')
 
-    def set_callback_key(self, value: str):
-        self.data["callback_key"] = value
+    def set_reply_to(self, value: str):
+        self.data['reply_to'] = value
