@@ -2,7 +2,6 @@
 import inspect
 from typing import List
 
-import jsons
 from flask import Flask, request  # , abort
 
 from ergo.http_invoker import HttpInvoker
