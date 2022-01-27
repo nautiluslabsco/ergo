@@ -18,10 +18,13 @@ def pong(context: Context, data):
         context.respond(response='pong')
 
 
-@amqp_component(ping)
-@amqp_component(pong, subtopic='pong')
+@amqp_component(ping, subtopic="ping_sub", pubtopic="ping_pub")
+@amqp_component(pong, subtopic='pong', pubtopic="pong_pub")
 def test_ping_pong(components):
     ping_component = components[0]
+    ping_component.send()
+    while True:
+        bh = True
     result = ping_component.rpc()['data']
     assert result == {'ping': 'pong'}
 
@@ -70,6 +73,8 @@ node_d = Node('d')
 def test_traverse_tree(components):
     root_node = components[0]
     root_node.send()
+    while True:
+        bh = True
     results = [root_node.consume()['data']['path'] for _ in range(2)]
     results = sorted(results)
     assert results == ['a.b.c', 'a.b.d']

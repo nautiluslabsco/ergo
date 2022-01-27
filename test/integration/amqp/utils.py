@@ -40,12 +40,7 @@ class AMQPComponent(Component):
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
-        self.channel = new_channel()
-        self._subscription_queue = self.channel.queue_declare(
-            queue="",
-            exclusive=True,
-        ).method.queue
-        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
+
 
     @property
     def namespace(self):
@@ -120,6 +115,14 @@ class AMQPComponent(Component):
         if not _LIVE_COMPONENTS[self.func]:
             self.await_startup()
         _LIVE_COMPONENTS[self.func] += 1
+
+        self.channel = new_channel()
+        self._subscription_queue = self.channel.queue_declare(
+            queue="",
+            exclusive=True,
+        ).method.queue
+        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

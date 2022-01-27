@@ -95,8 +95,9 @@ class AmqpInvoker(Invoker):
             async for data_in in self.consume(channel_pool):
                 try:
                     async for data_out in self.do_work(data_in):
-                        if data_in.stack and data_in.stack.get_reply_to():
-                            data_out.key = f"{data_out.key}.response"
+                        # if data_in.stack and data_in.stack.get_reply_to():
+                        if data_in.key and '.request' in data_in.key:
+                            data_out.key = f"{data_in.stack.get_reply_to()}.{data_out.key}.response"
                         message = aio_pika.Message(body=encodes(data_out).encode('utf-8'))
                         routing_key = str(PubTopic(data_out.key))
                         await self.publish(channel_pool, message, routing_key=routing_key)

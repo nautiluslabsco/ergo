@@ -49,10 +49,9 @@ class Context:
             # terminate recursion by publishing to our current pubtopic. Otherwise, the parent transaction is associated
             # with the request that we're responding to now.
             self._close_transaction()
-        if self._stack:
-            key = self._stack.get_reply_to()
-        else:
-            key = self.pubtopic
+        key = self.pubtopic
+        # if self._stack:
+        #     key = f"{key}.{self._stack.get_reply_to()}"
         self._results_stream.send(Payload(data=data or kwargs, key=key, stack=self._stack))
 
     @contextmanager
