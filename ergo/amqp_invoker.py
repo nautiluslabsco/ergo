@@ -10,7 +10,7 @@ from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
-from ergo.payload import Payload, decodes, encodes
+from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
 from ergo.util import extract_from_stack
 
@@ -108,7 +108,7 @@ class AmqpInvoker(Invoker):
 
         return connection
 
-    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> AsyncIterable[Payload]:
+    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> AsyncIterable[Message]:
         """
         Re-acquires handles to `channel`, `exchange`, and `queue` before continuously consuming `aio_pika.IncomingMessage`.
 
@@ -116,7 +116,7 @@ class AmqpInvoker(Invoker):
             channel_pool: Pool of valid `Channel` handles
 
         Yields:
-            payload: JSON-deserialized object
+            message: JSON-deserialized object
         """
 
         async with channel_pool.acquire() as channel:
@@ -148,7 +148,7 @@ class AmqpInvoker(Invoker):
             await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Payload) -> AsyncIterable[Payload]:
+    def do_work(self, data_in: Message) -> AsyncIterable[Message]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -157,7 +157,7 @@ class AmqpInvoker(Invoker):
             data_in: Raw event data
 
         Yields:
-            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
+            message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
 
         yield from self.invoke_handler(data_in)

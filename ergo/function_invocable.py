@@ -11,7 +11,7 @@ from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
 from ergo.context import Context
-from ergo.payload import Payload
+from ergo.message import Message
 from ergo.types import TYPE_RETURN
 from ergo.util import print_exc_plus
 
@@ -60,7 +60,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: Payload) -> Generator[Payload, None, None]:
+    def invoke(self, data_in: Message) -> Generator[Message, None, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -77,7 +77,7 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            ctx = Context(pubtopic=self.config.pubtopic, scope=data_in.scope)
+            ctx = Context(message=data_in, config=self.config)
             kwargs = {}
             for param, default in self._config.args.items():
                 if param == "context":
@@ -88,7 +88,7 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                yield Payload(data=result, scope=ctx._scope, key=ctx.pubtopic)
+                yield Message(data=result, scope=ctx._scope, key=ctx.pubtopic)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 

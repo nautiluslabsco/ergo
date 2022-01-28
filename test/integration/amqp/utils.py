@@ -50,12 +50,12 @@ class AMQPComponent(Component):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **payload):
-        self.send(**payload)
+    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **message):
+        self.send(**message)
         return self.consume(inactivity_timeout=inactivity_timeout)
 
-    def send(self, **payload):
-        publish(str(PubTopic(self.subtopic)), payload, channel=self.channel, exchange=EXCHANGE)
+    def send(self, **message):
+        publish(str(PubTopic(self.subtopic)), message, channel=self.channel, exchange=EXCHANGE)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
         attempt = 0
@@ -137,11 +137,11 @@ class AMQPComponent(Component):
 amqp_component = AMQPComponent
 
 
-def publish(routing_key, payload, channel, exchange):
+def publish(routing_key, message, channel, exchange):
     channel.confirm_delivery()
     for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
         with retry():
-            body = json.dumps(payload).encode()
+            body = json.dumps(message).encode()
             channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, mandatory=True)
 
 

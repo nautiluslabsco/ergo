@@ -33,7 +33,7 @@ def upstream_scope(context: Context):
     yield True
 
 
-def downstream_scope(context):
+def downstream_scope(context: Context):
     context.begin_scope()
     return True
 

@@ -2,9 +2,8 @@
 from abc import ABC, abstractmethod
 from typing import Generator
 
-from ergo.context import Context
 from ergo.function_invocable import FunctionInvocable
-from ergo.payload import Payload
+from ergo.message import Message
 
 
 class Invoker(ABC):
@@ -30,5 +29,5 @@ class Invoker(ABC):
         """
         raise NotImplementedError()
 
-    def invoke_handler(self, payload_in: Payload) -> Generator[Payload, None, None]:
-        yield from self._invocable.invoke(payload_in)
+    def invoke_handler(self, message_in: Message) -> Generator[Message, None, None]:
+        yield from self._invocable.invoke(message_in)
