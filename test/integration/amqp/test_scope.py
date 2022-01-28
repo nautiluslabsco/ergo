@@ -1,25 +1,46 @@
+from ergo.context import Context
 from test.integration.amqp.utils import amqp_component
 
 
 """
-test_scope
+test_simple_scope
 """
 
 
-def upstream_scope(context):
-    context._open_scope()
+def simple_scope(context: Context):
+    yield 1
+    context.begin_scope()
+    yield 2
+
+
+@amqp_component(simple_scope)
+def test_simple_scope(component):
+    component.send()
+    scopes = [component.consume()["scope"] for _ in range(2)]
+    initial_scope, new_scope = sorted(scopes, key=stack_depth)
+    assert initial_scope is None
+    assert new_scope["parent"] is None
+
+
+"""
+test_downstream_scope
+"""
+
+
+def upstream_scope(context: Context):
+    context.begin_scope()
     yield True
     yield True
 
 
 def downstream_scope(context):
-    context._open_scope()
+    context.begin_scope()
     return True
 
 
 @amqp_component(downstream_scope, subtopic="upstream_scope_pub")
 @amqp_component(upstream_scope, pubtopic="upstream_scope_pub")
-def test_scope(components):
+def test_downstream_scope(components):
     downstream_component, upstream_component = components
     upstream_component.send()
     upstream_stacks = [upstream_component.consume()["scope"] for _ in range(2)]
@@ -41,10 +62,10 @@ test_nested_scope
 """
 
 
-def nested_scope(context):
-    context._open_scope()
+def nested_scope(context: Context):
+    context.begin_scope()
     yield
-    context._open_scope()
+    context.begin_scope()
     yield
 
 
@@ -63,10 +84,10 @@ test_closing_scope
 """
 
 
-def closing_scope(context):
-    context._open_scope()
+def closing_scope(context: Context):
+    context.begin_scope()
     yield
-    context._close_scope()
+    context.exit_scope()
     yield
 
 

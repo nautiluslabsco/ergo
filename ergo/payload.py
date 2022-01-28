@@ -5,7 +5,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import jsons
 import pydash
 
-from ergo.stack import Scope
+from ergo.scope import Scope
 
 DATA_KEY = "data"
 

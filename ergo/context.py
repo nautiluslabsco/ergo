@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ergo.stack import Scope
+from ergo.scope import Scope
 
 
 class Context:
@@ -8,9 +8,9 @@ class Context:
         self.pubtopic = pubtopic
         self._scope = scope
 
-    def _open_scope(self):
+    def begin_scope(self):
         self._scope = Scope(parent=self._scope)
 
-    def _close_scope(self):
+    def exit_scope(self):
         if self._scope:
             self._scope = self._scope.parent

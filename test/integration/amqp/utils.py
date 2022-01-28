@@ -27,7 +27,7 @@ AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
 LONG_TIMEOUT = 5
-_LIVE_COMPONENTS: Dict = defaultdict(int)
+_LIVE_INSTANCES: Dict = defaultdict(int)
 
 
 class AMQPComponent(Component):
@@ -40,12 +40,6 @@ class AMQPComponent(Component):
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
-        self.channel = new_channel()
-        self._subscription_queue = self.channel.queue_declare(
-            queue="",
-            exclusive=True,
-        ).method.queue
-        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
 
     @property
     def namespace(self):
@@ -79,7 +73,7 @@ class AMQPComponent(Component):
         if body:
             raise ComponentFailure(body["traceback"])
 
-    def await_startup(self):
+    def setup_component(self):
         for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):
             with retry():
                 channel = new_channel()
@@ -87,10 +81,20 @@ class AMQPComponent(Component):
         purge_queue(self.error_queue)
         purge_queue(self.queue)
 
-    def await_teardown(self):
+    def setup_instance(self):
+        self.channel = new_channel()
+        self._subscription_queue = self.channel.queue_declare(
+            queue="",
+            exclusive=True,
+        ).method.queue
+        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
+        return self
+
+    def teardown_component(self):
         try:
             channel = new_channel()
             channel.queue_delete(self.queue)
+            channel.queue_delete(self.error_queue)
         except pika.exceptions.ChannelClosedByBroker:
             pass
 
@@ -115,16 +119,18 @@ class AMQPComponent(Component):
 
     def __enter__(self):
         self.instances.append(self)
-        self.await_teardown()
         super().__enter__()
-        if not _LIVE_COMPONENTS[self.func]:
-            self.await_startup()
-        _LIVE_COMPONENTS[self.func] += 1
-        return self
+        if not _LIVE_INSTANCES[self.func]:
+            self.teardown_component()
+            self.setup_component()
+        _LIVE_INSTANCES[self.func] += 1
+        self.setup_instance()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.instances.pop()
-        _LIVE_COMPONENTS[self.func] -= 1
+        _LIVE_INSTANCES[self.func] -= 1
+        if not _LIVE_INSTANCES[self.func]:
+            self.teardown_component()
         super().__exit__(exc_type, exc_val, exc_tb)
 
 
