@@ -1,19 +1,16 @@
 from typing import Optional
 
-from ergo.stack import Stack
+from ergo.stack import Scope
 
 
 class Context:
-    def __init__(self, pubtopic: str, stack: Optional[Stack]):
+    def __init__(self, pubtopic: str, scope: Optional[Scope]):
         self.pubtopic = pubtopic
-        self._stack = stack
+        self._scope = scope
 
-    def _open_transaction(self):
-        if self._stack:
-            self._stack = self._stack.push()
-        else:
-            self._stack = Stack()
+    def _open_scope(self):
+        self._scope = Scope(parent=self._scope)
 
-    def _close_transaction(self):
-        if self._stack:
-            self._stack = self._stack.pop()
+    def _close_scope(self):
+        if self._scope:
+            self._scope = self._scope.parent

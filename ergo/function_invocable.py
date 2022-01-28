@@ -77,7 +77,7 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            ctx = Context(pubtopic=self.config.pubtopic, stack=data_in.stack)
+            ctx = Context(pubtopic=self.config.pubtopic, scope=data_in.scope)
             kwargs = {}
             for param, default in self._config.args.items():
                 if param == "context":
@@ -88,7 +88,7 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                yield Payload(data=result, stack=ctx._stack, key=ctx.pubtopic)
+                yield Payload(data=result, scope=ctx._scope, key=ctx.pubtopic)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 

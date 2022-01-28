@@ -2,29 +2,29 @@ from test.integration.amqp.utils import amqp_component
 
 
 """
-test_transaction
+test_scope
 """
 
 
-def upstream_transaction(context):
-    context._open_transaction()
+def upstream_scope(context):
+    context._open_scope()
     yield True
     yield True
 
 
-def downstream_transaction(context):
-    context._open_transaction()
+def downstream_scope(context):
+    context._open_scope()
     return True
 
 
-@amqp_component(downstream_transaction, subtopic="upstream_transaction_pub")
-@amqp_component(upstream_transaction, pubtopic="upstream_transaction_pub")
-def test_transaction(components):
+@amqp_component(downstream_scope, subtopic="upstream_scope_pub")
+@amqp_component(upstream_scope, pubtopic="upstream_scope_pub")
+def test_scope(components):
     downstream_component, upstream_component = components
     upstream_component.send()
-    upstream_stacks = [upstream_component.consume()["stack"] for _ in range(2)]
+    upstream_stacks = [upstream_component.consume()["scope"] for _ in range(2)]
     upstream_stacks = sorted(upstream_stacks, key=stack_depth)
-    downstream_stacks = [downstream_component.consume()["stack"] for _ in range(2)]
+    downstream_stacks = [downstream_component.consume()["scope"] for _ in range(2)]
     downstream_stacks = sorted(downstream_stacks, key=stack_depth)
 
     assert stack_depth(upstream_stacks[0]) == 1
@@ -37,21 +37,21 @@ def test_transaction(components):
 
 
 """
-test_nested_transaction
+test_nested_scope
 """
 
 
-def nested_transaction(context):
-    context._open_transaction()
+def nested_scope(context):
+    context._open_scope()
     yield
-    context._open_transaction()
+    context._open_scope()
     yield
 
 
-@amqp_component(nested_transaction)
-def test_nested_transaction(component):
+@amqp_component(nested_scope)
+def test_nested_scope(component):
     component.send()
-    stacks = [component.consume()["stack"] for _ in range(2)]
+    stacks = [component.consume()["scope"] for _ in range(2)]
     stacks = sorted(stacks, key=stack_depth)
     assert stack_depth(stacks[0]) == 1
     assert stack_depth(stacks[1]) == 2
@@ -59,21 +59,21 @@ def test_nested_transaction(component):
 
 
 """
-test_closing_transaction
+test_closing_scope
 """
 
 
-def closing_transaction(context):
-    context._open_transaction()
+def closing_scope(context):
+    context._open_scope()
     yield
-    context._close_transaction()
+    context._close_scope()
     yield
 
 
-@amqp_component(closing_transaction)
-def test_closing_transaction(component):
+@amqp_component(closing_scope)
+def test_closing_scope(component):
     component.send()
-    stacks = [component.consume()["stack"] for _ in range(2)]
+    stacks = [component.consume()["scope"] for _ in range(2)]
     stacks = sorted(stacks, key=stack_depth)
     assert stacks[0] is None
     assert stack_depth(stacks[1]) == 1
