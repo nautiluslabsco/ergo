@@ -44,8 +44,8 @@ def _ergo_inner(command, *args):
         yield
     finally:
         ergo_process.terminate()
-        
-        
+
+
 class ComponentInstance:
     def __init__(self, manifest: Dict, namespace: Dict):
         self.manifest_file = tempfile.NamedTemporaryFile(mode="w")
@@ -80,7 +80,7 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
                 yield
                 success.add(True)
             except retry_errors:
-                if attempt+1 == n:
+                if attempt + 1 == n:
                     raise
                 time.sleep(backoff_seconds)
 

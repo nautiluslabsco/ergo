@@ -4,7 +4,7 @@ import json
 import pathlib
 from test.integration.utils import Component, retries
 from typing import Callable, Dict, Optional, List
-from functools import partial, wraps
+from functools import wraps
 import inspect
 import pytest
 
@@ -123,7 +123,6 @@ class AMQPComponent(Component):
         self.instances.append(self)
         super().__enter__()
         if not _LIVE_INSTANCES[self.func]:
-            self.teardown_component()
             self.setup_component()
         _LIVE_INSTANCES[self.func] += 1
         self.setup_instance()

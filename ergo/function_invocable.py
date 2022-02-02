@@ -11,9 +11,10 @@ from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
 from ergo.context import Context
+from ergo.results_stream import ResultsStream
 from ergo.message import Message
 from ergo.types import TYPE_RETURN
-from ergo.util import print_exc_plus
+from ergo.util import print_exc_plus, instance_id
 
 
 class FunctionInvocable:
@@ -77,18 +78,26 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            ctx = Context(message=data_in, config=self.config)
-            kwargs = {}
-            for param, default in self._config.args.items():
-                if param == "context":
-                    kwargs["context"] = ctx
-                else:
-                    kwargs[param] = data_in.get(param, default)
+            results_stream = ResultsStream()
+            ctx = Context(message=data_in, config=self.config, results_stream=results_stream)
+            kwargs = {param: data_in.get(param, default) for param, default in self._config.args.items()}
+            if "context" in kwargs:
+                kwargs["context"] = ctx
             results = self._func(**kwargs)
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                yield Message(data=result, scope=ctx._scope, key=ctx.pubtopic)
+                if result is None:
+                    continue
+                key = ctx.pubtopic
+                scope = ctx._scope
+                if scope and (scope.reply_to or '').startswith(instance_id()):
+                    scope = scope.parent
+                if scope and scope.reply_to:
+                    assert data_in.key
+                    key = f"{key}.{scope.reply_to}"
+                results_stream.send(Message(key=key, scope=scope, data=result))
+            yield from results_stream
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 

@@ -64,9 +64,9 @@ test_nested_scope
 
 def nested_scope(context: Context):
     context.begin_scope()
-    yield
+    yield True
     context.begin_scope()
-    yield
+    yield True
 
 
 @amqp_component(nested_scope)
@@ -86,9 +86,9 @@ test_closing_scope
 
 def closing_scope(context: Context):
     context.begin_scope()
-    yield
+    yield True
     context.exit_scope()
-    yield
+    yield True
 
 
 @amqp_component(closing_scope)

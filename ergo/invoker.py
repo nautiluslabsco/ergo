@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Generator
 
 from ergo.function_invocable import FunctionInvocable
+from ergo.util import instance_id
 from ergo.message import Message
 
 
@@ -18,6 +19,7 @@ class Invoker(ABC):
         """
         super().__init__()
         self._invocable = invocable
+        self.instance_id = instance_id()
 
     @abstractmethod
     def start(self) -> int:

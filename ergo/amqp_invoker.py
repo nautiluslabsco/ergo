@@ -53,6 +53,7 @@ class AmqpInvoker(Invoker):
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
         self.component_queue_name = f"{self._invocable.config.func}"
+        self.instance_queue_name = f"{self.component_queue_name}/{self.instance_id}"
         self.error_queue_name = f"{self.component_queue_name}_error"
 
     def start(self) -> int:
@@ -102,9 +103,12 @@ class AmqpInvoker(Invoker):
             await error_queue.bind(exchange=exchange, routing_key=self.error_queue_name)
             component_queue = await channel.declare_queue(name=self.component_queue_name)
             await component_queue.bind(exchange=exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)))
+            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
 
         async with connection, channel_pool:
-            await self.run_queue_loop(channel_pool, component_queue)
+            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
+            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
+            await asyncio.gather(component_loop_coro, instance_loop_coro)
 
         return connection
 
@@ -132,6 +136,10 @@ class AmqpInvoker(Invoker):
     async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
             async for message_out in self.do_work(message_in):
+                if message_out.scope and (message_out.scope.reply_to or '').startswith(self.instance_id):
+                    exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+                    instance_queue = await channel.declare_queue(self.instance_queue_name, passive=True)
+                    await instance_queue.bind(exchange=exchange, routing_key=str(SubTopic(message_out.scope.reply_to)))
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel)
@@ -167,3 +175,4 @@ class AmqpInvoker(Invoker):
             message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
         yield from self.invoke_handler(data_in)
+

@@ -62,10 +62,6 @@ def get_two_dicts():
     return [get_dict(), get_dict()]
 
 
-def get_none():
-    return None
-
-
 def yield_one_dict():
     yield get_dict()
 
@@ -79,7 +75,6 @@ def yield_two_dicts():
     get_dict,
     get_one_dict,
     get_two_dicts,
-    get_none,
     yield_one_dict,
     yield_two_dicts,
 ])
