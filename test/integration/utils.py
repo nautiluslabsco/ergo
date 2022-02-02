@@ -100,8 +100,6 @@ class Component(ABC, ContextDecorator):
             string = inspect.getframeinfo(frame[0]).code_context[0].strip()
             self.handler_path = inspect.getfile(func.__call__)
             self.handler_name = re.search("\((.*?)[,)]", string).group(1)
-        self.queue = f"{self.handler_path}:{self.handler_name}"
-        self.error_queue = f"{self.queue}_error"
         self._instance: Optional[ComponentInstance] = None
 
     @property

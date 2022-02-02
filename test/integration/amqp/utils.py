@@ -37,6 +37,8 @@ class AMQPComponent(Component):
 
     def __init__(self, func: Callable, subtopic: Optional[str] = None, pubtopic: Optional[str] = None):
         super().__init__(func)
+        self.queue_name = f"{self.handler_path}:{self.handler_name}"
+        self.error_queue_name = f"{self.queue_name}_error"
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
@@ -69,7 +71,7 @@ class AMQPComponent(Component):
                 return None
 
     def propagate_error(self, inactivity_timeout=None):
-        body = consume(self.error_queue, inactivity_timeout=inactivity_timeout)
+        body = consume(self.error_queue_name, inactivity_timeout=inactivity_timeout)
         if body:
             raise ComponentFailure(body["traceback"])
 
@@ -77,9 +79,9 @@ class AMQPComponent(Component):
         for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):
             with retry():
                 channel = new_channel()
-                channel.queue_declare(self.queue, passive=True)
-        purge_queue(self.error_queue)
-        purge_queue(self.queue)
+                channel.queue_declare(self.queue_name, passive=True)
+        purge_queue(self.error_queue_name)
+        purge_queue(self.queue_name)
 
     def setup_instance(self):
         self.channel = new_channel()
@@ -93,8 +95,8 @@ class AMQPComponent(Component):
     def teardown_component(self):
         try:
             channel = new_channel()
-            channel.queue_delete(self.queue)
-            channel.queue_delete(self.error_queue)
+            channel.queue_delete(self.queue_name)
+            channel.queue_delete(self.error_queue_name)
         except pika.exceptions.ChannelClosedByBroker:
             pass
 
@@ -143,17 +145,6 @@ def publish(routing_key, message, channel, exchange):
         with retry():
             body = json.dumps(message).encode()
             channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, mandatory=True)
-
-
-def subscribe(routing_key):
-    channel = new_channel()
-    queue_name = channel.queue_declare(
-        queue="",
-        exclusive=True,
-    ).method.queue
-    channel.queue_bind(queue_name, EXCHANGE, routing_key=str(SubTopic(routing_key)))
-
-    return partial(consume, queue_name=queue_name, channel=channel)
 
 
 def consume(queue_name, inactivity_timeout=None, channel=None):
