@@ -73,8 +73,7 @@ class AmqpInvoker(Invoker):
 
         return 0
 
-    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError),
-           delay=0.5, jitter=(1, 3), backoff=2)
+    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
         """
         Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError`
@@ -92,12 +91,9 @@ class AmqpInvoker(Invoker):
             return await connection.channel()
 
         # Pool for consuming and publishing
-        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = \
-            aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
+        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
         async with channel_pool.acquire() as channel:
-            exchange = await channel.declare_exchange(
-                name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True,
-                auto_delete=False, internal=False, arguments=None)
+            exchange = await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
             error_queue = await channel.declare_queue(name=self.error_queue_name)
             await error_queue.bind(exchange=exchange, routing_key=self.error_queue_name)
             component_queue = await channel.declare_queue(name=self.component_queue_name)
