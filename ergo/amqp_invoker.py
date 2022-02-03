@@ -122,8 +122,8 @@ class AmqpInvoker(Invoker):
         """
         async for amqp_message in queue:
             amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
-            async with amqp_message.process():
-                yield decodes(amqp_message.body.decode('utf-8'))
+            amqp_message.ack()
+            yield decodes(amqp_message.body.decode('utf-8'))
 
     async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
