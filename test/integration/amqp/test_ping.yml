@@ -1,0 +1,3 @@
+func: test/integration/amqp/test_ping.py:ping
+subtopic: test_ping
+pubtopic: test_ping
