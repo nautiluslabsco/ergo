@@ -109,9 +109,8 @@ class AmqpInvoker(Invoker):
         return connection
 
     async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
-        async with channel_pool.acquire() as channel:
-            async for message in self.consume(queue):
-                await self.handle_message(message, channel)
+        async for message in self.consume(queue):
+            await self.handle_message(message, channel_pool)
 
     @staticmethod
     async def consume(queue: aio_pika.Queue) -> AsyncIterable[Message]:
@@ -129,30 +128,31 @@ class AmqpInvoker(Invoker):
             async with amqp_message.process():
                 yield decodes(amqp_message.body.decode('utf-8'))
 
-    async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
+    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
         try:
             async for message_out in self.do_work(message_in):
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
-                await self.publish(message, routing_key, channel)
+                await self.publish(message, routing_key, channel_pool)
         except Exception as err:  # pylint: disable=broad-except
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
             message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
             routing_key = f'{self.component_queue_name}_error'
-            await self.publish(message, routing_key, channel)
+            await self.publish(message, routing_key, channel_pool)
 
-    async def publish(self, message: aio_pika.Message, routing_key: str, channel: aio_pika.Channel) -> None:
+    async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """
         Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
 
         Parameters:
-            channel: aio_pika.Channel
             message: Message to be published
             routing_key: Exchange-level routing discriminator
+            channel_pool: aio_pika.pool.Pool
         """
-        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-        await exchange.publish(message, routing_key)
+        async with channel_pool.acquire() as channel:
+            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+            await exchange.publish(message, routing_key)
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: Message) -> AsyncIterable[Message]:
