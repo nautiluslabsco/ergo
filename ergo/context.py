@@ -8,7 +8,7 @@ class Context:
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
 
-    def begin_scope(self):
+    def initiate_scope(self):
         self._scope = Scope(parent=self._scope)
 
     def exit_scope(self):

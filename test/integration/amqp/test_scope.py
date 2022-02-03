@@ -9,7 +9,7 @@ test_simple_scope
 
 def simple_scope(context: Context):
     yield 1
-    context.begin_scope()
+    context.initiate_scope()
     yield 2
 
 
@@ -28,13 +28,13 @@ test_downstream_scope
 
 
 def upstream_scope(context: Context):
-    context.begin_scope()
+    context.initiate_scope()
     yield True
     yield True
 
 
 def downstream_scope(context: Context):
-    context.begin_scope()
+    context.initiate_scope()
     return True
 
 
@@ -63,9 +63,9 @@ test_nested_scope
 
 
 def nested_scope(context: Context):
-    context.begin_scope()
+    context.initiate_scope()
     yield
-    context.begin_scope()
+    context.initiate_scope()
     yield
 
 
@@ -85,7 +85,7 @@ test_closing_scope
 
 
 def closing_scope(context: Context):
-    context.begin_scope()
+    context.initiate_scope()
     yield
     context.exit_scope()
     yield
