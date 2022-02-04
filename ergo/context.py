@@ -14,3 +14,11 @@ class Context:
     def exit_scope(self):
         if self._scope:
             self._scope = self._scope.parent
+
+    def get_scope_data(self) -> dict:
+        if self._scope:
+            return self._scope.data
+
+    def set_scope_data(self, new_data: dict):
+        if self._scope:
+            self._scope.data = new_data
