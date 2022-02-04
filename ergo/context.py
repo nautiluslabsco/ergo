@@ -9,14 +9,13 @@ class Context:
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
 
-    @property
-    def instance_id(self):
-        return instance_id()
+    def subscribe_to_scope(self):
+        self.add_scope_subscriber(instance_id())
 
-    def add_scope_cc(self, topic: str):
+    def add_scope_subscriber(self, topic: str):
         assert self._scope
-        if topic not in self._scope.cc:
-            self._scope.cc.append(topic)
+        if topic not in self._scope.subscribers:
+            self._scope.subscribers.append(topic)
 
     def initiate_scope(self):
         self._scope = Scope(parent=self._scope)
