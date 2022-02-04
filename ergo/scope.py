@@ -13,7 +13,7 @@ class Scope:
     parent: Optional[Scope] = None
 
     @property
-    def cc(self) -> List:
-        if 'cc' not in self.data:
-            self.data['cc'] = []
-        return self.data['cc']
+    def subscribers(self) -> List:
+        if "subscribers" not in self.data:
+            self.data["subscribers"] = []
+        return self.data["subscribers"]
