@@ -8,18 +8,22 @@ class Context:
     def __init__(self, message: Message, config: Config):
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
+        self.instance = instance_id()
+        self.component = hash(config.func)
 
-    def subscribe_to_scope(self):
-        self.add_scope_subscriber(instance_id())
+    @property
+    def scope(self) -> str:
+        return self._scope.id
 
-    def add_scope_subscriber(self, topic: str):
-        assert self._scope
-        if topic not in self._scope.subscribers:
-            self._scope.subscribers.append(topic)
+    def subscribe(self, subscriber: str, topic: str):
+        if topic == self.scope:
+            if subscriber not in self._scope.subscribers:
+                self._scope.subscribers.append(subscriber)
+        else:
+            raise NotImplementedError
 
     def initiate_scope(self):
         self._scope = Scope(parent=self._scope)
 
     def exit_scope(self):
-        if self._scope:
-            self._scope = self._scope.parent
+        self._scope = self._scope.parent
