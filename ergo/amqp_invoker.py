@@ -100,7 +100,7 @@ class AmqpInvoker(Invoker):
             component_queue = await channel.declare_queue(name=self.component_queue_name)
             await component_queue.bind(exchange=exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)))
             instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
-            await instance_queue.bind(exchange=exchange, routing_key=f"instance_{instance_id()}")
+            await instance_queue.bind(exchange=exchange, routing_key=instance_id())
 
         async with connection, channel_pool:
             component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
@@ -120,7 +120,11 @@ class AmqpInvoker(Invoker):
 
     async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
+            if message_in.scope and instance_id() in message_in.scope.cc:
+                await self.unbind_queue(self.instance_queue_name, message_in.scope.id, channel)
             async for message_out in self.do_work(message_in):
+                if message_out.scope and instance_id() in message_out.scope.cc:
+                    await self.bind_queue(self.instance_queue_name, message_out.scope.id, channel)
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel)
@@ -146,7 +150,12 @@ class AmqpInvoker(Invoker):
     async def bind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
         exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
         queue = await channel.declare_queue(queue_name, passive=True)
-        await queue.bind(exchange=exchange, routing_key=routing_key)
+        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
+
+    async def unbind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
+        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+        queue = await channel.declare_queue(queue_name, passive=True)
+        await queue.unbind(exchange=exchange, routing_key=routing_key)
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: Message) -> AsyncIterable[Message]:

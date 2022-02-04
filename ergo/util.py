@@ -131,7 +131,6 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
     return None, None, None
 
 
-<<<<<<< HEAD
 _shutdown = threading.Event()
 _termination_pending = threading.Event()
 

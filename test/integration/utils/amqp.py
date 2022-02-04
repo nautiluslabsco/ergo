@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import pathlib
-from functools import partial, wraps
+from functools import wraps
 from test.integration.utils import Component, retries
 from typing import Callable, Dict, List, Optional
 
