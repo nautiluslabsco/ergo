@@ -4,7 +4,7 @@ import json
 import pathlib
 from test.integration.utils import Component, retries
 from typing import Callable, Dict, Optional, List
-from functools import partial, wraps
+from functools import wraps
 import inspect
 import pytest
 

@@ -1,5 +1,5 @@
 from ergo.context import Context
-from test.integration.amqp.utils import amqp_component
+from test.integration.amqp.utils import amqp_component, Queue, publish
 
 
 """
@@ -104,3 +104,32 @@ def stack_depth(stack) -> int:
     if stack is None:
         return 0
     return 1 + stack_depth(stack["parent"])
+
+
+"""
+test_fibonacci
+
+"""
+
+
+def fibonacci_generator(context: Context, i=0, j=1):
+    context.initiate_scope()
+    context.add_scope_cc(context.instance_id)
+    return {"i": j, "j": i+j}
+
+
+def fibonacci(context: Context, i):
+    # this nested scope prevents fibonacci_generator from receiving fibonacci's outbound messages
+    context.initiate_scope()
+    return i
+
+
+@amqp_component(fibonacci_generator, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
+@amqp_component(fibonacci, subtopic="fibonacci.generator", pubtopic="fibonacci.next")
+def test_fibonacci(components):
+    generator_component, fibonacci_component = components
+    publish("fibonacci.start")
+    generator_results = [generator_component.consume()["data"]["i"] for _ in range(10)]
+    assert generator_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    fibonacci_results = [fibonacci_component.consume()["data"] for _ in range(10)]
+    assert fibonacci_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]

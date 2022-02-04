@@ -88,7 +88,11 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                yield Message(data=result, scope=ctx._scope, key=ctx.pubtopic)
+                key = ctx.pubtopic
+                if ctx._scope:
+                    key = f"{key}.{ctx._scope.id}"
+                    # key += '.'.join(ctx._scope.cc)
+                yield Message(data=result, scope=ctx._scope, key=key)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 
