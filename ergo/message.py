@@ -17,7 +17,7 @@ class Message:
     data: Any = field(default=None)
     key: Optional[str] = None
     log: List = field(default_factory=list)
-    scope: Optional[Scope] = None
+    scope: Scope = field(default_factory=Scope)
     error: Optional[Dict[str, str]] = None
     traceback: Optional[str] = None
 

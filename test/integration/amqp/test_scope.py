@@ -113,8 +113,7 @@ test_fibonacci
 
 
 def fibonacci_generator(context: Context, i=0, j=1):
-    context.initiate_scope()
-    context.subscribe_to_scope()
+    context.subscribe(context.instance, context.scope)
     return {"i": j, "j": i+j}
 
 
