@@ -106,27 +106,14 @@ class AmqpInvoker(Invoker):
 
     async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
         async with channel_pool.acquire() as channel:
-            async for message in self.consume(queue):
+            async for amqp_message in queue:
+                amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
+                ergo_message = decodes(amqp_message.body.decode('utf-8'))
                 if self._terminating:
                     break
                 with self.defer_termination():
-                    await self.handle_message(message, channel)
-
-    @staticmethod
-    async def consume(queue: aio_pika.Queue) -> AsyncIterable[Message]:
-        """
-        Continuously consume AMQP messages from the given queue, yielding ergo Messages parsed from their contents.
-
-        Parameters:
-            queue: aio_pika.Queue
-
-        Yields:
-            message: ergo.message.Message
-        """
-        async for amqp_message in queue:
-            amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
-            amqp_message.ack()
-            yield decodes(amqp_message.body.decode('utf-8'))
+                    amqp_message.ack()
+                    await self.handle_message(ergo_message, channel)
 
     async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
