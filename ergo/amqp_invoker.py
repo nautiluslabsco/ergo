@@ -107,7 +107,10 @@ class AmqpInvoker(Invoker):
     async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
         async with channel_pool.acquire() as channel:
             async for message in self.consume(queue):
-                await self.handle_message(message, channel)
+                if self._terminating:
+                    break
+                with self.defer_termination():
+                    await self.handle_message(message, channel)
 
     @staticmethod
     async def consume(queue: aio_pika.Queue) -> AsyncIterable[Message]:
