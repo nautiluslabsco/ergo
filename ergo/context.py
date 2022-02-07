@@ -1,26 +1,19 @@
 from ergo.config import Config
 from ergo.message import Message
+from ergo.receiver import Receiver
 from ergo.scope import Scope
-from ergo.util import instance_id
 
 
 class Context:
-    def __init__(self, message: Message, config: Config):
+    def __init__(self, message: Message, config: Config, component_receiver: Receiver, instance_receiver: Receiver):
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
-        self.instance = instance_id()
-        self.component = hash(config.func)
+        self.component = component_receiver
+        self.instance = instance_receiver
 
     @property
     def scope(self) -> str:
         return self._scope.id
-
-    def subscribe(self, subscriber: str, topic: str):
-        if topic == self.scope:
-            if subscriber not in self._scope.subscribers:
-                self._scope.subscribers.append(subscriber)
-        else:
-            raise NotImplementedError
 
     def initiate_scope(self):
         self._scope = Scope(parent=self._scope)
