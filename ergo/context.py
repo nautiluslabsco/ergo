@@ -12,6 +12,10 @@ from dataclasses import dataclass
 class Envelope:
     data: Any
     reply_to: Optional[str] = None
+    initiate_request: bool = False
+
+    def is_request(self):
+        return bool(self.reply_to or self.initiate_request)
 
 
 class Context:

@@ -95,6 +95,10 @@ class FunctionInvocable:
                 key = f"{ctx.pubtopic}.{ctx._scope.id}"
                 if envelope and envelope.reply_to:
                     key = f"{key}.{envelope.reply_to}"
+                if envelope and envelope.is_request():
+                    key = f"{key}.request"
+                elif "request" in (data_in.key or "").split(".") and (ctx._scope.id == data_in.scope.id):
+                    key = f"{key}.response"
                 yield Message(data=result, scope=ctx._scope, key=key)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
