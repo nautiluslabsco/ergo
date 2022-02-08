@@ -10,7 +10,7 @@ from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
-from ergo.context import Context
+from ergo.context import Context, Envelope
 from ergo.message import Message
 from ergo.types import TYPE_RETURN
 from ergo.util import print_exc_plus
@@ -88,9 +88,13 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
-                key = ctx.pubtopic
-                if ctx._scope:
-                    key = f"{key}.{ctx._scope.id}"
+                envelope = None
+                if isinstance(result, Envelope):
+                    envelope = result
+                    result = envelope.data
+                key = f"{ctx.pubtopic}.{ctx._scope.id}"
+                if envelope and envelope.reply_to:
+                    key = f"{key}.{envelope.reply_to}"
                 yield Message(data=result, scope=ctx._scope, key=key)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
