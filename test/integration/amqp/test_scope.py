@@ -113,13 +113,10 @@ test_fibonacci
 
 
 def fibonacci_generator(context: Context, i=0, j=1):
-    context.instance.subscribe(context.scope)
-    return {"i": j, "j": i+j}
+    return context.envelope({"i": j, "j": i+j}, reply_to=context.instance_id)
 
 
-def fibonacci(context: Context, i):
-    # this nested scope prevents fibonacci_generator from receiving fibonacci's outbound messages
-    context.initiate_scope()
+def fibonacci(i):
     return i
 
 

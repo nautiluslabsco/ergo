@@ -2,9 +2,21 @@ from ergo.config import Config
 from ergo.message import Message
 from ergo.receiver import Receiver
 from ergo.scope import Scope
+from ergo.util import instance_id
+
+from typing import Any, Optional
+from dataclasses import dataclass
+
+
+@dataclass
+class Envelope:
+    data: Any
+    reply_to: Optional[str] = None
 
 
 class Context:
+    envelope = Envelope
+
     def __init__(self, message: Message, config: Config, component_receiver: Receiver, instance_receiver: Receiver):
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
@@ -12,7 +24,11 @@ class Context:
         self.instance = instance_receiver
 
     @property
-    def scope(self) -> str:
+    def instance_id(self):
+        return instance_id()
+
+    @property
+    def scope_id(self) -> str:
         return self._scope.id
 
     def initiate_scope(self):
