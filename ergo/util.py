@@ -2,6 +2,8 @@
 import re
 import sys
 import time
+import signal
+import threading
 import traceback
 from types import FrameType, TracebackType
 from typing import List, Optional, Tuple
@@ -126,3 +128,27 @@ def extract_from_stack(exc: BaseException) -> Tuple[Optional[str], Optional[str]
         if len(matches) == 3:  # for mypy
             return matches[0], matches[1], matches[2]
     return None, None, None
+
+
+_shutdown = threading.Event()
+_termination_pending = threading.Event()
+
+
+class defer_termination:
+    """
+    Use this context manager to temporarily postpone shutdown via SIGTERM.
+    """
+    def __enter__(self):
+        if _termination_pending.is_set():
+            _shutdown.wait()
+        self._signum = None
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.signal(signal.SIGTERM, 0)
+        if self._signum:
+            signal.raise_signal(self._signum)
+
+    def _sigterm_handler(self, signum, _):
+        _termination_pending.set()
+        self._signum = signum

@@ -12,7 +12,7 @@ from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
-from ergo.util import extract_from_stack
+from ergo.util import extract_from_stack, defer_termination
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -109,9 +109,7 @@ class AmqpInvoker(Invoker):
             async for amqp_message in queue:
                 amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
                 ergo_message = decodes(amqp_message.body.decode('utf-8'))
-                if self._terminating:
-                    break
-                with self.defer_termination():
+                with defer_termination():
                     amqp_message.ack()
                     await self.handle_message(ergo_message, channel)
 
