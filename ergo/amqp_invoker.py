@@ -1,6 +1,6 @@
 """Summary."""
 import asyncio
-from typing import AsyncIterable, Dict, List, cast
+from typing import AsyncIterable, Dict, cast
 from urllib.parse import urlparse
 
 import aio_pika
@@ -11,7 +11,6 @@ from retry import retry
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
-from ergo.receiver import Receiver
 from ergo.topic import PubTopic, SubTopic
 from ergo.util import defer_termination, extract_from_stack, instance_id
 
@@ -40,29 +39,6 @@ def make_error_output(err: Exception) -> Dict[str, str]:
     if None not in (filename, lineno, function_name):
         err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}
     return err_output
-
-
-class AmqpReceiver(Receiver):
-    def __init__(self, queue_name: str, exchange_name: str, channel: aio_pika.Channel, loop: asyncio.AbstractEventLoop):
-        self._queue_name = queue_name
-        self._exchange_name = exchange_name
-        self._channel = channel
-        self._loop = loop
-
-    def subscribe(self, topic: str):
-        self._tasks.append(self._loop.create_task(self._asubscribe(topic)))
-
-    async def _asubscribe(self, topic: str):
-        exchange = await self._channel.get_exchange(name=self._exchange_name, ensure=False)
-        queue = await self._channel.declare_queue(self._queue_name, passive=True)
-        await queue.bind(exchange=exchange, routing_key=str(SubTopic(topic)))
-
-    async def __aenter__(self):
-        self._tasks: List[asyncio.Task] = []
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self._tasks:
-            await asyncio.gather(*self._tasks, loop=self._loop)
 
 
 class AmqpInvoker(Invoker):
@@ -127,33 +103,28 @@ class AmqpInvoker(Invoker):
             await self.bind_queue(self.instance_queue_name, instance_id(), channel)
 
         async with connection, channel_pool:
-            component_loop_coro = self.run_queue_loop(component_queue, channel_pool, loop)
-            instance_loop_coro = self.run_queue_loop(instance_queue, channel_pool, loop)
+            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
+            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
             await asyncio.gather(component_loop_coro, instance_loop_coro)
 
         return connection
 
-    async def run_queue_loop(self, queue: aio_pika.Queue, channel_pool: aio_pika.pool.Pool, loop: asyncio.AbstractEventLoop):
+    async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
         async with channel_pool.acquire() as channel:
             async for amqp_message in queue:
                 amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
                 ergo_message = decodes(amqp_message.body.decode('utf-8'))
                 with defer_termination():
                     amqp_message.ack()
-                    await self.handle_message(ergo_message, channel, loop)
+                    await self.handle_message(ergo_message, channel)
 
-    async def handle_message(self, message_in: Message, channel: aio_pika.Channel, loop: asyncio.AbstractEventLoop):
+    async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
-            await asyncio.gather(self.unbind_queue(self.component_queue_name, message_in.scope.id, channel),
-                                 self.unbind_queue(self.instance_queue_name, message_in.scope.id, channel),
-                                 loop=loop)
-            component_receiver = AmqpReceiver(self.component_queue_name, self.exchange_name, channel, loop)
-            instance_receiver = AmqpReceiver(self.instance_queue_name, self.exchange_name, channel, loop)
-            results = []
-            async with instance_receiver, component_receiver:
-                async for result in self.do_work(message_in, component_receiver, instance_receiver):
-                    results.append(result)
-            for message_out in results:
+            # if message_in.scope and instance_id() in message_in.scope.subscribers:
+            #     await self.unbind_queue(self.instance_queue_name, message_in.scope.id, channel)
+            async for message_out in self.do_work(message_in):
+                # if message_out.scope and instance_id() in message_out.scope.subscribers:
+                #     await self.bind_queue(self.instance_queue_name, message_out.scope.id, channel)
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel)
@@ -187,7 +158,7 @@ class AmqpInvoker(Invoker):
         await queue.unbind(exchange=exchange, routing_key=routing_key)
 
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Message, component_receiver, instance_receiver) -> AsyncIterable[Message]:
+    def do_work(self, data_in: Message) -> AsyncIterable[Message]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -198,4 +169,4 @@ class AmqpInvoker(Invoker):
         Yields:
             message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-        yield from self.invoke_handler(data_in, component_receiver, instance_receiver)
+        yield from self.invoke_handler(data_in)
