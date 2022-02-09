@@ -104,32 +104,3 @@ def stack_depth(stack) -> int:
     if stack is None:
         return 0
     return 1 + stack_depth(stack["parent"])
-
-
-"""
-test_fibonacci
-
-"""
-
-
-def fibonacci_trigger(context: Context):
-    return context.envelope({}, reply_to="fibonacci.filter")
-
-
-def fibonacci_generator(i=0, j=1):
-    if i < 100:
-        return {"i": j, "j": i+j}
-
-
-def fibonacci_filter(i):
-    return i
-
-
-@amqp_component(fibonacci_trigger, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
-@amqp_component(fibonacci_generator, subtopic="fibonacci.generator", pubtopic="fibonacci.generator")
-@amqp_component(fibonacci_filter, subtopic="fibonacci.filter", pubtopic="fibonacci.next")
-def test_fibonacci(components):
-    results_queue = Queue("fibonacci.next")
-    publish("fibonacci.start")
-    results = [results_queue.consume()["data"] for _ in range(10)]
-    assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]

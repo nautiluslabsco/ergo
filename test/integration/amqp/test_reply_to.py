@@ -15,7 +15,7 @@ test_reply_to_scope
 """
 
 
-def trigger(context: Context):
+def orchestrator(context: Context):
     return context.envelope({}, pubtopic="a", reply_to="results")
 
 
@@ -36,7 +36,7 @@ def d(context: Context):
     return "d"
 
 
-@amqp_component(trigger, subtopic="test_reply_to_scope")
+@amqp_component(orchestrator, subtopic="test_reply_to_scope")
 @amqp_component(a, subtopic="a")
 @amqp_component(b, subtopic="b")
 @amqp_component(c, subtopic="c")
@@ -57,7 +57,7 @@ test_fibonacci
 """
 
 
-def fibonacci_trigger(context: Context):
+def fibonacci_orchestrator(context: Context):
     return context.envelope({"i": 0, "j": 1}, reply_to="fibonacci.filter")
 
 
@@ -70,7 +70,7 @@ def fibonacci_filter(i):
     return i
 
 
-@amqp_component(fibonacci_trigger, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
+@amqp_component(fibonacci_orchestrator, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
 @amqp_component(fibonacci_generator, subtopic="fibonacci.generator", pubtopic="fibonacci.generator")
 @amqp_component(fibonacci_filter, subtopic="fibonacci.filter", pubtopic="fibonacci.next")
 def test_fibonacci(components):
