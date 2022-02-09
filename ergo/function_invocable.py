@@ -89,12 +89,12 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for result in results:
+                if result is None:
+                    continue
                 envelope = None
                 if isinstance(result, Envelope):
                     envelope = result
                     result = envelope.data
-                if result is None:
-                    continue
                 scope = ctx._scope
                 if scope.reply_to == instance_id():
                     assert scope.parent
