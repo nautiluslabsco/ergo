@@ -23,7 +23,7 @@ class Message:
 
     def get(self, key: str, default=None):
         value = pydash.get(self.data, key)
-        if value:
+        if value is not None:
             return value
         if key == DATA_KEY:
             return self.data
