@@ -100,7 +100,7 @@ class FunctionInvocable:
                     assert scope.parent
                     scope = scope.parent
                 key = f"{ctx.pubtopic}.{scope.id}"
-                if envelope and envelope.is_request():
+                if envelope and envelope.reply_to:
                     scope = Scope(parent=scope)
                     scope.reply_to = envelope.reply_to
                 elif scope.reply_to:
