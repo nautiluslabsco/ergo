@@ -120,11 +120,7 @@ class AmqpInvoker(Invoker):
 
     async def handle_message(self, message_in: Message, channel: aio_pika.Channel):
         try:
-            # if message_in.scope and instance_id() in message_in.scope.subscribers:
-            #     await self.unbind_queue(self.instance_queue_name, message_in.scope.id, channel)
             async for message_out in self.do_work(message_in):
-                # if message_out.scope and instance_id() in message_out.scope.subscribers:
-                #     await self.bind_queue(self.instance_queue_name, message_out.scope.id, channel)
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel)

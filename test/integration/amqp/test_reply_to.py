@@ -4,18 +4,66 @@ from typing import List, Optional
 from ergo.context import Context
 
 """
+test_reply_to_scope
+
+        a
+       / \
+      b   d
+    /
+   c
+
+"""
+
+
+def trigger(context: Context):
+    return context.envelope({}, pubtopic="a", reply_to="results")
+
+
+def a(context: Context):
+    return context.envelope("a", pubtopic="b.d")
+
+
+def b(context: Context):
+    return context.envelope("b", pubtopic="c")
+
+
+def c():
+    return "c"
+
+
+def d(context: Context):
+    context.initiate_scope()
+    return "d"
+
+
+@amqp_component(trigger, subtopic="test_reply_to_scope")
+@amqp_component(a, subtopic="a")
+@amqp_component(b, subtopic="b")
+@amqp_component(c, subtopic="c")
+@amqp_component(d, subtopic="d")
+def test_reply_to_scope(components):
+    results_queue = Queue("results")
+    publish("test_reply_to_scope")
+    results = sorted([results_queue.consume()["data"] for _ in range(3)])
+    assert results == ["a", "b", "c"]
+    *_, component_d = components
+    assert component_d.consume()["data"] == "d"
+    assert results_queue.consume(inactivity_timeout=0.1) is None
+
+
+"""
 test_fibonacci
 
 """
 
 
 def fibonacci_trigger(context: Context):
-    return context.envelope({}, reply_to="fibonacci.filter")
+    return context.envelope({"i": 0, "j": 1}, reply_to="fibonacci.filter")
 
 
-def fibonacci_generator(i=0, j=1):
+def fibonacci_generator(i, j):
     if i < 100:
-        return {"i": j, "j": i+j}
+        return {"i": j, "j": i + j}
 
 
 def fibonacci_filter(i):
@@ -55,8 +103,7 @@ class Node:
             yield {"path": f'{self.id}.{path}'}
         elif self.children:
             for child in self.children:
-                context.pubtopic = child
-                yield context.envelope({}, reply_to=context.instance_id)
+                yield context.envelope({}, pubtopic=child, reply_to=context.instance_id)
         else:
             yield {"path": self.id}
 

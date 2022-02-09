@@ -10,6 +10,7 @@ from dataclasses import dataclass
 @dataclass
 class Envelope:
     data: Any
+    pubtopic: Optional[str] = None
     reply_to: Optional[str] = None
 
 
@@ -23,17 +24,6 @@ class Context:
     @property
     def instance_id(self):
         return instance_id()
-
-    @property
-    def scope_id(self) -> str:
-        return self._scope.id
-
-    def subscribe(self, subscriber: str, topic: str):
-        if topic == self.scope:
-            if subscriber not in self._scope.subscribers:
-                self._scope.subscribers.append(subscriber)
-        else:
-            raise NotImplementedError
 
     def initiate_scope(self):
         self._scope = Scope(parent=self._scope)
