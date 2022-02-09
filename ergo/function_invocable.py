@@ -61,7 +61,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: Message, component_receiver, instance_receiver) -> Generator[Message, None, None]:
+    def invoke(self, data_in: Message) -> Generator[Message, None, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -78,7 +78,7 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            ctx = Context(message=data_in, config=self.config, component_receiver=component_receiver, instance_receiver=instance_receiver)
+            ctx = Context(message=data_in, config=self.config)
             kwargs = {}
             for param, default in self._config.args.items():
                 if param == "context":

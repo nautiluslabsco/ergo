@@ -1,6 +1,5 @@
 from ergo.config import Config
 from ergo.message import Message
-from ergo.receiver import Receiver
 from ergo.scope import Scope
 from ergo.util import instance_id
 
@@ -17,11 +16,9 @@ class Envelope:
 class Context:
     envelope = Envelope
 
-    def __init__(self, message: Message, config: Config, component_receiver: Receiver, instance_receiver: Receiver):
+    def __init__(self, message: Message, config: Config):
         self.pubtopic: str = config.pubtopic
         self._scope = message.scope
-        self.component = component_receiver
-        self.instance = instance_receiver
 
     @property
     def instance_id(self):
@@ -30,6 +27,13 @@ class Context:
     @property
     def scope_id(self) -> str:
         return self._scope.id
+
+    def subscribe(self, subscriber: str, topic: str):
+        if topic == self.scope:
+            if subscriber not in self._scope.subscribers:
+                self._scope.subscribers.append(subscriber)
+        else:
+            raise NotImplementedError
 
     def initiate_scope(self):
         self._scope = Scope(parent=self._scope)

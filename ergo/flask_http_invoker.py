@@ -6,12 +6,6 @@ from flask import Flask, request  # , abort
 
 from ergo.http_invoker import HttpInvoker
 from ergo.message import Message, decode, encodes
-from ergo.receiver import Receiver
-
-
-class HttpReceiver(Receiver):
-    def subscribe(self, topic: str):
-        raise NotImplementedError
 
 
 class FlaskHttpInvoker(HttpInvoker):
@@ -35,7 +29,7 @@ class FlaskHttpInvoker(HttpInvoker):
 
             """
             data_in: Message = decode(**request.args)
-            data_out: List[Message] = list(self.invoke_handler(data_in, HttpReceiver(), HttpReceiver()))
+            data_out: List[Message] = list(self.invoke_handler(data_in))
             if not inspect.isgeneratorfunction(self._invocable.func):
                 data_out = data_out[0]
             return encodes(data_out)

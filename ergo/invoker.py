@@ -4,7 +4,6 @@ from typing import Generator
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.message import Message
-from ergo.receiver import Receiver
 
 
 class Invoker(ABC):
@@ -30,5 +29,5 @@ class Invoker(ABC):
         """
         raise NotImplementedError()
 
-    def invoke_handler(self, message_in: Message, component_receiver: Receiver, instance_receiver: Receiver) -> Generator[Message, None, None]:
-        yield from self._invocable.invoke(message_in, component_receiver, instance_receiver)
+    def invoke_handler(self, message_in: Message) -> Generator[Message, None, None]:
+        yield from self._invocable.invoke(message_in)
