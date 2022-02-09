@@ -1,5 +1,5 @@
 from ergo.context import Context
-from test.integration.amqp.utils import amqp_component, publish
+from test.integration.amqp.utils import amqp_component, publish, Queue
 
 
 """
@@ -112,20 +112,43 @@ test_fibonacci
 """
 
 
-def fibonacci_generator(context: Context, i=0, j=1):
-    return context.envelope({"i": j, "j": i+j}, reply_to=context.instance_id)
+# def fibonacci_generator(context: Context, i=0, j=1):
+#     return context.envelope({"i": j, "j": i+j}, reply_to="fibonacci.filter")
+#
+#
+# def fibonacci_filter(i):
+#     return i
+#
+#
+# @amqp_component(fibonacci_generator, subtopic="fibonacci.start", pubtopic="fibonacci.start")
+# @amqp_component(fibonacci_filter, subtopic="fibonacci.filter", pubtopic="fibonacci.next")
+# def test_fibonacci(components):
+#     generator_component, filter_component = components
+#     publish("fibonacci.start")
+#     generator_results = [generator_component.consume()["data"]["i"] for _ in range(10)]
+#     assert generator_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+#     filter_results = [filter_component.consume()["data"] for _ in range(10)]
+#     assert filter_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
-def fibonacci(i):
+def fibonacci_trigger(context: Context):
+    return context.envelope({}, reply_to="fibonacci.filter")
+
+
+def fibonacci_generator(i=0, j=1):
+    if i < 100:
+        return {"i": j, "j": i+j}
+
+
+def fibonacci_filter(i):
     return i
 
 
-@amqp_component(fibonacci_generator, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
-@amqp_component(fibonacci, subtopic="fibonacci.generator", pubtopic="fibonacci.next")
+@amqp_component(fibonacci_trigger, subtopic="fibonacci.start", pubtopic="fibonacci.generator")
+@amqp_component(fibonacci_generator, subtopic="fibonacci.generator", pubtopic="fibonacci.generator")
+@amqp_component(fibonacci_filter, subtopic="fibonacci.filter", pubtopic="fibonacci.next")
 def test_fibonacci(components):
-    generator_component, fibonacci_component = components
+    results_queue = Queue("fibonacci.next")
     publish("fibonacci.start")
-    generator_results = [generator_component.consume()["data"]["i"] for _ in range(10)]
-    assert generator_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
-    fibonacci_results = [fibonacci_component.consume()["data"] for _ in range(10)]
-    assert fibonacci_results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    results = [results_queue.consume()["data"] for _ in range(10)]
+    assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
