@@ -1,13 +1,13 @@
 from typing import Optional, List
 
-from test.integration.amqp.utils import amqp_component, publish
+from test.integration.amqp.utils import amqp_component, publish, Queue
 
 from ergo.context import Context
 
 
 def fizzbuzz_generator(context: Context):
     for x in range(1, 16):
-        yield context.envelope({"x": x}, callback=True)
+        yield context.envelope({"x": x}, initiate_request=True)
 
 
 def fizzes(x: int):
@@ -19,8 +19,8 @@ def buzzes(x: int):
 
 
 def fizzbuzz_accumulator(context: Context, data):
-    print(data)
-    assert False
+    return data
+    # assert False
 
 
 @amqp_component(fizzbuzz_generator, subtopic="fizzbuzz.start", pubtopic="fizzbuzz.compute")
@@ -29,10 +29,13 @@ def fizzbuzz_accumulator(context: Context, data):
 @amqp_component(fizzbuzz_accumulator, subtopic="fizzbuzz.accumulator")
 def test_fizzbuzz(components):
     publish("fizzbuzz.start")
-    while True:
-        pass
+    # while True:
+    #     pass
     accumulator_component = components[-1]
-    print(accumulator_component.consume())
+    while True:
+        data = accumulator_component.consume()["data"]
+        assert data
+        print(data)
     assert False
 
 
@@ -40,7 +43,7 @@ def test_fizzbuzz(components):
 test_traverse_tree
 Each node in the tree below is implemented with a component. The test sends a message to node A,
 which recursively requests a path from each of its children, and then responds with that path, prepended with its 
-own ID. Node A should ultimately publish two strings, 'a.b.c' and 'a.b.d'.
+own name. Node A should ultimately publish two strings, 'a.b.c' and 'a.b.d'.
     a
     |
     b
@@ -56,12 +59,13 @@ class Node:
 
     def __call__(self, context: Context, path=None):
         if path:
-            context.respond(path=f'{self.id}.{path}')
+            yield {"path": f'{self.id}.{path}'}
         elif self.children:
             for child in self.children:
-                context.request(f'traverse.{child}')
+                context.pubtopic = child
+                yield context.envelope({}, reply_to=context.instance_id)
         else:
-            context.respond(path=self.id)
+            yield {"path": self.id}
 
 
 node_a = Node('a', children=['b'])
@@ -70,14 +74,14 @@ node_c = Node('c')
 node_d = Node('d')
 
 
-@amqp_component(node_a, subtopic='a')
-@amqp_component(node_b, subtopic='b')
-@amqp_component(node_c, subtopic='c')
-@amqp_component(node_d, subtopic='d')
+@amqp_component(node_a, subtopic='tree.traverse', pubtopic='tree.path')
+@amqp_component(node_b, subtopic='b.request')
+@amqp_component(node_c, subtopic='c.request')
+@amqp_component(node_d, subtopic='d.request')
 def test_traverse_tree(components):
-    root_node = components[0]
-    root_node.send()
-    results = [root_node.consume()['data']['path'] for _ in range(2)]
+    queue = Queue("tree.path")
+    publish("tree.traverse")
+    results = [queue.consume()['data']['path'] for _ in range(2)]
     results = sorted(results)
     assert results == ['a.b.c', 'a.b.d']
 
@@ -94,8 +98,8 @@ test_request
 """
 
 
-def a():
-    return True
+def a(context: Context):
+    return context.envelope(True, initiate_request=True)
 
 
 def b():
@@ -111,7 +115,7 @@ def d(context: Context):
     return True
 
 
-@amqp_component(a, pubtopic="a.request")
+@amqp_component(a, pubtopic="a")
 @amqp_component(b, subtopic="a", pubtopic="b")
 @amqp_component(c, subtopic="b", pubtopic="c")
 @amqp_component(d, subtopic="a", pubtopic="d")
@@ -124,3 +128,5 @@ def test_request(components):
     assert "response" not in result_c["key"].split(".")
     result_d = component_d.consume()
     assert "response" not in result_d["key"].split(".")
+    for result in [result_b, result_c, result_d]:
+        assert "request" not in result["key"].split(".")

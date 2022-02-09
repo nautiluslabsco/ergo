@@ -13,7 +13,8 @@ from ergo.config import Config
 from ergo.context import Context, Envelope
 from ergo.message import Message
 from ergo.types import TYPE_RETURN
-from ergo.util import print_exc_plus
+from ergo.util import print_exc_plus, instance_id
+from ergo.scope import Scope
 
 
 class FunctionInvocable:
@@ -92,14 +93,19 @@ class FunctionInvocable:
                 if isinstance(result, Envelope):
                     envelope = result
                     result = envelope.data
-                key = f"{ctx.pubtopic}.{ctx._scope.id}"
-                if envelope and envelope.reply_to:
-                    key = f"{key}.{envelope.reply_to}"
+                if result is None:
+                    continue
+                scope = ctx._scope
+                if scope.reply_to == instance_id():
+                    assert scope.parent
+                    scope = scope.parent
+                key = f"{ctx.pubtopic}.{scope.id}"
                 if envelope and envelope.is_request():
-                    key = f"{key}.request"
-                elif "request" in (data_in.key or "").split(".") and (ctx._scope.id == data_in.scope.id):
-                    key = f"{key}.response"
-                yield Message(data=result, scope=ctx._scope, key=key)
+                    scope = Scope(parent=scope)
+                    scope.reply_to = envelope.reply_to
+                elif scope.reply_to:
+                    key = f"{key}.{scope.reply_to}"
+                yield Message(data=result, scope=scope, key=key)
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 
