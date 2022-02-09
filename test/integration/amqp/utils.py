@@ -57,7 +57,7 @@ class AMQPComponent(Component):
         return self.consume(inactivity_timeout=inactivity_timeout)
 
     def send(self, **message):
-        publish(str(PubTopic(self.subtopic)), message, channel=self.channel, exchange=EXCHANGE)
+        publish(self.subtopic, **message, channel=self.channel)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
         attempt = 0
@@ -85,11 +85,7 @@ class AMQPComponent(Component):
 
     def setup_instance(self):
         self.channel = new_channel()
-        self._subscription_queue = self.channel.queue_declare(
-            queue="",
-            exclusive=True,
-        ).method.queue
-        self.channel.queue_bind(self._subscription_queue, EXCHANGE, routing_key=str(SubTopic(self.pubtopic)))
+        self._subscription_queue = new_queue(self.pubtopic, channel=self.channel)
         return self
 
     def teardown_component(self):
@@ -139,12 +135,32 @@ class AMQPComponent(Component):
 amqp_component = AMQPComponent
 
 
-def publish(routing_key, message, channel, exchange):
+class Queue:
+    def __init__(self, routing_key: str):
+        self.channel = new_channel()
+        self.queue = self.channel.queue_declare(
+            queue="",
+            exclusive=True,
+        ).method.queue
+        self.bind(routing_key)
+
+    def bind(self, routing_key: str, exchange=None):
+        self.channel.queue_bind(self.queue, exchange or EXCHANGE, routing_key=str(SubTopic(routing_key)))
+
+    def consume(self, inactivity_timeout=LONG_TIMEOUT):
+        method, _, body = next(self.channel.consume(self.queue, inactivity_timeout=inactivity_timeout))
+        if body:
+            self.channel.basic_ack(method.delivery_tag)
+            return json.loads(body)
+
+
+def publish(routing_key, channel=None, **message):
+    channel = channel or new_channel()
     channel.confirm_delivery()
     for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
         with retry():
             body = json.dumps(message).encode()
-            channel.basic_publish(exchange=exchange, routing_key=routing_key, body=body, mandatory=True)
+            channel.basic_publish(exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)), body=body, mandatory=True)
 
 
 def consume(queue_name, inactivity_timeout=None, channel=None):
@@ -156,8 +172,18 @@ def consume(queue_name, inactivity_timeout=None, channel=None):
     return None
 
 
-def purge_queue(queue_name: str):
-    channel = new_channel()
+def new_queue(routing_key, channel=None):
+    channel = channel or new_channel()
+    queue = channel.queue_declare(
+        queue="",
+        exclusive=True,
+    ).method.queue
+    channel.queue_bind(queue, EXCHANGE, routing_key=str(SubTopic(routing_key)))
+    return queue
+
+
+def purge_queue(queue_name: str, channel=None):
+    channel = channel or new_channel()
     try:
         channel.queue_purge(queue_name)
     except pika.exceptions.ChannelClosedByBroker as exc:
