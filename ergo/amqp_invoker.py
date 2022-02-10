@@ -12,7 +12,7 @@ from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
-from ergo.util import extract_from_stack, defer_termination
+from ergo.util import defer_termination, extract_from_stack
 
 # content_type: application/json
 # {"x":5,"y":7}
