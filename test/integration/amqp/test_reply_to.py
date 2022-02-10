@@ -11,7 +11,7 @@ test_shout
 def shout(context: Context, message, capitalized=None):
     if capitalized:
         return f"{capitalized}!"
-    return context.envelope(message, pubtopic="capitalize", reply_to=context.instance_id)
+    return context.envelope(message, topic="capitalize", reply_to=context.instance_id)
 
 
 def capitalize(data: str):
@@ -44,15 +44,15 @@ a, b, and c should reply to topic "my_results", while d should not.
 
 
 def orchestrator(context: Context):
-    return context.envelope(None, pubtopic="a", reply_to="my_results")
+    return context.envelope(None, topic="a", reply_to="my_results")
 
 
 def a(context: Context):
-    return context.envelope("a", pubtopic="b.d")
+    return context.envelope("a", topic="b.d")
 
 
 def b(context: Context):
-    return context.envelope("b", pubtopic="c")
+    return context.envelope("b", topic="c")
 
 
 def c():
@@ -134,7 +134,7 @@ class Node:
             yield {"path": f'{self.id}.{path}'}
         elif self.children:
             for child in self.children:
-                yield context.envelope(None, pubtopic=child, reply_to=context.instance_id)
+                yield context.envelope(None, topic=child, reply_to=context.instance_id)
         else:
             yield {"path": self.id}
 

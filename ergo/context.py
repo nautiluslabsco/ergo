@@ -12,14 +12,14 @@ class Envelope:
 
     >>> hardcoded_subscriber = "interested_party"
     >>> def my_handler(context: Context):
-    ...     return context.envelope("my_return_val", pubtopic=f"{context.pubtopic}.{hardcoded_subscriber}")
+    ...     return context.envelope("my_return_val", topic=f"{context.pubtopic}.{hardcoded_subscriber}")
     ...
     >>>
     """
 
-    def __init__(self, data: Any, pubtopic: Optional[str] = None, reply_to: Optional[str] = None):
+    def __init__(self, data: Any, topic: Optional[str] = None, reply_to: Optional[str] = None):
         self.data = data
-        self.pubtopic = pubtopic
+        self.topic = topic
         self.reply_to = reply_to
 
 
