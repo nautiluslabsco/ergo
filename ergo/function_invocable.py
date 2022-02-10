@@ -107,8 +107,8 @@ class FunctionInvocable:
                     # which will be routed back to them unto eternity.
                     assert scope.parent
                     scope = scope.parent
-                if envelope and envelope.pubtopic:
-                    key = envelope.pubtopic
+                if envelope and envelope.topic:
+                    key = envelope.topic
                 else:
                     key = self.config.pubtopic
                     if ctx.pubtopic != self.config.pubtopic:
