@@ -1,9 +1,9 @@
 """Convenience Funcs for handling errors, logging, and monitoring."""
 import re
-import sys
-import time
 import signal
+import sys
 import threading
+import time
 import traceback
 from types import FrameType, TracebackType
 from typing import List, Optional, Tuple
@@ -138,6 +138,7 @@ class defer_termination:
     """
     Use this context manager to temporarily postpone shutdown via SIGTERM.
     """
+
     def __enter__(self):
         if _termination_pending.is_set():
             _shutdown.wait()
