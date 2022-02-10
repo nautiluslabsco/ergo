@@ -1,17 +1,26 @@
+from typing import Any, Optional
+
 from ergo.config import Config
 from ergo.message import Message
 from ergo.scope import Scope
 from ergo.util import instance_id
 
-from typing import Any, Optional
-from dataclasses import dataclass
 
-
-@dataclass
 class Envelope:
-    data: Any
-    pubtopic: Optional[str] = None
-    reply_to: Optional[str] = None
+    """
+    Use this container to pass data to ergo with custom routing parameters.
+
+    >>> hardcoded_subscriber = "interested_party"
+    >>> def my_handler(context: Context):
+    ...     return context.envelope("my_return_val", pubtopic=f"{context.pubtopic}.{hardcoded_subscriber}")
+    ...
+    >>>
+    """
+
+    def __init__(self, data: Any, pubtopic: Optional[str] = None, reply_to: Optional[str] = None):
+        self.data = data
+        self.pubtopic = pubtopic
+        self.reply_to = reply_to
 
 
 class Context:

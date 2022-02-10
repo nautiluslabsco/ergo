@@ -4,19 +4,19 @@ import inspect
 import os
 import re
 import sys
+import warnings
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
-import warnings
 
 from ergo.config import Config
 from ergo.context import Context, Envelope
 from ergo.message import Message
-from ergo.types import TYPE_RETURN
-from ergo.util import print_exc_plus, instance_id
 from ergo.scope import Scope
 from ergo.topic import Topic
+from ergo.types import TYPE_RETURN
+from ergo.util import instance_id, print_exc_plus
 
 
 class FunctionInvocable:
@@ -100,9 +100,11 @@ class FunctionInvocable:
                     data_out = envelope.data
                 scope = ctx._scope
                 if Topic(f"{self.config.subtopic}.{instance_id()}").overlap(Topic(scope.reply_to)):
-                    # This component or instance was a designated subject of the request that was initiated in
-                    # conjunction with the current scope. We assume that by handling this message we've resolved
-                    # the request, and thus should exit the current scope before proceeding.
+                    # The current scope was initiated in conjunction with a request that was addressed to this
+                    # component or instance. We assume that by handling this message we've resolved
+                    # the request, and may exit the current scope before proceeding. This frees handlers from
+                    # needing to manually exit scope after receiving a request, or else publishing messages
+                    # which will be routed back to them unto eternity.
                     assert scope.parent
                     scope = scope.parent
                 if envelope and envelope.pubtopic:
@@ -111,8 +113,7 @@ class FunctionInvocable:
                     key = self.config.pubtopic
                     if ctx.pubtopic != self.config.pubtopic:
                         key = ctx.pubtopic
-                        warnings.warn("Context.pubtopic is going to be immutable in a future version of ergo. "
-                                      "Use Context.envelope to override pubtopic.", category=DeprecationWarning)
+                        warnings.warn("Context.pubtopic is going to be immutable in a future version of ergo. Use Context.envelope to override pubtopic.", category=DeprecationWarning)
                 if envelope and envelope.reply_to:
                     scope = Scope(parent=scope)
                     scope.reply_to = envelope.reply_to
