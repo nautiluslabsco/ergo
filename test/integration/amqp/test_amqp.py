@@ -1,9 +1,8 @@
-from test.integration.amqp.utils import amqp_component, ComponentFailure
+from test.integration.utils.amqp import ComponentFailure, amqp_component
 
 import pytest
 
 from ergo.context import Context
-
 
 """
 test_product

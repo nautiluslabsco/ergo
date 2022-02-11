@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import inspect
 import json
 import pathlib
-from test.integration.utils import Component, retries
-from typing import Callable, Dict, Optional, List
 from functools import partial, wraps
-import inspect
-import pytest
+from test.integration.utils import Component, retries
+from typing import Callable, Dict, List, Optional
 
 import pika
 import pika.exceptions
+import pytest
 from pika.adapters.blocking_connection import BlockingChannel
 
 from ergo.topic import SubTopic
@@ -32,10 +32,14 @@ _LIVE_INSTANCES: Dict = defaultdict(int)
 
 class AMQPComponent(Component):
     protocol = "amqp"
-    host = AMQP_HOST
     instances: List[AMQPComponent] = []
 
-    def __init__(self, func: Callable, subtopic: Optional[str] = None, pubtopic: Optional[str] = None):
+    def __init__(
+        self,
+        func: Callable,
+        subtopic: Optional[str] = None,
+        pubtopic: Optional[str] = None,
+    ):
         super().__init__(func)
         self.queue_name = f"{self.handler_path}:{self.handler_name}"
         self.error_queue_name = f"{self.queue_name}_error"
@@ -46,6 +50,7 @@ class AMQPComponent(Component):
     @property
     def namespace(self):
         ns = super().namespace
+        ns["host"] = AMQP_HOST
         ns["exchange"] = EXCHANGE
         ns["subtopic"] = self.subtopic
         if self.pubtopic:
@@ -62,7 +67,11 @@ class AMQPComponent(Component):
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
         attempt = 0
         while True:
-            value = consume(self._subscription_queue, channel=self.channel, inactivity_timeout=SHORT_TIMEOUT)
+            value = consume(
+                self._subscription_queue,
+                channel=self.channel,
+                inactivity_timeout=SHORT_TIMEOUT,
+            )
             if value:
                 return value
             self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
@@ -100,18 +109,22 @@ class AMQPComponent(Component):
         params = inspect.signature(test).parameters
 
         if "component" in params:
+
             @wraps(test)
             @pytest.mark.parametrize("component", [self])
             def test_with_component(*args, component=None, **kwargs):
                 with self:
                     return test(*args, component=component, **kwargs)
+
             return test_with_component
         if "components" in params:
+
             @wraps(test)
             @pytest.mark.parametrize("components", [AMQPComponent.instances])
             def test_with_component(*args, components=None, **kwargs):
                 with self:
                     return test(*args, components=components, **kwargs)
+
             return test_with_component
         return test
 
@@ -145,10 +158,14 @@ class Queue:
         self.bind(routing_key)
 
     def bind(self, routing_key: str, exchange=None):
-        self.channel.queue_bind(self.queue, exchange or EXCHANGE, routing_key=str(SubTopic(routing_key)))
+        self.channel.queue_bind(
+            self.queue, exchange or EXCHANGE, routing_key=str(SubTopic(routing_key))
+        )
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
-        method, _, body = next(self.channel.consume(self.queue, inactivity_timeout=inactivity_timeout))
+        method, _, body = next(
+            self.channel.consume(self.queue, inactivity_timeout=inactivity_timeout)
+        )
         if body:
             self.channel.basic_ack(method.delivery_tag)
             return json.loads(body)
@@ -160,12 +177,19 @@ def publish(routing_key, channel=None, **message):
     for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
         with retry():
             body = json.dumps(message).encode()
-            channel.basic_publish(exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)), body=body, mandatory=True)
+            channel.basic_publish(
+                exchange=EXCHANGE,
+                routing_key=str(PubTopic(routing_key)),
+                body=body,
+                mandatory=True,
+            )
 
 
 def consume(queue_name, inactivity_timeout=None, channel=None):
     channel = channel or new_channel()
-    method, _, body = next(channel.consume(queue_name, inactivity_timeout=inactivity_timeout))
+    method, _, body = next(
+        channel.consume(queue_name, inactivity_timeout=inactivity_timeout)
+    )
     if body:
         channel.basic_ack(method.delivery_tag)
         return json.loads(body)

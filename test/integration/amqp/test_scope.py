@@ -1,6 +1,6 @@
-from ergo.context import Context
-from test.integration.amqp.utils import amqp_component
+from test.integration.utils.amqp import amqp_component
 
+from ergo.context import Context
 
 """
 test_simple_scope

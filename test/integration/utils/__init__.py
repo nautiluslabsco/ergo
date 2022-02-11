@@ -1,10 +1,10 @@
 import inspect
-import re
 import multiprocessing
+import re
 import tempfile
 import time
 from abc import ABC, abstractmethod
-from contextlib import contextmanager, ContextDecorator
+from contextlib import ContextDecorator, contextmanager
 from typing import Callable, Dict, Optional, Type
 
 import yaml
@@ -12,40 +12,6 @@ import yaml
 from ergo.ergo_cli import ErgoCli
 
 
-@contextmanager
-def ergo(command, *args, manifest=None, namespace=None):
-    """
-    This context manager starts a temporary ergo worker in a child process. The worker is terminated at __exit__ time.
-    """
-    if manifest:
-        assert namespace
-        with tempfile.NamedTemporaryFile(mode="w+") as manifest_file:
-            manifest_file.write(yaml.dump(manifest))
-            manifest_file.seek(0)
-            with tempfile.NamedTemporaryFile(mode="w+") as namespace_file:
-                namespace_file.write(yaml.dump(namespace))
-                namespace_file.seek(0)
-
-                with _ergo_inner(command, manifest_file.name, namespace_file.name):
-                    yield
-    else:
-        with _ergo_inner(command, *args):
-            yield
-
-
-@contextmanager
-def _ergo_inner(command, *args):
-    ergo_process = multiprocessing.Process(
-        target=getattr(ErgoCli(), command),
-        args=args,
-    )
-    ergo_process.start()
-    try:
-        yield
-    finally:
-        ergo_process.terminate()
-        
-        
 class ComponentInstance:
     def __init__(self, manifest: Dict, namespace: Dict):
         self.manifest_file = tempfile.NamedTemporaryFile(mode="w")
@@ -80,7 +46,7 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
                 yield
                 success.add(True)
             except retry_errors:
-                if attempt+1 == n:
+                if attempt + 1 == n:
                     raise
                 time.sleep(backoff_seconds)
 
@@ -108,21 +74,13 @@ class Component(ABC, ContextDecorator):
         return NotImplementedError
 
     @property
-    @abstractmethod
-    def host(self):
-        return NotImplementedError
-
-    @property
     def manifest(self):
-        return {
-            "func": f"{self.handler_path}:{self.handler_name}"
-        }
+        return {"func": f"{self.handler_path}:{self.handler_name}"}
 
     @property
     def namespace(self):
         namespace = {
             "protocol": self.protocol,
-            "host": self.host,
         }
         return namespace
 
