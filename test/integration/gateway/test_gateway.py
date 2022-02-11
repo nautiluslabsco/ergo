@@ -1,5 +1,5 @@
-from test.integration.amqp.gateway.utils import GatewayComponent
-from test.integration.amqp.utils import amqp_component
+from test.integration.gateway.utils import GatewayComponent
+from test.integration.utils.amqp import amqp_component
 
 
 def foo():

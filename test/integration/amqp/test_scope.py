@@ -1,6 +1,6 @@
-from typing import Optional, List
+from test.integration.utils.amqp import amqp_component
+
 from ergo.context import Context
-from test.integration.amqp.utils import amqp_component, publish, Queue
 
 """
 test_simple_scope

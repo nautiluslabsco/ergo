@@ -1,5 +1,5 @@
+from test.integration.utils.amqp import AMQP_HOST, EXCHANGE
 from test.integration.utils import Component
-from test.integration.amqp.utils import AMQP_HOST, EXCHANGE
 
 
 class GatewayComponent(Component):
