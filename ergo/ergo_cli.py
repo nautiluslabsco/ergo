@@ -12,7 +12,7 @@ from ergo.function_invocable import FunctionInvocable
 from ergo.http_invoker import HttpInvoker
 from ergo.schematic import graph as ergograph
 from ergo.version import get_version
-from ergo.rpc_invocable import FlaskHttpGateway, RPCInvocable
+from ergo.rpc_invocable import QuartHttpGateway
 
 
 def format_date(sec: float) -> str:
@@ -122,7 +122,7 @@ class ErgoCli:
     def gateway(self, ref: str) -> int:
         with open(ref) as config_file:
             config = Config(yaml.safe_load(config_file))
-        host = FlaskHttpGateway(RPCInvocable(config))
+        host = QuartHttpGateway(config)
         return host.start()
 
     def http(self, func: str, *args: str) -> int:

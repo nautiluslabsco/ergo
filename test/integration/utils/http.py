@@ -1,7 +1,7 @@
-from test.integration.utils import Component
+from test.integration.utils import FunctionComponent
 
 
-class HTTPComponent(Component):
+class HTTPComponent(FunctionComponent):
     protocol = "http"
 
 

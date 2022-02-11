@@ -65,9 +65,8 @@ class Component(ABC, ContextDecorator):
         self._instance: Optional[ComponentInstance] = None
 
     @property
-    @abstractmethod
     def namespace(self):
-        raise NotImplementedError
+        return {}
 
     @property
     def manifest(self):
