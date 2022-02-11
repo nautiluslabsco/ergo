@@ -82,7 +82,7 @@ setup(
     keywords=['execute', 'microservice', 'lambda'],  # Keywords that define your package best
     install_requires=[  # dependencies
         'Click',
-        'flask',
+        'flask[async]',
         'falcon',
         'ansicolors',
         'click-default-group',

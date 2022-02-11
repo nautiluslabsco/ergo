@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import pathlib
-from test.integration.utils import Component, retries
+from test.integration.utils import FunctionComponent, retries
 from typing import Callable, Dict, Optional, List
 from functools import wraps
 import inspect
@@ -30,7 +30,7 @@ LONG_TIMEOUT = 5
 _LIVE_INSTANCES: Dict = defaultdict(int)
 
 
-class AMQPComponent(Component):
+class AMQPComponent(FunctionComponent):
     protocol = "amqp"
     host = AMQP_HOST
     instances: List[AMQPComponent] = []
@@ -45,9 +45,12 @@ class AMQPComponent(Component):
 
     @property
     def namespace(self):
-        ns = super().namespace
-        ns["exchange"] = EXCHANGE
-        ns["subtopic"] = self.subtopic
+        ns = {
+            "protocol": self.protocol,
+            "host": self.host,
+            "exchange": EXCHANGE,
+            "subtopic": self.subtopic,
+        }
         if self.pubtopic:
             ns["pubtopic"] = self.pubtopic
         return ns

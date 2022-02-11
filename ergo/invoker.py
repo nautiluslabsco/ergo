@@ -1,19 +1,19 @@
 """Summary."""
 from abc import ABC, abstractmethod
-from typing import Generator
+from typing import Iterable, AsyncGenerator
 
-from ergo.function_invocable import FunctionInvocable
+from ergo.invocable import Invocable
 from ergo.message import Message
 
 
 class Invoker(ABC):
     """Summary."""
 
-    def __init__(self, invocable: FunctionInvocable) -> None:
+    def __init__(self, invocable: Invocable) -> None:
         """Summary.
 
         Args:
-            invocable (FunctionInvocable): Description
+            invocable (Invocable): Description
 
         """
         super().__init__()
@@ -29,5 +29,6 @@ class Invoker(ABC):
         """
         raise NotImplementedError()
 
-    def invoke_handler(self, message_in: Message) -> Generator[Message, None, None]:
-        yield from self._invocable.invoke(message_in)
+    async def invoke_handler(self, message_in: Message) -> AsyncGenerator[Message, None]:
+        async for message_out in self._invocable.invoke(message_in):
+            yield message_out

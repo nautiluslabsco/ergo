@@ -1,5 +1,5 @@
 Click
-flask
+flask[async]
 falcon
 ansicolors
 click-default-group

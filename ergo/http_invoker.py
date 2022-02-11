@@ -2,18 +2,18 @@
 # pylint: disable=W0223
 
 """Summary."""
-from ergo.function_invocable import FunctionInvocable
+from ergo.invocable import Invocable
 from ergo.invoker import Invoker
 
 
 class HttpInvoker(Invoker):
     """Summary."""
 
-    def __init__(self, invocable: FunctionInvocable) -> None:
+    def __init__(self, invocable: Invocable) -> None:
         """Summary.
 
         Args:
-            invocable (FunctionInvocable): Description
+            invocable (Invocable): Description
 
         """
         super().__init__(invocable)

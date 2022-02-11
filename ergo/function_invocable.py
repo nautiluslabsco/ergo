@@ -17,9 +17,10 @@ from ergo.scope import Scope
 from ergo.topic import Topic
 from ergo.types import TYPE_RETURN
 from ergo.util import instance_id, print_exc_plus
+from ergo.invocable import Invocable
 
 
-class FunctionInvocable:
+class FunctionInvocable(Invocable):
     """Summary."""
 
     def __init__(self, config: Config) -> None:
@@ -29,19 +30,9 @@ class FunctionInvocable:
             reference (str): Description
 
         """
+        super().__init__(config)
         self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
-        self._config: Config = config
         self.inject()
-
-    @property
-    def config(self) -> Config:
-        """Summary.
-
-        Returns:
-            Config: Description
-
-        """
-        return self._config
 
     @property
     def func(self) -> Optional[Callable[..., TYPE_RETURN]]:  # type: ignore

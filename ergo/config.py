@@ -18,7 +18,7 @@ class Config:
         Args:
             config (Dict[str, str]): Description
         """
-        self._func: str = config['func']
+        self._func: str = config.get('func', '')
         self._namespace: Optional[str] = config.get('namespace', 'local')
         self._pubtopic: str = config.get('pubtopic')
         self._subtopic: str = config.get('subtopic')
