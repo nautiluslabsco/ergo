@@ -1,5 +1,7 @@
+import requests
+import signal
 from test.integration.utils.amqp import AMQP_HOST, EXCHANGE
-from test.integration.utils import Component
+from test.integration.utils import Component, retries
 
 
 class GatewayComponent(Component):
@@ -12,3 +14,9 @@ class GatewayComponent(Component):
             "exchange": EXCHANGE,
         }
         return ns
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._instance.process.kill()
+        super().__exit__(exc_type, exc_val, exc_tb)
+
+

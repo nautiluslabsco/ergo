@@ -6,7 +6,7 @@ from quart import Quart, request
 from ergo.amqp_invoker import set_param
 from ergo.http_invoker import HttpInvoker
 from ergo.message import Message, decode, decodes, encodes
-from ergo.topic import PubTopic
+from ergo.topic import PubTopic, SubTopic
 from ergo.util import instance_id, uniqueid
 
 MAX_THREADS = 2
@@ -80,7 +80,9 @@ class QuartHttpGateway(HttpInvoker):
 
     async def queue(self) -> aio_pika.Queue:
         if not self._queue:
+            exchange_coro = self.exchange()
             channel = await self.channel()
             self._queue = await channel.declare_queue(name=f"rpc/{instance_id()}", exclusive=True)
+            exchange = await exchange_coro
+            await self._queue.bind(exchange=exchange, routing_key=str(SubTopic(instance_id())))
         return self._queue
-
