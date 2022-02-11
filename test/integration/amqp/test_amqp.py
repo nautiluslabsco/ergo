@@ -50,22 +50,22 @@ def test_product_instance(component):
 
 
 """
-test_get_two_dicts
+test_return_two_dicts
 """
 
 
-def get_dict():
+def return_dict():
     return {"key": "value"}
 
 
-def get_two_dicts():
-    return [get_dict(), get_dict()]
+def return_two_dicts():
+    return [return_dict(), return_dict()]
 
 
-@amqp_component(get_two_dicts)
-def test_get_two_dicts(component):
+@amqp_component(return_two_dicts)
+def test_return_two_dicts(component):
     result = component.rpc()
-    assert result["data"] == get_two_dicts()
+    assert result["data"] == return_two_dicts()
 
 
 """
@@ -74,15 +74,15 @@ test_yield_two_dicts
 
 
 def yield_two_dicts():
-    yield get_dict()
-    yield get_dict()
+    yield return_dict()
+    yield return_dict()
 
 
 @amqp_component(yield_two_dicts)
 def test_yield_two_dicts(component):
     component.send()
-    assert component.consume()["data"] == get_dict()
-    assert component.consume()["data"] == get_dict()
+    assert component.consume()["data"] == return_dict()
+    assert component.consume()["data"] == return_dict()
 
 
 """

@@ -11,6 +11,7 @@ test_shout
 def shout(context: Context, message, capitalized=None):
     if capitalized:
         return f"{capitalized}!"
+
     return context.envelope(message, topic="capitalize", reply_to=context.instance_id)
 
 

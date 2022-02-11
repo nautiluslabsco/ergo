@@ -91,9 +91,6 @@ class FunctionInvocable:
             if not inspect.isgenerator(results):
                 results = [results]
             for data_out in results:
-                # As a rule, we don't publish a null payload unless it was returned in an Envelope.
-                if data_out is None:
-                    continue
                 envelope = None
                 if isinstance(data_out, Envelope):
                     envelope = data_out
