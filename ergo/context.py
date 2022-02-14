@@ -17,10 +17,10 @@ class Context:
         if self._scope:
             self._scope = self._scope.parent
 
-    def get_scope_data(self, key: str) -> Any:
+    def retrieve(self, key: str) -> Any:
         if self._scope:
             return self._scope.data[key]
 
-    def set_scope_data(self, key: str, new_data: Any):
+    def store(self, key: str, new_data: Any):
         if self._scope:
             self._scope.data[key] = new_data
