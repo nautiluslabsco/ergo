@@ -1,3 +1,4 @@
+from typing import Any
 from ergo.config import Config
 from ergo.message import Message
 from ergo.scope import Scope
@@ -15,10 +16,10 @@ class Context:
         if self._scope:
             self._scope = self._scope.parent
 
-    def get_scope_data(self) -> dict:
+    def get_scope_data(self, key: str) -> Any:
         if self._scope:
-            return self._scope.data
+            return self._scope.data[key]
 
-    def set_scope_data(self, new_data: dict):
+    def set_scope_data(self, key: str, new_data: Any):
         if self._scope:
-            self._scope.data = new_data
+            self._scope.data[key] = new_data
