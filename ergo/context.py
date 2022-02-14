@@ -1,4 +1,5 @@
 from typing import Any
+
 from ergo.config import Config
 from ergo.message import Message
 from ergo.scope import Scope
