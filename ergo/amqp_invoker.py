@@ -1,23 +1,24 @@
 """Summary."""
 import asyncio
-import json
-from typing import Dict, Iterable
+from typing import AsyncIterable, Dict, cast
 from urllib.parse import urlparse
 
 import aio_pika
 import aiomisc
+import jsons
 from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
-from ergo.payload import Payload
-from ergo.types import TYPE_PAYLOAD
-from ergo.util import extract_from_stack
+from ergo.message import Message, decodes, encodes
+from ergo.topic import PubTopic, SubTopic
+from ergo.util import defer_termination, extract_from_stack, instance_id
 
 # content_type: application/json
 # {"x":5,"y":7}
 
-MAX_THREADS = 2
+MAX_THREADS = 4
+CHANNEL_POOL_SIZE = 2  # minimum is 1 per active run_queue_loop coroutine
 
 
 def set_param(host: str, param_key: str, param_val: str) -> str:
@@ -51,11 +52,14 @@ class AmqpInvoker(Invoker):
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
-        self.queue_name = self._invocable.config.func
+        self.component_queue_name = f"{self._invocable.config.func}"
+        self.instance_queue_name = f"{self.component_queue_name}/{instance_id()}"
+        self.error_queue_name = f"{self.component_queue_name}_error"
 
     def start(self) -> int:
         """
-        Starts a new event loop that maintains a persistent AMQP connection. The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
+        Starts a new event loop that maintains a persistent AMQP connection.
+        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
 
         Returns:
             exit_code
@@ -72,87 +76,85 @@ class AmqpInvoker(Invoker):
 
     @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
     async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError` and `aio_pika.exceptions.ChannelInvalidStateError`.
-        Runs continuous `consume` -> `do_work` -> `publish` event loop.
+        """
+        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError`
+        and `aio_pika.exceptions.ChannelInvalidStateError`. Runs a continuous `consume` -> `do_work` -> `publish`
+        event loop.
 
         Parameters:
             loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
         Returns:
             connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
         """
-        connection = await aio_pika.connect_robust(url=self.url, loop=loop)
+        connection: aio_pika.RobustConnection = await aio_pika.connect_robust(url=self.url, loop=loop)
 
         async def get_channel() -> aio_pika.Channel:
             return await connection.channel()
 
         # Pool for consuming and publishing
-        channel_pool = aio_pika.pool.Pool[aio_pika.RobustChannel](get_channel, max_size=2, loop=loop)
+        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
         async with channel_pool.acquire() as channel:
             await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
+            await channel.declare_queue(name=self.error_queue_name)
+            await self.bind_queue(self.error_queue_name, self.error_queue_name, channel)
+            component_queue = await channel.declare_queue(name=self.component_queue_name)
+            await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, channel)
+            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
+            await self.bind_queue(self.instance_queue_name, instance_id(), channel)
 
-        # Consume-Publish loop
         async with connection, channel_pool:
-            async for data_in in self.consume(channel_pool):
-                try:
-                    data_in.set('context', self._invocable.config.copy())
-
-                    async for data_out in self.do_work(data_in):
-                        message = aio_pika.Message(body=json.dumps(data_out).encode())
-                        routing_key = str(data_in.get('context').pubtopic)
-                        await self.publish(channel_pool, message, routing_key=routing_key)
-
-                except Exception as err:  # pylint: disable=broad-except
-                    data_in.set('error', make_error_output(err))
-                    data_in.set('traceback', str(err))
-                    data_in.unset('context')
-                    message = aio_pika.Message(body=str(data_in).encode())
-                    routing_key = f'{self.queue_name}_error'
-                    await self.publish(channel_pool, message, routing_key)
+            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
+            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
+            await asyncio.gather(component_loop_coro, instance_loop_coro)
 
         return connection
 
-    async def consume(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel]) -> Iterable[TYPE_PAYLOAD]:
-        """
-        Re-acquires handles to `channel`, `exchange`, and `queue` before continuously consuming `aio_pika.IncomingMessage`.
+    async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
+        async for amqp_message in queue:
+            amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
+            with defer_termination():
+                async with amqp_message.process():
+                    ergo_message = decodes(amqp_message.body.decode('utf-8'))
+                    await self.handle_message(ergo_message, channel_pool)
 
-        Parameters:
-            channel_pool: Pool of valid `Channel` handles
+    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
+        try:
+            async for message_out in self.do_work(message_in):
+                message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
+                routing_key = str(PubTopic(message_out.key))
+                await self.publish(message, routing_key, channel_pool)
+        except Exception as err:  # pylint: disable=broad-except
+            message_in.error = make_error_output(err)
+            message_in.traceback = str(err)
+            message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
+            routing_key = f'{self.component_queue_name}_error'
+            await self.publish(message, routing_key, channel_pool)
 
-        Yields:
-            payload: JSON-deserialized object
-        """
-
-        async with channel_pool.acquire() as channel:
-            # See: https://github.com/mosquito/aio-pika/issues/396
-            # Exchange should be guaranteed to exist at this point, unless manually deleted from outside the system (in which case this ought to fail)
-            # This simply refreshes the handle
-            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-            queue = await channel.declare_queue(name=self.queue_name)
-            queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
-
-            await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
-
-            async for message in queue:
-                async with message.process():
-                    data_in = json.loads(message.body.decode('utf-8'))
-                    yield Payload(data_in)
-
-    async def publish(self, channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel], message: aio_pika.Message, routing_key: str) -> None:
+    async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """
         Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
 
         Parameters:
-            channel_pool: Pool of valid `Channel` handles
             message: Message to be published
             routing_key: Exchange-level routing discriminator
+            channel_pool: aio_pika.pool.Pool
         """
         async with channel_pool.acquire() as channel:
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             await exchange.publish(message, routing_key)
 
+    async def bind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
+        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+        queue = await channel.declare_queue(queue_name, passive=True)
+        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
+
+    async def unbind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
+        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+        queue = await channel.declare_queue(queue_name, passive=True)
+        await queue.unbind(exchange=exchange, routing_key=routing_key)
+
     @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: TYPE_PAYLOAD) -> Iterable[TYPE_PAYLOAD]:
+    def do_work(self, data_in: Message) -> AsyncIterable[Message]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
@@ -161,8 +163,6 @@ class AmqpInvoker(Invoker):
             data_in: Raw event data
 
         Yields:
-            payload: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
+            message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
-
-        for data_out in self._invocable.invoke(data_in):
-            yield {'data': data_out, 'key': str(data_in.get('context').pubtopic), 'log': data_in.get('log', [])}
+        yield from self.invoke_handler(data_in)

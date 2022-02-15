@@ -4,15 +4,19 @@ import inspect
 import os
 import re
 import sys
-from collections import OrderedDict
+import warnings
 from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
 
 from ergo.config import Config
-from ergo.types import TYPE_PAYLOAD, TYPE_RETURN
-from ergo.util import print_exc_plus
+from ergo.context import Context, Envelope
+from ergo.message import Message
+from ergo.scope import Scope
+from ergo.topic import Topic
+from ergo.types import TYPE_RETURN
+from ergo.util import instance_id, print_exc_plus
 
 
 class FunctionInvocable:
@@ -59,7 +63,7 @@ class FunctionInvocable:
         """
         self._func = arg
 
-    def invoke(self, data_in: TYPE_PAYLOAD) -> Generator[TYPE_PAYLOAD, TYPE_PAYLOAD, None]:
+    def invoke(self, message_in: Message) -> Generator[Message, None, None]:
         """Invoke injected function.
 
         If func is a generator, will exhaust generator, yielding each response.
@@ -67,7 +71,7 @@ class FunctionInvocable:
         Func responses will not be percolated if they return None.
 
         Args:
-            data_in (Dict): Contents will be passed to injected function as keyword args.
+            message_in (ergo.message.Message): Contents will be passed to injected function as keyword args.
 
         Raises:
             Exception: caught exception re-raised with a stack trace.
@@ -76,12 +80,44 @@ class FunctionInvocable:
         if not self._func:
             raise Exception('Cannot execute injected function')
         try:
-            args = [data_in.get(self.config.args[arg]) for arg in self.config.args]
-            result = self._func(*args)
-            if inspect.isgenerator(result):
-                yield from result
-            else:
-                yield result
+            ctx = Context(message=message_in, config=self.config)
+            kwargs = {}
+            for param, default in self._config.args.items():
+                if param == "context":
+                    kwargs["context"] = ctx
+                else:
+                    kwargs[param] = message_in.get(param, default)
+            results = self._func(**kwargs)
+            if not inspect.isgenerator(results):
+                results = [results]
+            for data_out in results:
+                envelope = None
+                if isinstance(data_out, Envelope):
+                    envelope = data_out
+                    data_out = envelope.data
+                scope = ctx._scope
+                if Topic(f"{self.config.subtopic}.{instance_id()}").overlap(Topic(scope.reply_to)):
+                    # The current scope was initiated in conjunction with a request that was addressed to this
+                    # component or instance. We assume that by handling this message we've resolved
+                    # the request, and may exit the current scope before proceeding. This frees handlers from
+                    # needing to manually exit scope after receiving a request, or else publishing messages
+                    # which will be routed back to them unto eternity.
+                    assert scope.parent
+                    scope = scope.parent
+                if envelope and envelope.topic:
+                    key = envelope.topic
+                else:
+                    key = self.config.pubtopic
+                    if ctx.pubtopic != self.config.pubtopic:
+                        key = ctx.pubtopic
+                        warnings.warn("Context.pubtopic is going to be immutable in a future version of ergo. Use Context.envelope to override pubtopic.", category=DeprecationWarning)
+                if envelope and envelope.reply_to:
+                    scope = Scope(parent=scope)
+                    scope.reply_to = envelope.reply_to
+                elif scope.reply_to:
+                    key = f"{key}.{scope.reply_to}"
+                yield Message(data=data_out, scope=scope, key=key)
+
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
 
@@ -118,5 +154,18 @@ class FunctionInvocable:
             scope = getattr(scope, class_name)
 
         method_name: str = matches.group(5)
-        self._func = getattr(scope, method_name)
-        self._config.args = OrderedDict((signature_arg, self._config.args.get(signature_arg, signature_arg)) for signature_arg in inspect.getfullargspec(self._func)[0])
+        func = getattr(scope, method_name)
+
+        if func:
+            if inspect.ismethod(func.__call__):
+                # func is a non-function class or instance, and we want to inject its __call__ method
+                func = func.__call__
+            self._func = func
+
+            params = {}
+            for name, info in inspect.signature(self._func).parameters.items():
+                default = info.default
+                if default is inspect.Parameter.empty:
+                    default = None
+                params[name] = default
+            self._config.args = params

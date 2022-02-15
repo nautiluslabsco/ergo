@@ -19,3 +19,9 @@ class Key:
             str: Description
         """
         return self._key
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __hash__(self):
+        return self.__str__().__hash__()

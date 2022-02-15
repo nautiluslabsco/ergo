@@ -1,4 +1,6 @@
 """Summary."""
+from __future__ import annotations
+
 from typing import List, Optional
 
 from ergo.key import Key
@@ -16,6 +18,9 @@ class Topic:
         self._keys: List[Key] = []
         if topic_str:
             self._keys = [Key(key_str) for key_str in topic_str.split('.')]
+
+    def overlap(self, other: Topic):
+        return set(self._keys) & set(other._keys)
 
     def __str__(self) -> str:
         """Summary.

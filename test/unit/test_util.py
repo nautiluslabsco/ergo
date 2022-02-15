@@ -1,5 +1,6 @@
 import sys
 import unittest
+
 import ergo.util as util
 
 
@@ -52,5 +53,5 @@ class TestUtil(unittest.TestCase):
 
         filename, lineno, function_name = f1()
         assert filename == 'test_util.py'
-        assert lineno == '45'
+        assert lineno == '46'
         assert function_name == 'f2'
