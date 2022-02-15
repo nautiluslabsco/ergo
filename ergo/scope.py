@@ -12,4 +12,3 @@ class Scope:
     data: dict = field(default_factory=dict)
     reply_to: Optional[str] = None
     parent: Optional[Scope] = None
-
