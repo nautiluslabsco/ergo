@@ -33,46 +33,43 @@ def test_product__post_request():
     assert result["data"] == 20.0
 
 
-def get_dict():
+def return_dict():
     return {
         "string": "🌟",
         "float": 1.234,
     }
 
 
-def get_one_dict():
-    return [get_dict()]
+def return_one_dict():
+    return [return_dict()]
 
 
-def get_two_dicts():
-    return [get_dict(), get_dict()]
+def return_two_dicts():
+    return [return_dict(), return_dict()]
 
 
-def get_none():
+def return_none():
     return None
 
 
 def yield_one_dict():
-    yield get_dict()
+    yield return_dict()
 
 
 def yield_two_dicts():
-    yield get_dict()
-    yield get_dict()
+    yield return_dict()
+    yield return_dict()
 
 
-@pytest.mark.parametrize(
-    "getter",
-    [
-        get_dict,
-        get_one_dict,
-        get_two_dicts,
-        get_none,
-        yield_one_dict,
-        yield_two_dicts,
-    ],
-)
-def test_get_data(getter):
+@pytest.mark.parametrize("getter", [
+    return_dict,
+    return_one_dict,
+    return_two_dicts,
+    return_none,
+    yield_one_dict,
+    yield_two_dicts,
+])
+def test_return_data(getter):
     """assert that ergo flask response data preserves the type and dimensionality of the component function's return
     value"""
     with http_component(getter):

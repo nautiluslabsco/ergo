@@ -12,7 +12,7 @@ from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
-from ergo.util import defer_termination, extract_from_stack
+from ergo.util import defer_termination, extract_from_stack, instance_id
 
 # content_type: application/json
 # {"x":5,"y":7}
@@ -53,6 +53,7 @@ class AmqpInvoker(Invoker):
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
         self.component_queue_name = f"{self._invocable.config.func}"
+        self.instance_queue_name = f"{self.component_queue_name}/{instance_id()}"
         self.error_queue_name = f"{self.component_queue_name}_error"
 
     def start(self) -> int:
@@ -93,14 +94,18 @@ class AmqpInvoker(Invoker):
         # Pool for consuming and publishing
         channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
         async with channel_pool.acquire() as channel:
-            exchange = await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-            error_queue = await channel.declare_queue(name=self.error_queue_name)
-            await error_queue.bind(exchange=exchange, routing_key=self.error_queue_name)
+            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
+            await channel.declare_queue(name=self.error_queue_name)
+            await self.bind_queue(self.error_queue_name, self.error_queue_name, channel)
             component_queue = await channel.declare_queue(name=self.component_queue_name)
-            await component_queue.bind(exchange=exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)))
+            await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, channel)
+            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
+            await self.bind_queue(self.instance_queue_name, instance_id(), channel)
 
         async with connection, channel_pool:
-            await self.run_queue_loop(channel_pool, component_queue)
+            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
+            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
+            await asyncio.gather(component_loop_coro, instance_loop_coro)
 
         return connection
 
@@ -137,6 +142,16 @@ class AmqpInvoker(Invoker):
         async with channel_pool.acquire() as channel:
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             await exchange.publish(message, routing_key)
+
+    async def bind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
+        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+        queue = await channel.declare_queue(queue_name, passive=True)
+        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
+
+    async def unbind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
+        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
+        queue = await channel.declare_queue(queue_name, passive=True)
+        await queue.unbind(exchange=exchange, routing_key=routing_key)
 
     @aiomisc.threaded_iterable_separate
     def do_work(self, data_in: Message) -> AsyncIterable[Message]:

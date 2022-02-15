@@ -5,6 +5,7 @@ import sys
 import threading
 import time
 import traceback
+from functools import lru_cache
 from types import FrameType, TracebackType
 from typing import List, Optional, Tuple
 from uuid import uuid4
@@ -153,3 +154,8 @@ class defer_termination:
     def _sigterm_handler(self, signum, _):
         _termination_pending.set()
         self._signum = signum
+
+
+@lru_cache(1)
+def instance_id() -> str:
+    return uniqueid()
