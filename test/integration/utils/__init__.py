@@ -66,7 +66,7 @@ class Component(ABC, ContextDecorator):
 
     @property
     def namespace(self):
-        return {}
+        return None
 
     @property
     def manifest(self):
@@ -100,3 +100,4 @@ class FunctionComponent(Component, ABC):
         return {
             "func": f"{self.handler_path}:{self.handler_name}"
         }
+
