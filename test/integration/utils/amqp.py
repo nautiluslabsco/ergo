@@ -85,15 +85,13 @@ class AMQPComponent(Component):
             raise ComponentFailure(body["traceback"])
 
     def setup_component(self):
-        for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.ChannelClosedByBroker):
-            with retry():
-                channel = new_channel()
-                channel.queue_declare(self.queue_name, passive=True)
-        purge_queue(self.error_queue_name)
+        self.channel.queue_declare(self.queue_name)
+        self.channel.queue_bind(self.queue_name, EXCHANGE, str(SubTopic(self.subtopic)))
         purge_queue(self.queue_name)
+        self.channel.queue_declare(self.error_queue_name)
+        purge_queue(self.error_queue_name)
 
     def setup_instance(self):
-        self.channel = new_channel()
         self._subscription_queue = new_queue(self.pubtopic, channel=self.channel)
         return self
 
@@ -129,6 +127,7 @@ class AMQPComponent(Component):
         return test
 
     def __enter__(self):
+        self.channel = new_channel()
         self.instances.append(self)
         super().__enter__()
         if not _LIVE_INSTANCES[self.func]:

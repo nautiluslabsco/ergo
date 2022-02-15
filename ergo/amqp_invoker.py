@@ -17,7 +17,7 @@ from ergo.util import defer_termination, extract_from_stack, instance_id
 # content_type: application/json
 # {"x":5,"y":7}
 
-MAX_THREADS = 2
+MAX_THREADS = 4
 CHANNEL_POOL_SIZE = 2  # minimum is 1 per active run_queue_loop coroutine
 
 
