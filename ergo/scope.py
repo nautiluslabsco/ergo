@@ -11,3 +11,5 @@ class Scope:
     id: str = field(default_factory=uniqueid)
     reply_to: Optional[str] = None
     parent: Optional[Scope] = None
+    data: dict = field(default_factory=dict)
+
