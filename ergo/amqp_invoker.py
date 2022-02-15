@@ -110,25 +110,25 @@ class AmqpInvoker(Invoker):
         return connection
 
     async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
-        async for amqp_message in queue:
-            amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
+        async for message in queue:
+            message = cast(aio_pika.IncomingMessage, message)
             with defer_termination():
-                async with amqp_message.process():
-                    ergo_message = decodes(amqp_message.body.decode('utf-8'))
-                    await self.handle_message(ergo_message, channel_pool)
+                async with message.process():
+                    await self.handle_message(message, channel_pool)
 
-    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
+    async def handle_message(self, amqp_message_in: aio_pika.IncomingMessage, channel_pool: aio_pika.pool.Pool):
+        ergo_message_in = decodes(amqp_message_in.body.decode('utf-8'))
         try:
-            async for message_out in self.do_work(message_in):
-                message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
+            async for message_out in self.do_work(ergo_message_in):
+                amqp_message_out = aio_pika.Message(body=encodes(message_out).encode('utf-8'), correlation_id=amqp_message_in.correlation_id)
                 routing_key = str(PubTopic(message_out.key))
-                await self.publish(message, routing_key, channel_pool)
+                await self.publish(amqp_message_out, routing_key, channel_pool)
         except Exception as err:  # pylint: disable=broad-except
-            message_in.error = make_error_output(err)
-            message_in.traceback = str(err)
-            message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
+            ergo_message_in.error = make_error_output(err)
+            ergo_message_in.traceback = str(err)
+            amqp_message_out = aio_pika.Message(body=jsons.dumps(ergo_message_in).encode('utf-8'), correlation_id=amqp_message_in.correlation_id)
             routing_key = f'{self.component_queue_name}_error'
-            await self.publish(message, routing_key, channel_pool)
+            await self.publish(amqp_message_out, routing_key, channel_pool)
 
     async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """

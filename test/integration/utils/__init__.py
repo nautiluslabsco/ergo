@@ -50,7 +50,7 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
             try:
                 yield
                 success.add(True)
-            except retry_errors:
+            except retry_errors or Exception:
                 if attempt + 1 == n:
                     raise
                 time.sleep(backoff_seconds)

@@ -28,12 +28,17 @@ class QuartHttpGateway(HttpInvoker):
     def start(self) -> int:
         app = Quart(__name__)
 
+        @app.route('/health', methods=['GET'])
+        def health():
+            return {"status": "up"}
+
         @app.route('/<path:path>', methods=['GET', 'POST'])
         async def handler(path: str):
             topic = path.replace('/', '.')
             message_in: Message = decode(**request.args)
             message_in.key = topic
             # TODO do we do if multiple results are being yielded by a generator?
+            #  We're not injecting the handler, so we can't inspect for that.
             message_out = await self._invoke(message_in).__anext__()
             return encodes(message_out)
 
@@ -43,7 +48,7 @@ class QuartHttpGateway(HttpInvoker):
     async def _invoke(self, message: Message) -> AsyncGenerator[Message, None]:
         correlation_id = uniqueid()
         message.scope.reply_to = f"{instance_id()}.{correlation_id}"
-        amqp_message = aio_pika.Message(body=encodes(message).encode('utf-8'))
+        amqp_message = aio_pika.Message(body=encodes(message).encode('utf-8'), correlation_id=correlation_id)
         routing_key = str(PubTopic(message.key))
         exchange = await self.exchange()
         await exchange.publish(amqp_message, routing_key)
@@ -53,13 +58,11 @@ class QuartHttpGateway(HttpInvoker):
     async def _consume(self, correlation_id: str) -> Message:
         queue = await self.queue()
         async for amqp_message in queue:
-            # TODO use amqp's reply_to and correlation id so that we don't have to deserialize all of these?
             amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
+            if correlation_id != amqp_message.correlation_id:
+                continue
             ergo_message = decodes(amqp_message.body.decode('utf-8'))
-            assert ergo_message.scope.reply_to
-            _, corrid = ergo_message.scope.reply_to.split(".")
-            if correlation_id == corrid:
-                return ergo_message
+            return ergo_message
 
     async def connection(self) -> aio_pika.RobustConnection:
         if not self._connection:
