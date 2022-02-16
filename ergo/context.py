@@ -44,6 +44,6 @@ class Context:
         if self._scope:
             return self._scope.data[key]
 
-    def store(self, key: str, new_data: Any):
+    def store(self, key: str, value: Any):
         if self._scope:
             self._scope.data[key] = new_data
