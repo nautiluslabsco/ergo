@@ -1,2 +1,0 @@
-host: amqp://guest:guest@localhost:5672/%2F
-exchange: amq.topic
