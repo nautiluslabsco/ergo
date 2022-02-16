@@ -21,7 +21,7 @@ def http_session():
     continue_event = threading.Event()
 
     def get_health_endpoint():
-        session.get("http://0.0.0.0/health")
+        session.get("http://localhost:8000/health")
         done_event.set()
         continue_event.set()
 

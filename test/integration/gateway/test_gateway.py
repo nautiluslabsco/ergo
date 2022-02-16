@@ -18,11 +18,12 @@ def product(x, y):
 
 
 def double(sesh, x: int):
-    resp = sesh.get("http://0.0.0.0/product", params={"x": x, "y": 2})
+    # resp = sesh.get("http://0.0.0.0/product", params={"x": x, "y": 2})
+    resp = sesh.get("http://localhost:8000/product", params={"x": x, "y": 2})
     return {x: resp.json()["data"]}
 
 
-@gateway_component()
+# @gateway_component()
 @amqp_component(product, subtopic="product")
 def test_double(components):
     pool = ThreadPool(20)
@@ -61,11 +62,11 @@ Assert that a gateway request fulfilled by a generator component returns the fir
 
 def yield_twice():
     yield 1
-    yield 2
+    # yield 2
 
 
-@gateway_component()
+# @gateway_component()
 @amqp_component(yield_twice, subtopic="yield_twice")
 def test_yield_twice(components):
-    response = http_session().get("http://0.0.0.0/yield_twice")
+    response = http_session().get("http://localhost:8000/yield_twice")
     assert response.json()["data"] == 1
