@@ -13,7 +13,7 @@ test_double
 
 
 def product(x, y):
-    time.sleep(1)
+    time.sleep(100)
     return float(x) * float(y)
 
 
@@ -25,8 +25,8 @@ def double(sesh, x: int):
 @gateway_component()
 @amqp_component(product, subtopic="product")
 def test_double(components):
-    pool = ThreadPool(20)
-    actual = pool.map(partial(double, http_session()), range(20))
+    pool = ThreadPool(5)
+    actual = pool.map(partial(double, http_session()), range(20000))
     expected = [
         {0: 0.0},
         {1: 2.0},
