@@ -19,4 +19,3 @@ class GatewayComponent(Component):
 
 
 gateway_component = GatewayComponent
-

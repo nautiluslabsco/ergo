@@ -12,7 +12,7 @@ from ergo.function_invocable import FunctionInvocable
 from ergo.http_invoker import HttpInvoker
 from ergo.schematic import graph as ergograph
 from ergo.version import get_version
-from ergo.rpc_invocable import QuartHttpGateway
+from ergo.http_gateway import QuartHttpGateway
 
 
 def format_date(sec: float) -> str:

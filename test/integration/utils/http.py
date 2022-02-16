@@ -25,8 +25,14 @@ def http_session():
         done_event.set()
         continue_event.set()
 
-    while not done_event.is_set():
+    for attempt in range(50):
         threading.Timer(0.1, continue_event.set).start()
         threading.Thread(target=get_health_endpoint).start()
         continue_event.wait()
+        continue_event.clear()
+        if done_event.is_set():
+            break
+    else:
+        raise RuntimeError
+
     return session
