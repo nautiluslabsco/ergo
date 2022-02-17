@@ -1,6 +1,5 @@
-from test.integration.gateway.utils import gateway_component
+from test.integration.utils.gateway import http_gateway
 from test.integration.utils.amqp import amqp_component
-from test.integration.utils.http import http_session
 from functools import partial
 from multiprocessing.pool import ThreadPool
 
@@ -19,11 +18,11 @@ def double(sesh, x: int):
     return {x: resp.json()["data"]}
 
 
-@gateway_component()
+@http_gateway()
 @amqp_component(product, subtopic="product")
-def test_double(components):
+def test_double(components, http_session):
     pool = ThreadPool(10)
-    actual = pool.map(partial(double, http_session()), range(20))
+    actual = pool.map(partial(double, http_session), range(20))
     expected = [
         {0: 0.0},
         {1: 2.0},
@@ -50,6 +49,22 @@ def test_double(components):
 
 
 """
+test_gateway_routing
+"""
+
+
+def bar():
+    return "bar"
+
+
+@http_gateway()
+@amqp_component(bar, subtopic="bar")
+def test_gateway_routing(components, http_session):
+    response = http_session.get("http://localhost/foo/bar")
+    assert response.json()["data"] == "bar"
+
+
+"""
 test_yield_twice
 
 Assert that a gateway request fulfilled by a generator component returns the first item yielded.
@@ -61,8 +76,8 @@ def yield_twice():
     yield 2
 
 
-@gateway_component()
+@http_gateway()
 @amqp_component(yield_twice, subtopic="yield_twice")
-def test_yield_twice(components):
-    response = http_session().get("http://localhost/yield_twice")
+def test_yield_twice(components, http_session):
+    response = http_session.get("http://localhost/yield_twice")
     assert response.json()["data"] == 1

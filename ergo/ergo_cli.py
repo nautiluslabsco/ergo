@@ -9,10 +9,10 @@ from ergo.amqp_invoker import AmqpInvoker
 from ergo.config import Config
 from ergo.flask_http_invoker import FlaskHttpInvoker
 from ergo.function_invocable import FunctionInvocable
+from ergo.http_gateway import HttpGatewayServer
 from ergo.http_invoker import HttpInvoker
 from ergo.schematic import graph as ergograph
 from ergo.version import get_version
-from ergo.http_gateway import QuartHttpGateway
 
 
 def format_date(sec: float) -> str:
@@ -37,6 +37,18 @@ def get_version_path() -> str:
 
     """
     return os.path.dirname(os.path.abspath(__file__)) + '/version.py'
+
+
+def load_config(*config_paths: str) -> Config:
+    merged_data = {}
+    paths = list(config_paths)
+    for path in paths:
+        with open(path, "r") as fh:
+            file_data = yaml.safe_load(fh)
+        if "namespace" in file_data:
+            paths.append(file_data.pop("namespace"))
+        merged_data.update(file_data)
+    return Config(merged_data)
 
 
 class ErgoCli:
@@ -119,11 +131,11 @@ class ErgoCli:
         self.use(name)
         return 0
 
-    def gateway(self, ref: str) -> int:
-        with open(ref) as config_file:
-            config = Config(yaml.safe_load(config_file))
-        host = QuartHttpGateway(config)
-        return host.start()
+    @staticmethod
+    def gateway(ref: str) -> int:
+        config = load_config(ref)
+        server = HttpGatewayServer(config)
+        return server.run()
 
     def http(self, func: str, *args: str) -> int:
         """Summary.
@@ -170,20 +182,12 @@ class ErgoCli:
             int: Description
 
         """
-        # use safe_load instead load
-        with open(ref) as config_file:
-            conf = yaml.safe_load(config_file)
-            namespace_file_name = args[0] if len(args) > 0 else conf.get('namespace')
-            with open(namespace_file_name) as namespace_file:
-                namespace_cfg = yaml.safe_load(namespace_file)
-                conf.update(namespace_cfg)
-                config = Config(conf)
-
-                if config.protocol == 'amqp':
-                    return self.amqp(config)
-                if config.protocol == 'http':
-                    return self._http(config)
-                raise ValueError(f'unexpected protocol: {config.protocol}')
+        config = load_config(ref, *args)
+        if config.protocol == 'amqp':
+            return self.amqp(config)
+        if config.protocol == 'http':
+            return self._http(config)
+        raise ValueError(f'unexpected protocol: {config.protocol}')
 
     def graph(self, *args: str) -> int:
         """Summary.

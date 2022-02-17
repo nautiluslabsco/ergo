@@ -18,7 +18,7 @@ class Config:
         Args:
             config (Dict[str, str]): Description
         """
-        self._func: str = config.get('func', '')
+        self._func: Optional[str] = config.get('func')
         self._namespace: Optional[str] = config.get('namespace', 'local')
         self._pubtopic: str = config.get('pubtopic')
         self._subtopic: str = config.get('subtopic')
@@ -86,7 +86,7 @@ class Config:
         self._pubtopic = val
 
     @property
-    def func(self) -> str:
+    def func(self) -> Optional[str]:
         """Summary.
 
         Returns:

@@ -85,6 +85,7 @@ def use(name: str) -> int:
 def gateway(ref: str):
     return ERGO_CLI.gateway(ref)
 
+
 @main.command()
 @click.argument('func', type=click.STRING)
 @click.argument('arg', nargs=-1)

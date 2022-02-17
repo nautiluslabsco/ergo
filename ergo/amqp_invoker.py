@@ -1,6 +1,6 @@
 """Summary."""
 import asyncio
-from typing import AsyncIterable, Dict, cast, AsyncGenerator, Tuple
+from typing import AsyncGenerator, AsyncIterable, Dict, Tuple, cast
 from urllib.parse import urlparse
 
 import aio_pika
@@ -118,10 +118,7 @@ class AmqpInvoker(Invoker):
     async def handle_amqp_message(self, amqp_message_in: aio_pika.IncomingMessage, channel_pool: aio_pika.pool.Pool):
         ergo_message_in = decodes(amqp_message_in.body.decode("utf-8"))
         async for routing_key, ergo_message_out in self.handle_ergo_message(ergo_message_in):
-            amqp_message_out = aio_pika.Message(
-                body=encodes(ergo_message_out).encode("utf-8"),
-                correlation_id=amqp_message_in.correlation_id
-            )
+            amqp_message_out = aio_pika.Message(body=encodes(ergo_message_out).encode("utf-8"), correlation_id=amqp_message_in.correlation_id)
             await self.publish(amqp_message_out, routing_key, channel_pool)
 
     async def handle_ergo_message(self, message_in: Message) -> AsyncGenerator[Tuple[str, Message], None]:

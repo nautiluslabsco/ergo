@@ -2,14 +2,6 @@ import inspect
 from test.integration.utils.http import http_component
 
 import pytest
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
-# HTTP requests need to retry on ConnectionError while the Flask server boots.
-session = requests.Session()
-retries = Retry(connect=5, backoff_factor=0.1)
-session.mount("http://", HTTPAdapter(max_retries=retries))
 
 
 def product(x, y):
@@ -17,17 +9,17 @@ def product(x, y):
 
 
 @http_component(product)
-def test_product():
+def test_product(http_session):
     """tests the example function from the ergo README"""
-    resp = session.get("http://localhost?x=4&y=5")
+    resp = http_session.get("http://localhost?x=4&y=5")
     assert resp.status_code == 200
     result = resp.json()
     assert result["data"] == 20.0
 
 
 @http_component(product)
-def test_product__post_request():
-    resp = session.post("http://localhost?x=4&y=5")
+def test_product__post_request(http_session):
+    resp = http_session.post("http://localhost?x=4&y=5")
     assert resp.status_code == 200
     result = resp.json()
     assert result["data"] == 20.0
@@ -69,11 +61,11 @@ def yield_two_dicts():
     yield_one_dict,
     yield_two_dicts,
 ])
-def test_return_data(getter):
+def test_return_data(getter, http_session):
     """assert that ergo flask response data preserves the type and dimensionality of the component function's return
     value"""
     with http_component(getter):
-        resp = session.get("http://localhost")
+        resp = http_session.get("http://localhost")
         assert resp.ok
         response = resp.json()
         if inspect.isgeneratorfunction(getter):

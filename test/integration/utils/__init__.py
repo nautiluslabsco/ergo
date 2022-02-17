@@ -4,7 +4,8 @@ import re
 import tempfile
 import time
 from contextlib import ContextDecorator, contextmanager
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Dict, Optional, Type, List
+from abc import ABC, abstractmethod
 
 import yaml
 
@@ -12,29 +13,22 @@ from ergo.ergo_cli import ErgoCli
 
 
 class ComponentInstance:
-    def __init__(self, ergo_command: str, manifest: Optional[Dict] = None, namespace: Optional[Dict] = None):
-        self.manifest_file = self.namespace_file = None
-        args = []
-        if manifest:
-            self.manifest_file = tempfile.NamedTemporaryFile(mode="w")
-            self.manifest_file.write(yaml.dump(manifest))
-            self.manifest_file.seek(0)
-            args.append(self.manifest_file.name)
-        if namespace:
-            self.namespace_file = tempfile.NamedTemporaryFile(mode="w")
-            self.namespace_file.write(yaml.dump(namespace))
-            self.namespace_file.seek(0)
-            args.append(self.namespace_file.name)
-        self.process = multiprocessing.Process(target=getattr(ErgoCli(), ergo_command), args=tuple(args))
+    def __init__(self, ergo_command: str, *configs: Dict):
+        self.config_files = []
+        for config in configs:
+            config_file = tempfile.NamedTemporaryFile(mode="w")
+            config_file.write(yaml.dump(config))
+            config_file.seek(0)
+            self.config_files.append(config_file)
+        args = tuple(cf.name for cf in self.config_files)
+        self.process = multiprocessing.Process(target=getattr(ErgoCli(), ergo_command), args=args)
 
     def __enter__(self):
         self.process.start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.manifest_file:
-            self.manifest_file.close()
-        if self.namespace_file:
-            self.namespace_file.close()
+        for config_file in self.config_files:
+            config_file.close()
         self.process.terminate()
 
 
@@ -57,29 +51,30 @@ def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
         yield retry
 
 
-class Component(ContextDecorator):
+class Component(ContextDecorator, ABC):
     _ergo_command = "start"
 
     def __init__(self):
         self._instance: Optional[ComponentInstance] = None
 
     @property
-    def namespace(self):
-        return None
+    @abstractmethod
+    def namespace(self) -> dict:
+        raise NotImplementedError
 
     @property
-    def manifest(self):
-        return None
+    def configs(self) -> List[dict]:
+        return [self.namespace]
 
     def __enter__(self):
-        self._instance = ComponentInstance(self._ergo_command, manifest=self.manifest, namespace=self.namespace)
+        self._instance = ComponentInstance(self._ergo_command, *self.configs)
         self._instance.__enter__()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._instance.__exit__(exc_type, exc_val, exc_tb)
 
 
-class FunctionComponent(Component):
+class FunctionComponent(Component, ABC):
     def __init__(self, func: Callable):
         super().__init__()
         self.func = func
@@ -92,7 +87,7 @@ class FunctionComponent(Component):
             frame = inspect.getouterframes(frame)[2]
             string = inspect.getframeinfo(frame[0]).code_context[0].strip()
             self.handler_path = inspect.getfile(func.__call__)
-            self.handler_name = re.search("\((.*?)[,)]", string).group(1)
+            self.handler_name = re.search(r"\((.*?)[,)]", string).group(1)
 
     @property
     def manifest(self):
@@ -100,3 +95,6 @@ class FunctionComponent(Component):
             "func": f"{self.handler_path}:{self.handler_name}"
         }
 
+    @property
+    def configs(self) -> List[dict]:
+        return [self.manifest, self.namespace]
