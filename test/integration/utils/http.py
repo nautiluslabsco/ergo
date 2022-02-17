@@ -12,6 +12,9 @@ class HTTPComponent(FunctionComponent):
         }
 
 
+http_component = HTTPComponent
+
+
 def http_session():
     session = requests.Session()
     session.mount("http://", HTTPAdapter(pool_maxsize=20))
@@ -21,7 +24,7 @@ def http_session():
     continue_event = threading.Event()
 
     def get_health_endpoint():
-        session.get("http://0.0.0.0/health")
+        session.get("http://localhost/health")
         done_event.set()
         continue_event.set()
 

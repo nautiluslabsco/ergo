@@ -3,8 +3,6 @@ from test.integration.utils.amqp import amqp_component
 from test.integration.utils.http import http_session
 from functools import partial
 from multiprocessing.pool import ThreadPool
-import time
-import requests
 
 
 """
@@ -13,20 +11,19 @@ test_double
 
 
 def product(x, y):
-    time.sleep(100)
     return float(x) * float(y)
 
 
 def double(sesh, x: int):
-    resp = sesh.get("http://0.0.0.0/product", params={"x": x, "y": 2})
+    resp = sesh.get("http://localhost/product", params={"x": x, "y": 2})
     return {x: resp.json()["data"]}
 
 
 @gateway_component()
 @amqp_component(product, subtopic="product")
 def test_double(components):
-    pool = ThreadPool(5)
-    actual = pool.map(partial(double, http_session()), range(20000))
+    pool = ThreadPool(10)
+    actual = pool.map(partial(double, http_session()), range(20))
     expected = [
         {0: 0.0},
         {1: 2.0},
@@ -67,5 +64,5 @@ def yield_twice():
 @gateway_component()
 @amqp_component(yield_twice, subtopic="yield_twice")
 def test_yield_twice(components):
-    response = http_session().get("http://0.0.0.0/yield_twice")
+    response = http_session().get("http://localhost/yield_twice")
     assert response.json()["data"] == 1
