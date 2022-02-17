@@ -4,7 +4,7 @@ import inspect
 import json
 import pathlib
 from functools import wraps
-from test.integration.utils import Component, retries
+from test.integration.utils import FunctionComponent, retries
 from typing import Callable, Dict, List, Optional
 
 import pika
@@ -30,7 +30,7 @@ LONG_TIMEOUT = 5
 _LIVE_INSTANCES: Dict = defaultdict(int)
 
 
-class AMQPComponent(Component):
+class AMQPComponent(FunctionComponent):
     protocol = "amqp"
     instances: List[AMQPComponent] = []
 
@@ -49,10 +49,12 @@ class AMQPComponent(Component):
 
     @property
     def namespace(self):
-        ns = super().namespace
-        ns["host"] = AMQP_HOST
-        ns["exchange"] = EXCHANGE
-        ns["subtopic"] = self.subtopic
+        ns = {
+            "protocol": "amqp",
+            "host": AMQP_HOST,
+            "exchange": EXCHANGE,
+            "subtopic": self.subtopic,
+        }
         if self.pubtopic:
             ns["pubtopic"] = self.pubtopic
         return ns
