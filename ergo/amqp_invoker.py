@@ -1,10 +1,11 @@
 """Summary."""
 import asyncio
-from typing import AsyncGenerator, AsyncIterable, Dict, Tuple, cast
+from typing import AsyncIterable, Dict, cast
 from urllib.parse import urlparse
 
 import aio_pika
 import aiomisc
+import jsons
 from retry import retry
 
 from ergo.function_invocable import FunctionInvocable
@@ -113,24 +114,21 @@ class AmqpInvoker(Invoker):
             amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
             with defer_termination():
                 async with amqp_message.process():
-                    await self.handle_amqp_message(amqp_message, channel_pool)
+                    ergo_message = decodes(amqp_message.body.decode('utf-8'))
+                    await self.handle_message(ergo_message, channel_pool)
 
-    async def handle_amqp_message(self, amqp_message_in: aio_pika.IncomingMessage, channel_pool: aio_pika.pool.Pool):
-        ergo_message_in = decodes(amqp_message_in.body.decode("utf-8"))
-        async for routing_key, ergo_message_out in self.handle_ergo_message(ergo_message_in):
-            amqp_message_out = aio_pika.Message(body=encodes(ergo_message_out).encode("utf-8"), correlation_id=amqp_message_in.correlation_id)
-            await self.publish(amqp_message_out, routing_key, channel_pool)
-
-    async def handle_ergo_message(self, message_in: Message) -> AsyncGenerator[Tuple[str, Message], None]:
+    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
         try:
             async for message_out in self.do_work(message_in):
+                message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
-                yield routing_key, message_out
+                await self.publish(message, routing_key, channel_pool)
         except Exception as err:  # pylint: disable=broad-except
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
+            message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
             routing_key = f'{self.component_queue_name}_error'
-            yield routing_key, message_in
+            await self.publish(message, routing_key, channel_pool)
 
     async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """

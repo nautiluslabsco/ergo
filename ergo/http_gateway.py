@@ -62,11 +62,11 @@ class HttpGatewayServer:
         message = decode(**data)
         message.key = topic
         message.scope.reply_to = instance_id()
+        correlation_id = message.scope.correlation_id = uniqueid()
 
-        correlation_id = uniqueid()
         self._rpc_return_ready[correlation_id] = asyncio.Condition()
         try:
-            amqp_message = aio_pika.Message(body=encodes(message).encode("utf-8"), correlation_id=correlation_id)
+            amqp_message = aio_pika.Message(body=encodes(message).encode("utf-8"))
             routing_key = str(PubTopic(message.key))
             await self._exchange.publish(amqp_message, routing_key)
             async with self._rpc_return_ready[correlation_id]:
@@ -77,13 +77,12 @@ class HttpGatewayServer:
 
     async def _run_rpc_consumer(self):
         async for amqp_message in self._queue:
-            try:
-                amqp_message.ack()
-                ergo_message = decodes(amqp_message.body.decode("utf-8"))
-                self._rpc_return_values[amqp_message.correlation_id] = ergo_message
-            finally:
-                async with self._rpc_return_ready[amqp_message.correlation_id]:
-                    self._rpc_return_ready[amqp_message.correlation_id].notify()
+            amqp_message.ack()
+            ergo_message = decodes(amqp_message.body.decode("utf-8"))
+            correlation_id = ergo_message.scope.correlation_id
+            self._rpc_return_values[correlation_id] = ergo_message
+            async with self._rpc_return_ready[correlation_id]:
+                self._rpc_return_ready[correlation_id].notify()
 
     async def _setup_amqp(self, config: Config) -> Tuple[aio_pika.Exchange, aio_pika.Queue]:
         host = self._config.host
