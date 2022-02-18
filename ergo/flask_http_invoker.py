@@ -30,7 +30,7 @@ class FlaskHttpInvoker(HttpInvoker):
             """
             data_in: Message = decode(**request.args)
             data_out: List[Message] = list(self.invoke_handler(data_in))
-            if not inspect.isgeneratorfunction(self._invocable.func):
+            if not self._invocable.handler_is_generator():
                 data_out = data_out[0]
             return encodes(data_out)
 
