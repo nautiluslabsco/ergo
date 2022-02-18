@@ -18,6 +18,7 @@ class Message:
     key: Optional[str] = None
     log: List = field(default_factory=list)
     scope: Scope = field(default_factory=Scope)
+    stream: bool = False
     error: Optional[Dict[str, str]] = None
     traceback: Optional[str] = None
 
