@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator, Dict, Tuple, Union, List
+from typing import AsyncGenerator, Dict, Tuple
 
 import aio_pika
 import aiomisc
@@ -26,7 +26,7 @@ class HttpGatewayServer:
         self._exchange, self._queue = self._loop.run_until_complete(self._setup_amqp(config))
         self._concurrent_rpcs_limiter = asyncio.Semaphore(MAX_CONCURRENT_RPCS)
         self._rpc_return_ready: Dict[str, asyncio.Condition] = {}
-        self._rpc_return_values: Dict[str, Union[Message, List[Message]]] = {}
+        self._rpc_return_values: Dict[str, Message] = {}
 
     def run(self) -> int:
         rpc_consumer_loop = self._loop.create_task(self._run_rpc_consumer())
@@ -47,15 +47,18 @@ class HttpGatewayServer:
 
         async def route_inner(path: str):
             topic = path.replace("/", ".")
-            results = await self._rpc(topic, request.args)
-            return encodes(results)
+            # TODO what do we do if multiple results are being yielded by a generator?
+            #  We're not injecting the handler, so we can't inspect for that.
+            result_coro = self._rpc(topic, request.args).__anext__()
+            message_out: Message = await asyncio.wait_for(result_coro, timeout=RPC_TIMEOUT)
+            return encodes(message_out)
 
         hypercorn_config = hypercorn.config.Config()
         hypercorn_config.bind = [f"0.0.0.0:{PORT}"]
 
         await hypercorn.asyncio.serve(app, hypercorn_config)
 
-    async def _rpc(self, topic: str, data: dict) -> Union[Message, List[Message]]:
+    async def _rpc(self, topic: str, data: dict) -> AsyncGenerator[Message, None]:
         message = decode(**data)
         message.key = topic
         message.scope.reply_to = instance_id()
@@ -68,7 +71,7 @@ class HttpGatewayServer:
             await self._exchange.publish(amqp_message, routing_key)
             async with self._rpc_return_ready[correlation_id]:
                 await self._rpc_return_ready[correlation_id].wait()
-            return self._rpc_return_values.pop(correlation_id)
+            yield self._rpc_return_values.pop(correlation_id)
         finally:
             del self._rpc_return_ready[correlation_id]
 
@@ -77,18 +80,9 @@ class HttpGatewayServer:
             amqp_message.ack()
             ergo_message = decodes(amqp_message.body.decode("utf-8"))
             correlation_id = ergo_message.scope.correlation_id
-            do_notify = True
-            if ergo_message.stream:
-                if correlation_id not in self._rpc_return_values:
-                    self._rpc_return_values[correlation_id] = []
-                if ergo_message.stream == 1:
-                    self._rpc_return_values[correlation_id].append(ergo_message)
-                    do_notify = False
-            else:
-                self._rpc_return_values[correlation_id] = ergo_message
-            if do_notify:
-                async with self._rpc_return_ready[correlation_id]:
-                    self._rpc_return_ready[correlation_id].notify()
+            self._rpc_return_values[correlation_id] = ergo_message
+            async with self._rpc_return_ready[correlation_id]:
+                self._rpc_return_ready[correlation_id].notify()
 
     async def _setup_amqp(self, config: Config) -> Tuple[aio_pika.Exchange, aio_pika.Queue]:
         host = self._config.host

@@ -9,7 +9,6 @@ from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
-import functools
 
 from ergo.config import Config
 from ergo.context import Context, Envelope
@@ -89,9 +88,8 @@ class FunctionInvocable:
                 else:
                     kwargs[param] = message_in.get(param, default)
             results = self._func(**kwargs)
-            if not self.handler_is_generator():
+            if not inspect.isgenerator(results):
                 results = [results]
-            scope = key = None
             for data_out in results:
                 envelope = None
                 if isinstance(data_out, Envelope):
@@ -118,10 +116,7 @@ class FunctionInvocable:
                     scope.reply_to = envelope.reply_to
                 elif scope.reply_to:
                     key = f"{key}.{scope.reply_to}"
-                yield Message(data=data_out, scope=scope, key=key, stream=int(self.handler_is_generator()))
-            if scope:
-                if self.handler_is_generator() and scope.correlation_id:
-                    yield Message(data=None, scope=scope, key=key, stream=2)
+                yield Message(data=data_out, scope=scope, key=key)
 
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
@@ -174,7 +169,3 @@ class FunctionInvocable:
                     default = None
                 params[name] = default
             self._config.args = params
-
-    @functools.lru_cache()
-    def handler_is_generator(self):
-        return inspect.isgeneratorfunction(self.func)

@@ -66,6 +66,8 @@ def test_gateway_routing(components, http_session):
 
 """
 test_yield_twice
+
+Assert that a gateway request fulfilled by a generator component returns the first item yielded.
 """
 
 
@@ -78,5 +80,4 @@ def yield_twice():
 @amqp_component(yield_twice, subtopic="yield_twice")
 def test_yield_twice(components, http_session):
     response = http_session.get("http://localhost/yield_twice")
-    values = [i["data"] for i in response.json()]
-    assert values == [1, 2]
+    assert response.json()["data"] == 1
