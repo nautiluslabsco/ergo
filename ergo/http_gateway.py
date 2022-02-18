@@ -47,14 +47,6 @@ class HttpGatewayServer:
 
         async def route_inner(path: str):
             topic = path.replace("/", ".")
-            results = []
-            stream = False
-            async for message in self._rpc(topic, request.args):
-                results.append(message)
-                stream = stream or message.stream
-            if not stream:
-                results = results[0]
-            return encodes(results)
             # TODO what do we do if multiple results are being yielded by a generator?
             #  We're not injecting the handler, so we can't inspect for that.
             result_coro = self._rpc(topic, request.args).__anext__()
