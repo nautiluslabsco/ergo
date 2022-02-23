@@ -46,4 +46,4 @@ class Context:
 
     def store(self, key: str, value: Any):
         if self._scope:
-            self._scope.data[key] = new_data
+            self._scope.data[key] = value
