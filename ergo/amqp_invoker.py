@@ -52,9 +52,11 @@ class AmqpInvoker(Invoker):
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
-        self.component_queue_name = f"{self._invocable.config.func}"
-        self.instance_queue_name = f"{self.component_queue_name}/{instance_id()}"
-        self.error_queue_name = f"{self.component_queue_name}_error"
+        self.component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
+        if self.component_queue_name.startswith(":"):
+            self.component_queue_name = self.component_queue_name[1:]
+        self.instance_queue_name = f"{self.component_queue_name}:{instance_id()}"
+        self.error_queue_name = f"{self.component_queue_name}:error"
 
     def start(self) -> int:
         """
@@ -127,8 +129,7 @@ class AmqpInvoker(Invoker):
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
             message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
-            routing_key = f'{self.component_queue_name}_error'
-            await self.publish(message, routing_key, channel_pool)
+            await self.publish(message, self.error_queue_name, channel_pool)
 
     async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """
