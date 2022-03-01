@@ -91,6 +91,6 @@ class HttpGatewayServer:
         connection: aio_pika.Connection = await aio_pika.connect_robust(broker_url)
         channel: aio_pika.Channel = await connection.channel()
         exchange: aio_pika.Exchange = await channel.declare_exchange(name=config.exchange, passive=True)
-        queue: aio_pika.Queue = await channel.declare_queue(name=f"gateway/{instance_id()}", exclusive=True)
+        queue: aio_pika.Queue = await channel.declare_queue(name=f"gateway:{instance_id()}", exclusive=True)
         await queue.bind(exchange=exchange, routing_key=str(SubTopic(instance_id())))
         return exchange, queue
