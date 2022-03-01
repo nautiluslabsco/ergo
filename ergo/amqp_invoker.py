@@ -93,17 +93,21 @@ class AmqpInvoker(Invoker):
         async def get_channel() -> aio_pika.Channel:
             return await connection.channel()
 
-        # Pool for consuming and publishing
-        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
-        async with channel_pool.acquire() as channel:
-            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-            await channel.declare_queue(name=self.error_queue_name)
-            await self.bind_queue(self.error_queue_name, self.error_queue_name, channel)
-            component_queue = await channel.declare_queue(name=self.component_queue_name)
-            await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, channel)
-            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
-            await self.bind_queue(self.instance_queue_name, instance_id(), channel)
+        component_channel = await get_channel()
+        await component_channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
+        await component_channel.declare_queue(name=self.error_queue_name)
+        await self.bind_queue(self.error_queue_name, self.error_queue_name, component_channel)
+        component_queue = await component_channel.declare_queue(name=self.component_queue_name)
+        component_queue = cast(aio_pika.Queue, component_queue)
+        await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, component_channel)
 
+        instance_channel = await get_channel()
+        instance_queue = await instance_channel.declare_queue(name=self.instance_queue_name, exclusive=True)
+        instance_queue = cast(aio_pika.Queue, instance_queue)
+        await self.bind_queue(self.instance_queue_name, instance_id(), instance_channel)
+
+        # shared pool for publishing
+        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
         async with connection, channel_pool:
             component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
             instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
