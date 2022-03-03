@@ -81,6 +81,12 @@ def use(name: str) -> int:
 
 
 @main.command()
+@click.argument('ref', type=click.STRING)
+def gateway(ref: str):
+    return ERGO_CLI.gateway(ref)
+
+
+@main.command()
 @click.argument('func', type=click.STRING)
 @click.argument('arg', nargs=-1)
 def http(func: str, arg: Tuple[str]) -> int:

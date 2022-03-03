@@ -1,8 +1,12 @@
-from test.integration.utils import Component
+from test.integration.utils import FunctionComponent
 
 
-class HTTPComponent(Component):
-    protocol = "http"
+class HTTPComponent(FunctionComponent):
+    @property
+    def namespace(self):
+        return {
+            "protocol": "http",
+        }
 
 
 http_component = HTTPComponent
