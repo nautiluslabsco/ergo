@@ -39,3 +39,11 @@ class Context:
 
     def exit_scope(self):
         self._scope = self._scope.parent
+
+    def retrieve(self, key: str) -> Any:
+        if self._scope:
+            return self._scope.data[key]
+
+    def store(self, key: str, value: Any):
+        if self._scope:
+            self._scope.data[key] = value

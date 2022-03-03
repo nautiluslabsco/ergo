@@ -41,8 +41,8 @@ class AMQPComponent(FunctionComponent):
         pubtopic: Optional[str] = None,
     ):
         super().__init__(func)
-        self.queue_name = f"{self.handler_path}:{self.handler_name}"
-        self.error_queue_name = f"{self.queue_name}_error"
+        self.queue_name = f"{self.handler_path.replace('/', ':')[1:]}:{self.handler_name}"
+        self.error_queue_name = f"{self.queue_name}:error"
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
