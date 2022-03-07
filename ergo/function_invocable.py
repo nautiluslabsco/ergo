@@ -30,6 +30,7 @@ class FunctionInvocable:
 
         """
         self._func: Optional[Callable[..., TYPE_RETURN]] = None  # type: ignore
+        self._params: dict = {}
         self._config: Config = config
         self.inject()
 
@@ -82,11 +83,13 @@ class FunctionInvocable:
         try:
             ctx = Context(message=message_in, config=self.config)
             kwargs = {}
-            for param, default in self._config.args.items():
-                if param == "context":
-                    kwargs["context"] = ctx
+            for param, default in self._params.items():
+                # ergo's default name for this param, which the configuration may have a custom mapping for
+                ergo_param_name = self.config.args.get(param, param)
+                if ergo_param_name == "context":
+                    kwargs[param] = ctx
                 else:
-                    kwargs[param] = message_in.get(param, default)
+                    kwargs[param] = message_in.get(ergo_param_name, default)
             results = self._func(**kwargs)
             if not inspect.isgenerator(results):
                 results = [results]
@@ -168,4 +171,4 @@ class FunctionInvocable:
                 if default is inspect.Parameter.empty:
                     default = None
                 params[name] = default
-            self._config.args = params
+            self._params = params

@@ -134,3 +134,20 @@ def test_make_six(components):
         make_six_component.propagate_error(inactivity_timeout=0.1)
         forward_component.propagate_error(inactivity_timeout=0.1)
     assert result["data"] == 6
+
+
+"""
+test_config_args
+
+This test asserts that ergo can correctly bind message data to a custom parameter using the `args` configuration attribute.
+"""
+
+
+def config_args_test_component(my_data_param):
+    return my_data_param
+
+
+@amqp_component(config_args_test_component, args={"my_data_param": "data"})
+def test_config_args(component):
+    result = component.rpc(data="some data")
+    assert result["data"] == "some data"

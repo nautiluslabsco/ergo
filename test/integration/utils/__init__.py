@@ -75,7 +75,7 @@ class Component(ContextDecorator, ABC):
 
 
 class FunctionComponent(Component, ABC):
-    def __init__(self, func: Callable):
+    def __init__(self, func: Callable, **manifest_kwargs):
         super().__init__()
         self.func = func
         if inspect.isfunction(func):
@@ -88,11 +88,13 @@ class FunctionComponent(Component, ABC):
             string = inspect.getframeinfo(frame[0]).code_context[0].strip()
             self.handler_path = inspect.getfile(func.__call__)
             self.handler_name = re.search(r"\((.*?)[,)]", string).group(1)
+        self._manifest_kwargs = manifest_kwargs
 
     @property
     def manifest(self):
         return {
-            "func": f"{self.handler_path}:{self.handler_name}"
+            "func": f"{self.handler_path}:{self.handler_name}",
+            **self._manifest_kwargs,
         }
 
     @property
