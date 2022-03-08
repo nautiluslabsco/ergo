@@ -23,6 +23,9 @@ def capitalize(data: str):
 @amqp_component(capitalize, subtopic="capitalize")
 def test_shout(components):
     shout_component = components[0]
+    # shout_component.send(message="hey")
+    # while True:
+    #     pass
     result = shout_component.rpc(message="hey")["data"]
     assert result == "HEY!"
 

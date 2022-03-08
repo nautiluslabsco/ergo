@@ -15,6 +15,9 @@ def product(x, y):
 
 @amqp_component(product)
 def test_product_amqp(component):
+    # component.send(x=4, y=5)
+    # while True:
+    #     pass
     result = component.rpc(x=4, y=5)
     assert result["data"] == 20.0
 

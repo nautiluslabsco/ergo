@@ -1,6 +1,10 @@
 """Summary."""
 import asyncio
-from typing import AsyncIterable, Dict, cast
+import kombu
+import kombu.message
+import socket
+from kombu.pools import producers, connections
+from typing import Iterable, Dict, cast
 from urllib.parse import urlparse
 
 import aio_pika
@@ -51,111 +55,62 @@ class AmqpInvoker(Invoker):
         heartbeat = self._invocable.config.heartbeat
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
+        self.connection = kombu.Connection(self.url)
         self.exchange_name = self._invocable.config.exchange
+        self.exchange = kombu.Exchange(name=self.exchange_name, type="topic", durable=True, auto_delete=False)
         self.component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if self.component_queue_name.startswith(":"):
             self.component_queue_name = self.component_queue_name[1:]
+        self.component_queue = kombu.Queue(name=self.component_queue_name, exchange=self.exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
         self.instance_queue_name = f"{self.component_queue_name}:{instance_id()}"
+        self.instance_queue = kombu.Queue(name=self.instance_queue_name, exchange=self.exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         self.error_queue_name = f"{self.component_queue_name}:error"
+        self.error_queue = kombu.Queue(name=self.error_queue_name, exchange=self.exchange, routing_key=str(SubTopic(self.error_queue_name)), durable=False)
 
-    def start(self) -> int:
-        """
-        Starts a new event loop that maintains a persistent AMQP connection.
-        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
+    def start(self):
+        with connections[self.connection].acquire(block=True) as conn:
+            conn = cast(kombu.Connection, conn)
+            consumer: kombu.Consumer = conn.Consumer(queues=[self.component_queue, self.instance_queue])
+            consumer.register_callback(self.handle_message)
+            with consumer:
+                while True:
+                    conn.drain_events()
+                    try:
+                        conn.drain_events(timeout=1)
+                    except socket.timeout:
+                        conn.heartbeat_check()
 
-        Returns:
-            exit_code
-        """
-        loop = aiomisc.new_event_loop(pool_size=MAX_THREADS)
-        connection = loop.run_until_complete(self.run(loop))
+    def handle_message(self, body, amqp_message: kombu.message.Message):
+        with defer_termination():
+            ergo_message = decodes(body)
+            try:
+                self.handle_message_inner(ergo_message)
+            finally:
+                amqp_message.ack()
 
+    def handle_message_inner(self, message_in: Message):
         try:
-            loop.run_forever()
-        finally:
-            loop.run_until_complete(connection.close())
-
-        return 0
-
-    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
-    async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """
-        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError`
-        and `aio_pika.exceptions.ChannelInvalidStateError`. Runs a continuous `consume` -> `do_work` -> `publish`
-        event loop.
-
-        Parameters:
-            loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
-        Returns:
-            connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
-        """
-        connection: aio_pika.RobustConnection = await aio_pika.connect_robust(url=self.url, loop=loop)
-
-        async def get_channel() -> aio_pika.Channel:
-            return await connection.channel()
-
-        # Pool for consuming and publishing
-        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
-        async with channel_pool.acquire() as channel:
-            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-            await channel.declare_queue(name=self.error_queue_name)
-            await self.bind_queue(self.error_queue_name, self.error_queue_name, channel)
-            component_queue = await channel.declare_queue(name=self.component_queue_name)
-            await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, channel)
-            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
-            await self.bind_queue(self.instance_queue_name, instance_id(), channel)
-
-        async with connection, channel_pool:
-            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
-            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
-            await asyncio.gather(component_loop_coro, instance_loop_coro)
-
-        return connection
-
-    async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
-        async for amqp_message in queue:
-            amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
-            with defer_termination():
-                async with amqp_message.process():
-                    ergo_message = decodes(amqp_message.body.decode('utf-8'))
-                    await self.handle_message(ergo_message, channel_pool)
-
-    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
-        try:
-            async for message_out in self.do_work(message_in):
-                message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
+            for message_out in self.do_work(message_in):
+                message = encodes(message_out).encode('utf-8')
                 routing_key = str(PubTopic(message_out.key))
-                await self.publish(message, routing_key, channel_pool)
+                self.publish(message, routing_key)
         except Exception as err:  # pylint: disable=broad-except
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
-            message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
-            await self.publish(message, self.error_queue_name, channel_pool)
+            message = jsons.dumps(message_in).encode('utf-8')
+            self.publish(message, self.error_queue_name)
 
-    async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
-        """
-        Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
+    def publish(self, message, routing_key: str):
+        with producers[self.connection].acquire(block=True) as producer:
+            producer.publish(
+                message,
+                exchange=self.exchange,
+                routing_key=routing_key,
+                declare=[self.error_queue],
+            )
 
-        Parameters:
-            message: Message to be published
-            routing_key: Exchange-level routing discriminator
-            channel_pool: aio_pika.pool.Pool
-        """
-        async with channel_pool.acquire() as channel:
-            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-            await exchange.publish(message, routing_key)
-
-    async def bind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
-        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-        queue = await channel.declare_queue(queue_name, passive=True)
-        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
-
-    async def unbind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
-        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-        queue = await channel.declare_queue(queue_name, passive=True)
-        await queue.unbind(exchange=exchange, routing_key=routing_key)
-
-    @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Message) -> AsyncIterable[Message]:
+    # @aiomisc.threaded_iterable_separate
+    def do_work(self, data_in: Message) -> Iterable[Message]:
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
