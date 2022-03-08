@@ -39,8 +39,9 @@ class AMQPComponent(FunctionComponent):
         func: Callable,
         subtopic: Optional[str] = None,
         pubtopic: Optional[str] = None,
+        **manifest
     ):
-        super().__init__(func)
+        super().__init__(func, **manifest)
         self.queue_name = f"{self.handler_path.replace('/', ':')[1:]}:{self.handler_name}"
         self.error_queue_name = f"{self.queue_name}:error"
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
