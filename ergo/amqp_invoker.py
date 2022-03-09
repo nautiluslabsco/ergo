@@ -1,28 +1,32 @@
 """Summary."""
-import asyncio
-import kombu
-import kombu.message
+import logging
+import signal
+
 import socket
-from kombu.pools import producers, connections
-from typing import Iterable, Dict, cast
+import threading
+import time
+from contextlib import contextmanager
+from typing import Callable, Dict
 from urllib.parse import urlparse
 
-import aio_pika
-import aiomisc
-import jsons
-from retry import retry
+import amqp.exceptions
+import kombu
+import kombu.exceptions
+import kombu.message
+from kombu.pools import connections, producers
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
-from ergo.util import defer_termination, extract_from_stack, instance_id
+from ergo.util import extract_from_stack, instance_id
 
 # content_type: application/json
 # {"x":5,"y":7}
 
-MAX_THREADS = 4
-CHANNEL_POOL_SIZE = 2  # minimum is 1 per active run_queue_loop coroutine
+logging.getLogger("amqp.connection.Connection.heartbeat_tick").setLevel(logging.DEBUG)
+
+CONSUMER_PREFETCH_COUNT = 2
 
 
 def set_param(host: str, param_key: str, param_val: str) -> str:
@@ -67,58 +71,70 @@ class AmqpInvoker(Invoker):
         self.error_queue_name = f"{self.component_queue_name}:error"
         self.error_queue = kombu.Queue(name=self.error_queue_name, exchange=self.exchange, routing_key=str(SubTopic(self.error_queue_name)), durable=False)
 
-    def start(self):
-        with connections[self.connection].acquire(block=True) as conn:
-            conn = cast(kombu.Connection, conn)
-            consumer: kombu.Consumer = conn.Consumer(queues=[self.component_queue, self.instance_queue])
-            consumer.register_callback(self.handle_message)
-            with consumer:
-                while True:
-                    conn.drain_events()
-                    try:
-                        conn.drain_events(timeout=1)
-                    except socket.timeout:
-                        conn.heartbeat_check()
+        self._terminating = threading.Event()
+        self._active_handlers = threading.Semaphore()
 
-    def handle_message(self, body, amqp_message: kombu.message.Message):
-        with defer_termination():
-            ergo_message = decodes(body)
+    def start(self) -> int:
+        signal.signal(signal.SIGTERM, self._sigterm_handler)
+        while not self._terminating.is_set():
             try:
-                self.handle_message_inner(ergo_message)
-            finally:
-                amqp_message.ack()
+                with self.new_connection() as conn:
+                    print("new connection")
+                    consumer: kombu.Consumer = conn.Consumer(queues=[self.component_queue, self.instance_queue], prefetch_count=CONSUMER_PREFETCH_COUNT)
+                    consumer.register_callback(self.handle_message)
+                    with consumer:
+                        while not self._terminating.is_set():
+                            try:
+                                conn.drain_events(timeout=1)
+                            except socket.timeout:
+                                conn.heartbeat_check()
+            except OSError:
+                pass
+            except (kombu.exceptions.ConnectionError, kombu.exceptions.OperationalError, amqp.exceptions.RecoverableConnectionError):
+                time.sleep(1)
+        return 0
 
-    def handle_message_inner(self, message_in: Message):
+    def handle_message(self, body, message: kombu.message.Message):
+        threading.Thread(target=self.handle_message_inner, args=(body, message.ack)).start()
+
+    def handle_message_inner(self, body, ack: Callable):
+        message_in = decodes(body)
+        self._active_handlers.acquire(blocking=False)
         try:
-            for message_out in self.do_work(message_in):
-                message = encodes(message_out).encode('utf-8')
+            for message_out in self.invoke_handler(message_in):
                 routing_key = str(PubTopic(message_out.key))
-                self.publish(message, routing_key)
+                self.publish(message_out, routing_key)
         except Exception as err:  # pylint: disable=broad-except
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
-            message = jsons.dumps(message_in).encode('utf-8')
-            self.publish(message, self.error_queue_name)
+            self.publish(message_in, self.error_queue_name)
+        finally:
+            ack()
+            self._active_handlers.release()
 
-    def publish(self, message, routing_key: str):
-        with producers[self.connection].acquire(block=True) as producer:
-            producer.publish(
-                message,
+    def publish(self, ergo_message: Message, routing_key: str):
+        amqp_message = encodes(ergo_message)
+        with self.new_producer() as producer:
+            ensured_publish = producer.connection.ensure(producer, producer.publish)
+            ensured_publish(
+                amqp_message,
                 exchange=self.exchange,
                 routing_key=routing_key,
                 declare=[self.error_queue],
             )
 
-    # @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Message) -> Iterable[Message]:
-        """
-        Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
-        within the constraints of the underlying execution context.
+    @contextmanager
+    def new_connection(self) -> kombu.Connection:
+        with connections[self.connection].acquire(block=True) as conn:
+            yield conn
 
-        Parameters:
-            data_in: Raw event data
+    @contextmanager
+    def new_producer(self) -> kombu.Producer:
+        with producers[self.connection].acquire(block=True) as conn:
+            yield conn
 
-        Yields:
-            message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
-        """
-        yield from self.invoke_handler(data_in)
+    def _sigterm_handler(self, *args):
+        self._terminating.set()
+        self._active_handlers.acquire()
+        signal.signal(signal.SIGTERM, 0)
+        signal.raise_signal(signal.SIGTERM)
