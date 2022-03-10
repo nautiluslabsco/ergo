@@ -68,6 +68,7 @@ class AmqpInvoker(Invoker):
 
     def start(self) -> int:
         signal.signal(signal.SIGTERM, self._sigterm_handler)
+        signal.signal(signal.SIGINT, self._sigterm_handler)
         with self._connection:
             conn = self._connection
             consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
@@ -106,7 +107,6 @@ class AmqpInvoker(Invoker):
                 message_in.traceback = str(err)
                 self._publish(message_in, self._error_queue.name)
             finally:
-                # TODO figure out why this sometimes raises amqp.exceptions.RecoverableConnectionError on SIGTERM
                 ack()
                 self._pending_invocations.release()
 
@@ -119,7 +119,7 @@ class AmqpInvoker(Invoker):
                 exchange=self._exchange,
                 routing_key=routing_key,
                 retry=True,
-                declare=[self._component_queue, self._instance_queue, self._error_queue],
+                declare=[self._error_queue],
             )
 
     @contextmanager
