@@ -80,4 +80,4 @@ def yield_twice():
 @amqp_component(yield_twice, subtopic="yield_twice")
 def test_yield_twice(components, http_session):
     response = http_session.get("http://localhost/yield_twice")
-    assert response.json()["data"] in [1, 2]
+    assert response.json()["data"] == 1

@@ -23,9 +23,6 @@ def capitalize(data: str):
 @amqp_component(capitalize, subtopic="capitalize")
 def test_shout(components):
     shout_component = components[0]
-    # shout_component.send(message="hey")
-    # while True:
-    #     pass
     result = shout_component.rpc(message="hey")["data"]
     assert result == "HEY!"
 
@@ -111,7 +108,7 @@ def test_fibonacci(components):
     results_queue = Queue("next")
     publish("start")
     results = [results_queue.consume()["data"] for _ in range(10)]
-    assert sorted(results) == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
 """

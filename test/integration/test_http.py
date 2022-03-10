@@ -4,9 +4,6 @@ from test.integration.utils.http import http_component
 import pytest
 
 
-pytestmark = pytest.mark.skip()
-
-
 def product(x, y):
     return float(x) * float(y)
 

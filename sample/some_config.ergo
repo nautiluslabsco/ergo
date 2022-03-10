@@ -1,5 +1,7 @@
 namespace: some_namespace.yaml
 func: some_python_file.py:some_function
-pubtopic: some_function
-subtopic: some_function
-heartbeat: 3
+args:
+  x: data.a
+  y: data.b
+pubtopic: pub.topic
+subtopic: sub.topic
