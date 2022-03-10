@@ -62,9 +62,6 @@ class AmqpInvoker(Invoker):
         error_queue_name = f"{component_queue_name}:error"
         self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=str(SubTopic(error_queue_name)), durable=False)
 
-        self._consumer: kombu.Consumer = self._connection.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
-        self._consumer.register_callback(self._handle_message)
-
         self._terminating = threading.Event()
         self._pending_invocations = threading.Semaphore()
         self._handler_lock = threading.Lock()
@@ -73,7 +70,9 @@ class AmqpInvoker(Invoker):
         signal.signal(signal.SIGTERM, self._sigterm_handler)
         with self._connection:
             conn = self._connection
-            self._consumer.consume()
+            consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
+            consumer.register_callback(self._handle_message)
+            consumer.consume()
             while not self._terminating.is_set():
                 try:
                     # wait up to 1s for the next message before sending a heartbeat
@@ -84,8 +83,8 @@ class AmqpInvoker(Invoker):
                     logger.warning("connection closed. reviving.")
                     conn = self._connection.clone()
                     conn.ensure_connection()
-                    self._consumer.revive(conn.channel())
-                    self._consumer.consume()
+                    consumer.revive(conn.channel())
+                    consumer.consume()
         return 0
 
     def _handle_message(self, body, message: kombu.message.Message):
