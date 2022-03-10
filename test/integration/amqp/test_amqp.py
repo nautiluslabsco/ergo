@@ -13,13 +13,16 @@ def product(x, y):
     return float(x) * float(y)
 
 
-@amqp_component(product)
+@amqp_component(product, heartbeat=3)
 def test_product_amqp(component):
     # component.send(x=4, y=5)
     # while True:
     #     pass
-    result = component.rpc(x=4, y=5)
-    assert result["data"] == 20.0
+    component.send(x=4, y=5)
+    component.send(x=4, y=5)
+    for _ in range(2):
+        result = component.consume(inactivity_timeout=5)
+        assert result["data"] == 20.0
 
 
 """
@@ -154,3 +157,25 @@ def config_args_test_component(my_data_param):
 def test_config_args(component):
     result = component.rpc(data="some data")
     assert result["data"] == "some data"
+
+
+
+"""
+test_sigterm_handler
+"""
+
+
+import time
+
+
+def sigterm_test_component():
+    time.sleep(3)
+    return "ok"
+
+
+@amqp_component(sigterm_test_component)
+def test_sigterm_handler(component):
+    component.send()
+    time.sleep(1)
+    component._instance.process.terminate()
+    assert component.consume()["data"] == "ok"

@@ -111,7 +111,7 @@ def test_fibonacci(components):
     results_queue = Queue("next")
     publish("start")
     results = [results_queue.consume()["data"] for _ in range(10)]
-    assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    assert sorted(results) == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
 """
