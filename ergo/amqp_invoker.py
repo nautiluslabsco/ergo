@@ -67,12 +67,12 @@ class AmqpInvoker(Invoker):
         self._handler_lock = threading.Lock()
 
     def start(self) -> int:
-        signal.signal(signal.SIGTERM, self._sigterm_handler)
-        signal.signal(signal.SIGINT, self._sigterm_handler)
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
+        signal.signal(signal.SIGINT, self._handle_sigterm)
         with self._connection:
             conn = self._connection
             consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
-            consumer.register_callback(self._handle_message)
+            consumer.register_callback(self._start_handle_message_thread)
             consumer.consume()
             while not self._terminating.is_set():
                 try:
@@ -88,27 +88,31 @@ class AmqpInvoker(Invoker):
                     consumer.consume()
         return 0
 
-    def _handle_message(self, body, message: kombu.message.Message):
-        # self._sigterm_handler will wait for _handle_message_inner to release this semaphore
+    def _start_handle_message_thread(self, body: str, message: kombu.message.Message):
+        # _handle_sigterm will wait for _handle_message to release this semaphore
         self._pending_invocations.acquire(blocking=False)
-        threading.Thread(target=self._handle_message_inner, args=(body, message.ack)).start()
+        threading.Thread(target=self._handle_message, args=(body, message.ack)).start()
 
-    def _handle_message_inner(self, body, ack: Callable):
-        # there may be up to PREFETCH_COUNT _handle_message_inner threads alive at a time, but we want them to execute
+    def _handle_message(self, body: str, ack: Callable):
+        # there may be up to PREFETCH_COUNT _handle_message threads alive at a time, but we want them to execute
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
-            message_in = decodes(body)
+            ergo_message = decodes(body)
             try:
-                for message_out in self.invoke_handler(message_in):
-                    routing_key = str(PubTopic(message_out.key))
-                    self._publish(message_out, routing_key)
-            except Exception as err:  # pylint: disable=broad-except
-                message_in.error = make_error_output(err)
-                message_in.traceback = str(err)
-                self._publish(message_in, self._error_queue.name)
+                self._handle_message_inner(ergo_message)
             finally:
                 ack()
                 self._pending_invocations.release()
+
+    def _handle_message_inner(self, message_in: Message):
+        try:
+            for message_out in self.invoke_handler(message_in):
+                routing_key = str(PubTopic(message_out.key))
+                self._publish(message_out, routing_key)
+        except Exception as err:  # pylint: disable=broad-except
+            message_in.error = make_error_output(err)
+            message_in.traceback = str(err)
+            self._publish(message_in, self._error_queue.name)
 
     def _publish(self, ergo_message: Message, routing_key: str):
         amqp_message = encodes(ergo_message).encode("utf-8")
@@ -119,7 +123,7 @@ class AmqpInvoker(Invoker):
                 exchange=self._exchange,
                 routing_key=routing_key,
                 retry=True,
-                declare=[self._error_queue],
+                declare=[self._instance_queue, self._error_queue],
             )
 
     @contextmanager
@@ -127,7 +131,7 @@ class AmqpInvoker(Invoker):
         with producers[self._connection].acquire(block=True) as conn:
             yield conn
 
-    def _sigterm_handler(self, *_):
+    def _handle_sigterm(self, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._connection.close()
