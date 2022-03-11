@@ -9,6 +9,7 @@ from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
+import pydash
 
 from ergo.config import Config
 from ergo.context import Context, Envelope
@@ -84,12 +85,25 @@ class FunctionInvocable:
             ctx = Context(message=message_in, config=self.config)
             kwargs = {}
             for param, default in self._params.items():
+                pool = {"data": message_in.data, "context": ctx}
+                ergo_param_name = self.config.args.get(param, param)
+                argument = pydash.get(pool, ergo_param_name) or pydash.get(pool, f"data.{param}") or default
+                if argument is not MissingDefaultArgument:
+                    kwargs[param] = argument
+                continue
+
                 # ergo's default name for this param, which the configuration may have a custom mapping for
                 ergo_param_name = self.config.args.get(param, param)
+
+                # argument = pydash.get({"data": message_in.data, "context": ctx}, ergo_param_name, default)
+                # if argument is not MissingDefaultArgument:
+                #     kwargs[param] = argument
                 if ergo_param_name == "context":
                     kwargs[param] = ctx
                 else:
-                    kwargs[param] = message_in.get(ergo_param_name, default)
+                    argument = message_in.get(ergo_param_name, default)
+                    if argument is not MissingDefaultArgument:
+                        kwargs[param] = argument
             results = self._func(**kwargs)
             if not inspect.isgenerator(results):
                 results = [results]
@@ -169,6 +183,10 @@ class FunctionInvocable:
             for name, info in inspect.signature(self._func).parameters.items():
                 default = info.default
                 if default is inspect.Parameter.empty:
-                    default = None
+                    default = MissingDefaultArgument
                 params[name] = default
             self._params = params
+
+
+class MissingDefaultArgument:
+    pass

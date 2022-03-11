@@ -1,7 +1,7 @@
 """Summary."""
 import dataclasses
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import jsons

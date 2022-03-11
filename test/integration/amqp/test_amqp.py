@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component
+from test.integration.utils.amqp import ComponentFailure, amqp_component, publish, Queue
 
 import pytest
 
@@ -137,17 +137,45 @@ def test_make_six(components):
 
 
 """
-test_config_args
+test_bind_data_to_my_param
+test_bind_data_index_foo_to_my_param
+test_dont_bind_data
 
-This test asserts that ergo can correctly bind message data to a custom parameter using the `args` configuration attribute.
+These tests assert that ergo can correctly bind message data to a custom parameter using the `args` configuration attribute.
 """
 
 
-def config_args_test_component(my_data_param):
-    return my_data_param
+def handler_with_mapped_params(my_context: Context, my_param):
+    assert my_context.pubtopic
+    return my_param
 
 
-@amqp_component(config_args_test_component, args={"my_data_param": "data"})
-def test_config_args(component):
-    result = component.rpc(data="some data")
-    assert result["data"] == "some data"
+@amqp_component(handler_with_mapped_params, args={"my_param": "data", "my_context": "context"})
+def test_bind_data_to_my_param(component):
+    results = Queue(routing_key=component.pubtopic)
+    publish(component.subtopic, foo="bar")
+    assert results.consume()["data"] == {"foo": "bar"}
+    publish(component.subtopic, data={"foo": "bar"})
+    assert results.consume()["data"] == {"foo": "bar"}
+    publish(component.subtopic, something_else="bar")
+    assert results.consume()["data"] == {"something_else": "bar"}
+
+
+@amqp_component(handler_with_mapped_params, args={"my_param": "data.foo", "my_context": "context"})
+def test_bind_data_index_foo_to_my_param(component):
+    results = Queue(routing_key=component.pubtopic)
+    errors = Queue(routing_key=component.error_queue_name)
+    publish(component.subtopic, foo="bar")
+    assert results.consume()["data"] == "bar"
+    publish(component.subtopic, data={"foo": "bar"})
+    assert results.consume()["data"] == "bar"
+    publish(component.subtopic, something_else="bar")
+    error_result = errors.consume()
+    assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
+
+
+@amqp_component(handler_with_mapped_params, args={"my_context": "context"})
+def test_dont_bind_data(component):
+    results = Queue(routing_key=component.pubtopic)
+    publish(component.subtopic, my_param="my argument")
+    assert results.consume()["data"] == "my argument"

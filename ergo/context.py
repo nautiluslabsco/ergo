@@ -10,9 +10,9 @@ class Envelope:
     """
     Use this container to pass data to ergo with custom routing parameters.
 
-    >>> hardcoded_subscriber = "interested_party"
+    >>> ad_hoc_topic = "interested_party"
     >>> def my_handler(context: Context):
-    ...     return context.envelope("my_return_val", topic=f"{context.pubtopic}.{hardcoded_subscriber}")
+    ...     return context.envelope("my_return_val", topic=f"{context.pubtopic}.{ad_hoc_topic}")
     ...
     >>>
     """
