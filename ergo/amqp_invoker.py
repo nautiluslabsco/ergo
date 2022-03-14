@@ -134,9 +134,9 @@ class AmqpInvoker(Invoker):
         with producers[self._connection].acquire(block=True) as conn:
             yield conn
 
-    def _handle_sigterm(self, *_):
+    def _handle_sigterm(self, signum, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._connection.close()
         signal.signal(signal.SIGTERM, 0)
-        signal.raise_signal(signal.SIGTERM)
+        signal.raise_signal(signum)
