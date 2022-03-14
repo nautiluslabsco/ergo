@@ -131,10 +131,9 @@ class FunctionInvocable:
         for param, default in self._params.items():
             # this is the complete collection of data that this invoker's handler has access to
             exposed_data = {CONTEXT_KEY: context, DATA_KEY: message.data}
-            # ergo's default name for this param, which the configuration may have a custom mapping for
+            # ergo's canonical name for this param, which the configuration may have a custom mapping for
             ergo_param_name = self.config.args.get(param, param)
-            argument = pydash.get(exposed_data, ergo_param_name) or pydash.get(exposed_data,
-                                                                               f"{DATA_KEY}.{param}") or default
+            argument = pydash.get(exposed_data, ergo_param_name) or pydash.get(exposed_data, f"{DATA_KEY}.{param}") or default
             # MissingArgument indicates that `param` is a positional parameter that we've failed to bind an argument
             # to, either because no argument was provided or because one was given the wrong name.
             if argument is not MissingArgument:
