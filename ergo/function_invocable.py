@@ -9,6 +9,7 @@ from importlib.abc import Loader
 from importlib.machinery import ModuleSpec
 from types import ModuleType
 from typing import Callable, Generator, Match, Optional
+
 import pydash
 
 from ergo.config import Config
@@ -18,6 +19,9 @@ from ergo.scope import Scope
 from ergo.topic import Topic
 from ergo.types import TYPE_RETURN
 from ergo.util import instance_id, print_exc_plus
+
+DATA_KEY = "data"
+CONTEXT_KEY = "context"
 
 
 class FunctionInvocable:
@@ -83,27 +87,7 @@ class FunctionInvocable:
             raise Exception('Cannot execute injected function')
         try:
             ctx = Context(message=message_in, config=self.config)
-            kwargs = {}
-            for param, default in self._params.items():
-                pool = {"data": message_in.data, "context": ctx}
-                ergo_param_name = self.config.args.get(param, param)
-                argument = pydash.get(pool, ergo_param_name) or pydash.get(pool, f"data.{param}") or default
-                if argument is not MissingDefaultArgument:
-                    kwargs[param] = argument
-                continue
-
-                # ergo's default name for this param, which the configuration may have a custom mapping for
-                ergo_param_name = self.config.args.get(param, param)
-
-                # argument = pydash.get({"data": message_in.data, "context": ctx}, ergo_param_name, default)
-                # if argument is not MissingDefaultArgument:
-                #     kwargs[param] = argument
-                if ergo_param_name == "context":
-                    kwargs[param] = ctx
-                else:
-                    argument = message_in.get(ergo_param_name, default)
-                    if argument is not MissingDefaultArgument:
-                        kwargs[param] = argument
+            kwargs = self.assemble_arguments(message_in, ctx)
             results = self._func(**kwargs)
             if not inspect.isgenerator(results):
                 results = [results]
@@ -137,6 +121,25 @@ class FunctionInvocable:
 
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
+
+    def assemble_arguments(self, message: Message, context: Context) -> dict:
+        """
+        assemble_arguments maps a message and a context to a dictionary of keyword arguments to pass to this invoker's
+        handler.
+        """
+        kwargs = {}
+        for param, default in self._params.items():
+            # this is the complete collection of data that this invoker's handler has access to
+            exposed_data = {CONTEXT_KEY: context, DATA_KEY: message.data}
+            # ergo's default name for this param, which the configuration may have a custom mapping for
+            ergo_param_name = self.config.args.get(param, param)
+            argument = pydash.get(exposed_data, ergo_param_name) or pydash.get(exposed_data,
+                                                                               f"{DATA_KEY}.{param}") or default
+            # MissingArgument indicates that `param` is a positional parameter that we've failed to bind an argument
+            # to, either because no argument was provided or because one was given the wrong name.
+            if argument is not MissingArgument:
+                kwargs[param] = argument
+        return kwargs
 
     def inject(self) -> None:
         """Summary.
@@ -183,10 +186,12 @@ class FunctionInvocable:
             for name, info in inspect.signature(self._func).parameters.items():
                 default = info.default
                 if default is inspect.Parameter.empty:
-                    default = MissingDefaultArgument
+                    # We use MissingArgument as a placeholder for positional parameters that don't have a default
+                    # argument.
+                    default = MissingArgument
                 params[name] = default
             self._params = params
 
 
-class MissingDefaultArgument:
+class MissingArgument:
     pass

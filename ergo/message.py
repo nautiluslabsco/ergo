@@ -1,15 +1,12 @@
 """Summary."""
 import dataclasses
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 import jsons
-import pydash
 
 from ergo.scope import Scope
-
-DATA_KEY = "data"
 
 
 @dataclass
@@ -20,14 +17,6 @@ class Message:
     scope: Scope = field(default_factory=Scope)
     error: Optional[Dict[str, str]] = None
     traceback: Optional[str] = None
-
-    def get(self, key: str, default=None):
-        value = pydash.get(self.data, key)
-        if value is not None:
-            return value
-        if key == DATA_KEY:
-            return self.data
-        return default
 
 
 def decodes(s: str) -> Message:
