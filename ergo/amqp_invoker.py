@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 PREFETCH_COUNT = 1
 TERMINATION_GRACE_PERIOD = 60  # seconds
+# rabbitmq's recommended default https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
+DEFAULT_HEARTBEAT = 60  # seconds.
 
 
 def set_param(host: str, param_key: str, param_val: str) -> str:
@@ -50,7 +52,8 @@ class AmqpInvoker(Invoker):
     def __init__(self, invocable: FunctionInvocable) -> None:
         super().__init__(invocable)
 
-        self._connection = kombu.Connection(self._invocable.config.host, heartbeat=self._invocable.config.heartbeat)
+        heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
+        self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
         self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=True, auto_delete=False)
 
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
