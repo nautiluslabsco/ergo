@@ -10,6 +10,7 @@ from ergo.util import uniqueid
 class Scope:
     id: str = field(default_factory=uniqueid)
     metadata: dict = field(default_factory=dict)
+    data: dict = field(default_factory=dict)
     parent: Optional[Scope] = None
 
     @property
