@@ -104,3 +104,36 @@ def stack_depth(stack) -> int:
     if stack is None:
         return 0
     return 1 + stack_depth(stack["parent"])
+
+
+"""
+test_store_and_retrieve_scope_data
+"""
+
+
+def store_data(context: Context):
+    context.store("test_key", "outer scope data")
+    yield context.envelope("", topic="retrieve_outer_scope_data_sub")
+    context.initiate_scope()
+    context.store("test_key", "inner scope data")
+    yield context.envelope("", topic="retrieve_inner_scope_data_sub")
+
+
+def retrieve_outer_scope_data(context: Context):
+    data = context.retrieve("test_key")
+    return data
+
+
+def retrieve_inner_scope_data(context: Context):
+    data = context.retrieve("test_key")
+    return data
+
+
+@amqp_component(store_data)
+@amqp_component(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
+@amqp_component(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
+def test_store_and_retrieve_scope_data(components):
+    store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component = components
+    store_component.send()
+    assert retrieve_outer_scope_data_component.consume()["data"] == "outer scope data"
+    assert retrieve_inner_scope_data_component.consume()["data"] == "inner scope data"
