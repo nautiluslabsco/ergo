@@ -45,7 +45,7 @@ def test_product_class(component):
 
 @amqp_component(product_instance)
 def test_product_instance(component):
-    result = component.rpc(x=4, inactivity_timeout=None)
+    result = component.rpc(x=4)
     assert result["data"] == 8.0
 
 
