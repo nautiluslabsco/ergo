@@ -121,7 +121,6 @@ class AmqpInvoker(Invoker):
     async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
         try:
             async for message_out in self.do_work(message_in):
-                raise Exception('ex')
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel_pool)
