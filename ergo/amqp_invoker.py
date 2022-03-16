@@ -1,4 +1,5 @@
 """Summary."""
+import datetime
 import logging
 import signal
 import socket
@@ -113,8 +114,10 @@ class AmqpInvoker(Invoker):
                 routing_key = str(PubTopic(message_out.key))
                 self._publish(message_out, routing_key)
         except Exception as err:  # pylint: disable=broad-except
+            dt = datetime.datetime.now(datetime.timezone.utc)
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
+            message_in.scope.metadata['timestamp'] = dt.isoformat()
             self._publish(message_in, self._error_queue.name)
 
     def _publish(self, ergo_message: Message, routing_key: str):

@@ -1,5 +1,6 @@
-from setuptools import setup, find_packages
 import uuid
+
+from setuptools import find_packages, setup
 
 setup(
     name=f'component_{uuid.uuid1()}',
