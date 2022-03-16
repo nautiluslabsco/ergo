@@ -83,7 +83,7 @@ class AMQPComponent(FunctionComponent):
                 return None
 
     def propagate_error(self, inactivity_timeout=None):
-        body = consume(self.error_queue_name, inactivity_timeout=inactivity_timeout)
+        body = consume(self.error_queue_name, channel=self.error_consumer_channel, inactivity_timeout=inactivity_timeout)
         if body:
             raise ComponentFailure(body["traceback"])
 
@@ -131,6 +131,7 @@ class AMQPComponent(FunctionComponent):
 
     def __enter__(self):
         self.channel = new_channel()
+        self.error_consumer_channel = new_channel()
         self.instances.append(self)
         super().__enter__()
         if not _LIVE_INSTANCES[self.func]:
@@ -226,5 +227,5 @@ def get_connection() -> pika.BlockingConnection:
     return pika.BlockingConnection(pika.URLParameters(AMQP_HOST))
 
 
-class ComponentFailure(BaseException):
+class ComponentFailure(Exception):
     pass
