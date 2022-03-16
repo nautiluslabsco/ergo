@@ -5,7 +5,6 @@ import pytest
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
-
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 

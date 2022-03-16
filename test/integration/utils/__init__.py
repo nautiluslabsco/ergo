@@ -3,9 +3,9 @@ import multiprocessing
 import re
 import tempfile
 import time
-from contextlib import ContextDecorator, contextmanager
-from typing import Callable, Dict, Optional, Type, List
 from abc import ABC, abstractmethod
+from contextlib import ContextDecorator, contextmanager
+from typing import Callable, Dict, List, Optional, Type
 
 import yaml
 

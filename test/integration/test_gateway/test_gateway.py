@@ -1,8 +1,7 @@
-from test.integration.utils.gateway import http_gateway
-from test.integration.utils.amqp import amqp_component
 from functools import partial
 from multiprocessing.pool import ThreadPool
-
+from test.integration.utils.amqp import amqp_component
+from test.integration.utils.gateway import http_gateway
 
 """
 test_double
