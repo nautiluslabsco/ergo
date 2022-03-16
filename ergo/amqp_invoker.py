@@ -1,24 +1,29 @@
 """Summary."""
-import asyncio
-from typing import AsyncIterable, Dict, cast
+import logging
+import signal
+import socket
+import threading
+from contextlib import contextmanager
+from typing import Callable, Dict
 from urllib.parse import urlparse
 
-import aio_pika
-import aiomisc
-import jsons
-from retry import retry
+import kombu
+import kombu.exceptions
+import kombu.message
+from kombu.pools import producers
 
 from ergo.function_invocable import FunctionInvocable
 from ergo.invoker import Invoker
 from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
-from ergo.util import defer_termination, extract_from_stack, instance_id
+from ergo.util import extract_from_stack, instance_id
 
-# content_type: application/json
-# {"x":5,"y":7}
+logger = logging.getLogger(__name__)
 
-MAX_THREADS = 4
-CHANNEL_POOL_SIZE = 2  # minimum is 1 per active run_queue_loop coroutine
+PREFETCH_COUNT = 1
+TERMINATION_GRACE_PERIOD = 60  # seconds
+# rabbitmq's recommended default https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
+DEFAULT_HEARTBEAT = 60  # seconds.
 
 
 def set_param(host: str, param_key: str, param_val: str) -> str:
@@ -29,7 +34,7 @@ def set_param(host: str, param_key: str, param_val: str) -> str:
 
 
 def make_error_output(err: Exception) -> Dict[str, str]:
-    """Make a more digestable error output."""
+    """Make a more digestible error output."""
     orig = err.__context__ or err
     err_output = {
         'type': type(orig).__name__,
@@ -47,123 +52,91 @@ class AmqpInvoker(Invoker):
     def __init__(self, invocable: FunctionInvocable) -> None:
         super().__init__(invocable)
 
-        host = self._invocable.config.host
-        heartbeat = self._invocable.config.heartbeat
+        heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
+        self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
+        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=True, auto_delete=False)
 
-        self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
-        self.exchange_name = self._invocable.config.exchange
-        self.component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
-        if self.component_queue_name.startswith(":"):
-            self.component_queue_name = self.component_queue_name[1:]
-        self.instance_queue_name = f"{self.component_queue_name}:{instance_id()}"
-        self.error_queue_name = f"{self.component_queue_name}:error"
+        component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
+        if component_queue_name.startswith(":"):
+            component_queue_name = component_queue_name[1:]
+        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
+        instance_queue_name = f"{component_queue_name}:{instance_id()}"
+        self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
+        error_queue_name = f"{component_queue_name}:error"
+        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=str(SubTopic(error_queue_name)), durable=False)
+
+        self._terminating = threading.Event()
+        self._pending_invocations = threading.Semaphore()
+        self._handler_lock = threading.Lock()
 
     def start(self) -> int:
-        """
-        Starts a new event loop that maintains a persistent AMQP connection.
-        The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
-
-        Returns:
-            exit_code
-        """
-        loop = aiomisc.new_event_loop(pool_size=MAX_THREADS)
-        connection = loop.run_until_complete(self.run(loop))
-
-        try:
-            loop.run_forever()
-        finally:
-            loop.run_until_complete(connection.close())
-
+        signal.signal(signal.SIGTERM, self._handle_sigterm)
+        signal.signal(signal.SIGINT, self._handle_sigterm)
+        with self._connection:
+            conn = self._connection
+            consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
+            consumer.register_callback(self._start_handle_message_thread)
+            consumer.consume()
+            while not self._terminating.is_set():
+                try:
+                    # wait up to 1s for the next message before sending a heartbeat
+                    conn.drain_events(timeout=1)
+                except socket.timeout:
+                    conn.heartbeat_check()
+                except conn.recoverable_connection_errors:
+                    logger.warning("connection closed. reviving.")
+                    conn = self._connection.clone()
+                    conn.ensure_connection()
+                    consumer.revive(conn.channel())
+                    consumer.consume()
         return 0
 
-    @retry((aio_pika.exceptions.AMQPError, aio_pika.exceptions.ChannelInvalidStateError), delay=0.5, jitter=(1, 3), backoff=2)
-    async def run(self, loop: asyncio.AbstractEventLoop) -> aio_pika.RobustConnection:
-        """
-        Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError`
-        and `aio_pika.exceptions.ChannelInvalidStateError`. Runs a continuous `consume` -> `do_work` -> `publish`
-        event loop.
+    def _start_handle_message_thread(self, body: str, message: kombu.message.Message):
+        # _handle_sigterm will wait for _handle_message to release this semaphore
+        self._pending_invocations.acquire(blocking=False)
+        threading.Thread(target=self._handle_message, args=(body, message.ack)).start()
 
-        Parameters:
-            loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
-        Returns:
-            connection: Connection that attempts to restore state (channels, queues, etc.) upon reconnects
-        """
-        connection: aio_pika.RobustConnection = await aio_pika.connect_robust(url=self.url, loop=loop)
+    def _handle_message(self, body: str, ack: Callable):
+        # there may be up to PREFETCH_COUNT _handle_message threads alive at a time, but we want them to execute
+        # sequentially to guarantee that messages are acknowledged in the order they're received
+        with self._handler_lock:
+            ergo_message = decodes(body)
+            try:
+                self._handle_message_inner(ergo_message)
+            finally:
+                ack()
+                self._pending_invocations.release()
 
-        async def get_channel() -> aio_pika.Channel:
-            return await connection.channel()
-
-        # Pool for consuming and publishing
-        channel_pool: aio_pika.pool.Pool[aio_pika.RobustChannel] = aio_pika.pool.Pool(get_channel, max_size=CHANNEL_POOL_SIZE, loop=loop)
-        async with channel_pool.acquire() as channel:
-            await channel.declare_exchange(name=self.exchange_name, type=aio_pika.ExchangeType.TOPIC, passive=False, durable=True, auto_delete=False, internal=False, arguments=None)
-            await channel.declare_queue(name=self.error_queue_name)
-            await self.bind_queue(self.error_queue_name, self.error_queue_name, channel)
-            component_queue = await channel.declare_queue(name=self.component_queue_name)
-            await self.bind_queue(self.component_queue_name, self._invocable.config.subtopic, channel)
-            instance_queue = await channel.declare_queue(name=self.instance_queue_name, exclusive=True)
-            await self.bind_queue(self.instance_queue_name, instance_id(), channel)
-
-        async with connection, channel_pool:
-            component_loop_coro = self.run_queue_loop(channel_pool, component_queue)
-            instance_loop_coro = self.run_queue_loop(channel_pool, instance_queue)
-            await asyncio.gather(component_loop_coro, instance_loop_coro)
-
-        return connection
-
-    async def run_queue_loop(self, channel_pool: aio_pika.pool.Pool, queue: aio_pika.Queue):
-        async for amqp_message in queue:
-            amqp_message = cast(aio_pika.IncomingMessage, amqp_message)
-            with defer_termination():
-                async with amqp_message.process():
-                    ergo_message = decodes(amqp_message.body.decode('utf-8'))
-                    await self.handle_message(ergo_message, channel_pool)
-
-    async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
+    def _handle_message_inner(self, message_in: Message):
         try:
-            async for message_out in self.do_work(message_in):
-                message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
+            for message_out in self.invoke_handler(message_in):
                 routing_key = str(PubTopic(message_out.key))
-                await self.publish(message, routing_key, channel_pool)
+                self._publish(message_out, routing_key)
         except Exception as err:  # pylint: disable=broad-except
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
-            message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
-            await self.publish(message, self.error_queue_name, channel_pool)
+            self._publish(message_in, self._error_queue.name)
 
-    async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
-        """
-        Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
+    def _publish(self, ergo_message: Message, routing_key: str):
+        amqp_message = encodes(ergo_message).encode("utf-8")
+        with self._producer() as producer:
+            producer.publish(
+                amqp_message,
+                content_encoding="binary",
+                exchange=self._exchange,
+                routing_key=routing_key,
+                retry=True,
+                declare=[self._instance_queue, self._error_queue],
+            )
 
-        Parameters:
-            message: Message to be published
-            routing_key: Exchange-level routing discriminator
-            channel_pool: aio_pika.pool.Pool
-        """
-        async with channel_pool.acquire() as channel:
-            exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-            await exchange.publish(message, routing_key)
+    @contextmanager
+    def _producer(self) -> kombu.Producer:
+        with producers[self._connection].acquire(block=True) as conn:
+            yield conn
 
-    async def bind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
-        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-        queue = await channel.declare_queue(queue_name, passive=True)
-        await queue.bind(exchange=exchange, routing_key=str(SubTopic(routing_key)))
-
-    async def unbind_queue(self, queue_name: str, routing_key: str, channel: aio_pika.Channel):
-        exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
-        queue = await channel.declare_queue(queue_name, passive=True)
-        await queue.unbind(exchange=exchange, routing_key=routing_key)
-
-    @aiomisc.threaded_iterable_separate
-    def do_work(self, data_in: Message) -> AsyncIterable[Message]:
-        """
-        Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
-        within the constraints of the underlying execution context.
-
-        Parameters:
-            data_in: Raw event data
-
-        Yields:
-            message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
-        """
-        yield from self.invoke_handler(data_in)
+    def _handle_sigterm(self, signum, *_):
+        self._terminating.set()
+        self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
+        self._connection.close()
+        signal.signal(signal.SIGTERM, 0)
+        signal.raise_signal(signum)
