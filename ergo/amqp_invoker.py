@@ -1,5 +1,6 @@
 """Summary."""
 import asyncio
+import datetime
 from typing import AsyncIterable, Dict, cast
 from urllib.parse import urlparse
 
@@ -62,7 +63,6 @@ class AmqpInvoker(Invoker):
         """
         Starts a new event loop that maintains a persistent AMQP connection.
         The underlying execution context is an `aiomisc.ThreadPoolExecutor` of size `MAX_THREADS`.
-
         Returns:
             exit_code
         """
@@ -82,7 +82,6 @@ class AmqpInvoker(Invoker):
         Establishes the AMQP connection with rudimentary retry logic on `aio_pika.exceptions.AMQPError`
         and `aio_pika.exceptions.ChannelInvalidStateError`. Runs a continuous `consume` -> `do_work` -> `publish`
         event loop.
-
         Parameters:
             loop: Asyncio-compliant event loop primitive that is responsible for scheduling work
         Returns:
@@ -122,19 +121,21 @@ class AmqpInvoker(Invoker):
     async def handle_message(self, message_in: Message, channel_pool: aio_pika.pool.Pool):
         try:
             async for message_out in self.do_work(message_in):
+                raise Exception('ex')
                 message = aio_pika.Message(body=encodes(message_out).encode('utf-8'))
                 routing_key = str(PubTopic(message_out.key))
                 await self.publish(message, routing_key, channel_pool)
         except Exception as err:  # pylint: disable=broad-except
+            dt = datetime.datetime.now(datetime.timezone.utc)
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
+            message_in.scope.metadata['timestamp'] = dt
             message = aio_pika.Message(body=jsons.dumps(message_in).encode('utf-8'))
             await self.publish(message, self.error_queue_name, channel_pool)
 
     async def publish(self, message: aio_pika.Message, routing_key: str, channel_pool: aio_pika.pool.Pool) -> None:
         """
         Re-acquires handles to `channel`, `exchange`, and `queue` before publishing message.
-
         Parameters:
             message: Message to be published
             routing_key: Exchange-level routing discriminator
@@ -159,10 +160,8 @@ class AmqpInvoker(Invoker):
         """
         Performs the potentially long-running work of `self._invocable.invoke` in a separate thread
         within the constraints of the underlying execution context.
-
         Parameters:
             data_in: Raw event data
-
         Yields:
             message: Lazily-evaluable wrapper around return values from `self._invocable.invoke`, plus metadata
         """
