@@ -8,7 +8,7 @@ test_shout
 """
 
 
-def shout(context: Context, message, capitalized=None):
+def shout(context: Context, message=None, capitalized=None):
     if capitalized:
         return f"{capitalized}!"
 
