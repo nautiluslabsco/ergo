@@ -64,7 +64,7 @@ class AmqpInvoker(Invoker):
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
-        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=str(SubTopic(error_queue_name)), durable=False)
+        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=error_queue_name, durable=False)
 
         self._terminating = threading.Event()
         self._pending_invocations = threading.Semaphore()
