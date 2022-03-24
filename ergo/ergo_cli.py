@@ -1,6 +1,7 @@
 """Summary."""
 import datetime
 import os
+from typing import List
 
 import yaml
 from colors import color
@@ -40,7 +41,7 @@ def get_version_path() -> str:
 
 
 def load_config(*config_paths: str) -> Config:
-    unmerged_data = []
+    unmerged_data: List[dict] = []
     paths = list(config_paths)
     for path in paths:
         with open(path, "r") as fh:
