@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import amqp.exceptions
 import contextlib
 import inspect
 import json
@@ -75,7 +76,8 @@ class AMQPComponent(FunctionComponent):
         return self.consume(inactivity_timeout=inactivity_timeout)
 
     def send(self, **payload):
-        self._component_queue.put(payload)
+        publish(payload, self.subtopic)
+        # self._component_queue.put(payload)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
         from dataclasses import asdict
@@ -107,19 +109,25 @@ class AMQPComponent(FunctionComponent):
     def __enter__(self):
         super().__enter__()
 
+        with CONNECTION.channel() as channel:
+            channel = cast(Channel, channel)
+            try:
+                channel.queue_purge(self.queue_name)
+            except amqp.exceptions.NotFound:
+                pass
+
         self.instances.append(self)
         # if not sum(_LIVE_INSTANCES.values()):
         #     with CONNECTION.channel() as channel:
         #         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=channel)
         #         exchange.delete()
 
-        self._component_queue = ComponentQueue(self.queue_name)
-        self._component_queue.__enter__()
+        # self._component_queue = ComponentQueue(self.queue_name)
+        # self._component_queue.__enter__()
         if not _LIVE_INSTANCES[self.func]:
             self._subscription = Queue(self.pubtopic, name=f"test_subscription:{self.pubtopic}")
             self._subscription.__enter__()
         _LIVE_INSTANCES[self.func] += 1
-
 
         return self
 
@@ -129,11 +137,17 @@ class AMQPComponent(FunctionComponent):
         self.instances.pop()
         _LIVE_INSTANCES[self.func] -= 1
         if not _LIVE_INSTANCES[self.func]:
-            self._component_queue.__exit__()
+            # self._component_queue.__exit__()
             self._subscription.__exit__()
 
 
 amqp_component = AMQPComponent
+
+
+def publish(payload: dict, routing_key: str):
+    with CONNECTION.channel() as channel:
+        with kombu.Producer(channel, serializer="raw") as producer:
+            producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)))
 
 
 class ComponentFailure(Exception):

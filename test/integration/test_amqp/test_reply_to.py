@@ -1,3 +1,5 @@
+import pytest
+
 from test.integration.utils.amqp import amqp_component, Queue
 from typing import List, Optional
 
@@ -103,22 +105,15 @@ def fibonacci_filter(i=None):
 
 
 def test_fibonacci():
-    # pub_queue = Queue("start")
-    # results_queue = Queue("next")
-    # with pub_queue, results_queue:
     orchestrator_component = amqp_component(fibonacci_orchestrator, subtopic="start", pubtopic="iterate")
     iterator_component = amqp_component(fibonacci_iterator, subtopic="iterate", pubtopic="iterate")
     filter_component = amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
-    with Queue("next") as results_queue, Queue("start") as pub_queue:
-        with orchestrator_component, iterator_component, filter_component:
-            pub_queue.put({})
-        #     from test.integration.utils.amqp import CONNECTION, EXCHANGE
-        #     import kombu
-        #     with CONNECTION.channel() as channel:
-        #         with kombu.Producer(channel, exchange=EXCHANGE) as producer:
-        #             producer.publish("{}", routing_key="start", retry=)
-            results = [results_queue.get().data for _ in range(10)]
-            assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    results_queue = Queue("next")
+    with orchestrator_component, iterator_component, filter_component, results_queue:
+        from test.integration.utils.amqp import publish
+        publish({}, "start")
+        results = [results_queue.get().data for _ in range(10)]
+        assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
 """
