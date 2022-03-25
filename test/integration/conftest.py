@@ -1,5 +1,6 @@
 import logging
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
+from test.integration.utils.amqp import propagate_errors
 
 import pytest
 import requests
@@ -11,6 +12,12 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 @pytest.fixture(scope="session")
 def amqp_broker():
     start_rabbitmq_broker()
+
+
+@pytest.fixture()
+def propagate_amqp_errors():
+    with propagate_errors():
+        yield
 
 
 @pytest.fixture()

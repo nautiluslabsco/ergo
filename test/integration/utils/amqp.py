@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import pathlib
+import socket
 from functools import wraps
 from test.integration.utils import FunctionComponent, retries
 from typing import Callable, Dict, List, Optional
+import kombu
 
 import pika
 import pika.exceptions
@@ -22,8 +25,10 @@ except ImportError:
 from collections import defaultdict
 
 from ergo.topic import PubTopic
+from ergo.message import Message, decodes
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
+CONNECTION = kombu.Connection(AMQP_HOST)
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
 SHORT_TIMEOUT = 0.01
 LONG_TIMEOUT = 5
@@ -83,9 +88,10 @@ class AMQPComponent(FunctionComponent):
                 return None
 
     def propagate_error(self, inactivity_timeout=None):
-        body = consume(self.error_queue_name, channel=self.error_consumer_channel, inactivity_timeout=inactivity_timeout)
-        if body:
-            raise ComponentFailure(body["traceback"])
+        pass
+        # body = consume(self.error_queue_name, channel=self.error_consumer_channel, inactivity_timeout=inactivity_timeout)
+        # if body:
+        #     raise ComponentFailure(body["traceback"])
 
     def setup_component(self):
         self.channel.queue_declare(self.queue_name)
@@ -93,6 +99,9 @@ class AMQPComponent(FunctionComponent):
         purge_queue(self.queue_name)
         self.channel.queue_declare(self.error_queue_name)
         purge_queue(self.error_queue_name)
+
+        self.kchan = CONNECTION.channel()
+        self.error_queue = kombu.Queue()
 
     def setup_instance(self):
         self._subscription_queue = new_queue(self.pubtopic, channel=self.channel)
@@ -139,6 +148,7 @@ class AMQPComponent(FunctionComponent):
             self.setup_component()
         _LIVE_INSTANCES[self.func] += 1
         self.setup_instance()
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.instances.pop()
@@ -229,3 +239,24 @@ def get_connection() -> pika.BlockingConnection:
 
 class ComponentFailure(Exception):
     pass
+
+
+class propagate_errors:
+    def __init__(self):
+        self._queue = kombu.Queue("test_error_queue", exchange=EXCHANGE, routing_key="#", auto_delete=True, no_ack=True)
+
+    def __enter__(self):
+        self._channel = CONNECTION.channel()
+        self._consumer = kombu.Consumer(self._channel, queues=[self._queue], callbacks=[self._handle_message])
+        self._consumer.consume()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._consumer.close()
+        self._channel.close()
+
+    @staticmethod
+    def _handle_message(body: str, _):
+        ergo_msg = decodes(body)
+        if ergo_msg.error:
+            raise ComponentFailure(ergo_msg.traceback)
