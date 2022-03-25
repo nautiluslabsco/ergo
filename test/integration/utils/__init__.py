@@ -30,6 +30,7 @@ class ComponentInstance:
         for config_file in self.config_files:
             config_file.close()
         self.process.terminate()
+        print("terminated")
 
 
 def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):

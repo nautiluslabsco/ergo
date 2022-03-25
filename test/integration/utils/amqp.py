@@ -68,30 +68,19 @@ class AMQPComponent(FunctionComponent):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, payload: dict, inactivity_timeout=LONG_TIMEOUT):
-        self.send(payload)
+    # def rpc(self, payload: dict, inactivity_timeout=LONG_TIMEOUT):
+    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **payload):
+        self.send(**payload)
         return self.consume(inactivity_timeout=inactivity_timeout)
 
-    def send(self, payload: dict):
+    # def send(self, payload: dict):
+    def send(self, **payload):
         # publish_pika(self.subtopic, **message, channel=self.channel)
-        publish(payload, self.subtopic)
+        self._component_queue.put(payload)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
-        return self._subscription.get(timeout=inactivity_timeout)
-
-        attempt = 0
-        while True:
-            value = consume(
-                self._subscription_queue,
-                channel=self.channel,
-                inactivity_timeout=SHORT_TIMEOUT,
-            )
-            if value:
-                return value
-            self.propagate_error(inactivity_timeout=SHORT_TIMEOUT)
-            attempt += 1
-            if inactivity_timeout and attempt >= inactivity_timeout * 20:
-                return None
+        from dataclasses import asdict
+        return asdict(self._subscription.get(timeout=inactivity_timeout))
 
     def propagate_error(self, inactivity_timeout=None):
         pass
@@ -105,7 +94,6 @@ class AMQPComponent(FunctionComponent):
         purge_queue(self.queue_name)
         self.channel.queue_declare(self.error_queue_name)
         purge_queue(self.error_queue_name)
-
 
     def setup_instance(self):
         self._subscription_queue = new_queue(self.pubtopic, channel=self.channel)
@@ -143,24 +131,27 @@ class AMQPComponent(FunctionComponent):
         return test
 
     def __enter__(self):
-        self.channel = new_channel()
-        self.error_consumer_channel = new_channel()
+        # self.channel = new_channel()
+        # self.error_consumer_channel = new_channel()
         self.instances.append(self)
         super().__enter__()
         if not _LIVE_INSTANCES[self.func]:
-            self.teardown_component()
-            self.setup_component()
-            self._subscription = KombuQueue(self.pubtopic)
+            # self.teardown_component()
+            # self.setup_component()
+            self._component_queue = KombuQueue(self.subtopic)
+            self._component_queue.__enter__()
+            self._subscription = KombuQueue(self.pubtopic, name=f"test_subscription:{self.pubtopic}")
             self._subscription.__enter__()
         _LIVE_INSTANCES[self.func] += 1
-        self.setup_instance()
+        # self.setup_instance()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.instances.pop()
         _LIVE_INSTANCES[self.func] -= 1
         if not _LIVE_INSTANCES[self.func]:
-            self.teardown_component()
+            # self.teardown_component()
+            self._component_queue.__exit__()
             self._subscription.__exit__()
         super().__exit__(exc_type, exc_val, exc_tb)
 
@@ -254,6 +245,10 @@ def publish(payload: dict, routing_key: str):
         producer.publish(json.dumps(payload), routing_key=str(PubTopic(routing_key)), exchange=EXCHANGE, serializer="raw")
 
 
+# def consume(routing_key: str):
+#     with CONNECTION.channel() as channel:
+
+
 class PubSub:
     def __init__(self, name: str, pubtopic: str, *subtopics: str):
         self.name = name
@@ -278,8 +273,8 @@ class PubSub:
 
 
 class KombuQueue:
-    def __init__(self, routing_key):
-        self.name = f"test_queue:{routing_key}"
+    def __init__(self, routing_key, name: Optional[str] = None):
+        self.name = name or f"test_queue:{routing_key}"
         self.routing_key = routing_key
 
     def put(self, data: dict):
@@ -291,8 +286,6 @@ class KombuQueue:
 
     def __enter__(self):
         self._channel: Channel = CONNECTION.channel()
-        print(self.routing_key)
-        print(str(PubTopic(self.routing_key)))
         queue = kombu.Queue(self.name, exchange=EXCHANGE, routing_key=str(PubTopic(self.routing_key)), auto_delete=True, no_ack=True)
         self._queue = kombu.simple.SimpleQueue(self._channel, queue, serializer="raw")
         return self

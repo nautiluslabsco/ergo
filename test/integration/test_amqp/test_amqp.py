@@ -1,8 +1,26 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component, KombuQueue, publish
+from test.integration.utils.amqp import ComponentFailure, amqp_component, KombuQueue, publish, CONNECTION
 
 import pytest
 
 from ergo.context import Context
+
+
+@pytest.fixture(scope="session")
+def teardown_module():
+    yield
+    import time
+    while True:
+        print("sleeping")
+        time.sleep(1000)
+
+
+# @pytest.fixture(scope="function", autouse=True)
+# def manage_connection():
+#     CONNECTION.revive()
+#     yield
+#     CONNECTION.release()
+
+
 
 """
 test_product
@@ -15,7 +33,11 @@ def product(x, y):
 
 def test_product_amqp(propagate_amqp_errors):
     with amqp_component(product) as component:
-        assert component.rpc({"x": 4, "y": 5}).data == 20.0
+        # component.send({"x": 4, "y": 5})
+        component.send(x=4, y=5)
+        return
+        assert component.consume(inactivity_timeout=None)["data"] == 20.0
+        # assert component.rpc({"x": 4, "y": 5}).data == 20.0
 
 
 """
