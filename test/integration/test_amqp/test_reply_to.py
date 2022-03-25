@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import Queue, amqp_component, publish
+from test.integration.utils.amqp import Queue, amqp_component, publish_pika
 from typing import List, Optional
 
 from ergo.context import Context
@@ -72,7 +72,7 @@ def d(context: Context):
 @amqp_component(d, subtopic="d")
 def test_reply_to_scope(components):
     results_queue = Queue("my_results")
-    publish("test_reply_to_scope")
+    publish_pika("test_reply_to_scope")
     results = sorted([results_queue.consume()["data"] for _ in range(3)])
     assert results == ["a", "b", "c"]
     *_, component_d = components
@@ -106,7 +106,7 @@ def fibonacci_filter(i):
 @amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
 def test_fibonacci(components):
     results_queue = Queue("next")
-    publish("start")
+    publish_pika("start")
     results = [results_queue.consume()["data"] for _ in range(10)]
     assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
@@ -152,7 +152,7 @@ node_d = Node('d')
 @amqp_component(node_d, subtopic='d')
 def test_traverse_tree(components):
     queue = Queue("tree.path")
-    publish("tree.traverse")
+    publish_pika("tree.traverse")
     results = [queue.consume()['data']['path'] for _ in range(2)]
     results = sorted(results)
     assert results == ['a.b.c', 'a.b.d']

@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import Queue, amqp_component, publish
+from test.integration.utils.amqp import Queue, amqp_component, publish_pika
 
 from ergo.context import Context
 
@@ -24,13 +24,13 @@ def test_bind_data_to_my_param(component):
     ergo should bind the full payload to `my_param`
     """
     results = Queue(routing_key=component.pubtopic)
-    publish(component.subtopic, foo="bar")
+    publish_pika(component.subtopic, foo="bar")
     assert results.consume()["data"] == {"foo": "bar"}
-    publish(component.subtopic, data={"foo": "bar"})
+    publish_pika(component.subtopic, data={"foo": "bar"})
     assert results.consume()["data"] == {"foo": "bar"}
-    publish(component.subtopic, data="foo")
+    publish_pika(component.subtopic, data="foo")
     assert results.consume()["data"] == "foo"
-    publish(component.subtopic, something_else="bar")
+    publish_pika(component.subtopic, something_else="bar")
     assert results.consume()["data"] == {"something_else": "bar"}
 
 
@@ -49,17 +49,17 @@ def test_bind_data_index_foo_to_my_param(component):
 
     results = Queue(routing_key=component.pubtopic)
     errors = Queue(routing_key=component.error_queue_name)
-    publish(component.subtopic, foo="bar")
+    publish_pika(component.subtopic, foo="bar")
     assert results.consume()["data"] == "bar"
-    publish(component.subtopic, data={"foo": "bar"})
+    publish_pika(component.subtopic, data={"foo": "bar"})
     assert results.consume()["data"] == "bar"
-    publish(component.subtopic, data="foo")
+    publish_pika(component.subtopic, data="foo")
     error_result = errors.consume()
     assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
-    publish(component.subtopic, something_else="bar")
+    publish_pika(component.subtopic, something_else="bar")
     error_result = errors.consume()
     assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
-    publish(component.subtopic, foo="bar", something_else="something else")
+    publish_pika(component.subtopic, foo="bar", something_else="something else")
     assert results.consume()["data"] == "bar"
 
 
@@ -71,10 +71,10 @@ def test_dont_bind_data(component):
     """
     results = Queue(routing_key=component.pubtopic)
     errors = Queue(routing_key=component.error_queue_name)
-    publish(component.subtopic, data={"my_param": "bar"})
+    publish_pika(component.subtopic, data={"my_param": "bar"})
     assert results.consume()["data"] == "bar"
-    publish(component.subtopic, my_param="bar")
+    publish_pika(component.subtopic, my_param="bar")
     assert results.consume()["data"] == "bar"
-    publish(component.subtopic, something_else="bar")
+    publish_pika(component.subtopic, something_else="bar")
     error_result = errors.consume()
     assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]

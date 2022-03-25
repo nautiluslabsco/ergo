@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component, propagate_errors
+from test.integration.utils.amqp import ComponentFailure, amqp_component, KombuQueue, publish
 
 import pytest
 
@@ -10,20 +10,12 @@ test_product
 
 
 def product(x, y):
-    assert False
-    return float(x) * float(y)
-
-
-def product2(x, y):
     return float(x) * float(y)
 
 
 def test_product_amqp(propagate_amqp_errors):
-    c1 = amqp_component(product)
-    c2 = amqp_component(product2)
-    with c1, c2:
-        result = c1.rpc(x=4, y=5, inactivity_timeout=10)
-        assert result["data"] == 20.1
+    with amqp_component(product) as component:
+        assert component.rpc({"x": 4, "y": 5}).data == 20.0
 
 
 """

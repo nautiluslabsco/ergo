@@ -7,8 +7,11 @@ import pathlib
 import socket
 from functools import wraps
 from test.integration.utils import FunctionComponent, retries
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Iterable, cast
 import kombu
+import kombu.simple
+import kombu.pools
+from amqp import Channel
 
 import pika
 import pika.exceptions
@@ -65,14 +68,17 @@ class AMQPComponent(FunctionComponent):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **message):
-        self.send(**message)
+    def rpc(self, payload: dict, inactivity_timeout=LONG_TIMEOUT):
+        self.send(payload)
         return self.consume(inactivity_timeout=inactivity_timeout)
 
-    def send(self, **message):
-        publish(self.subtopic, **message, channel=self.channel)
+    def send(self, payload: dict):
+        # publish_pika(self.subtopic, **message, channel=self.channel)
+        publish(payload, self.subtopic)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
+        return self._subscription.get(timeout=inactivity_timeout)
+
         attempt = 0
         while True:
             value = consume(
@@ -100,8 +106,6 @@ class AMQPComponent(FunctionComponent):
         self.channel.queue_declare(self.error_queue_name)
         purge_queue(self.error_queue_name)
 
-        self.kchan = CONNECTION.channel()
-        self.error_queue = kombu.Queue()
 
     def setup_instance(self):
         self._subscription_queue = new_queue(self.pubtopic, channel=self.channel)
@@ -146,6 +150,8 @@ class AMQPComponent(FunctionComponent):
         if not _LIVE_INSTANCES[self.func]:
             self.teardown_component()
             self.setup_component()
+            self._subscription = KombuQueue(self.pubtopic)
+            self._subscription.__enter__()
         _LIVE_INSTANCES[self.func] += 1
         self.setup_instance()
         return self
@@ -155,6 +161,7 @@ class AMQPComponent(FunctionComponent):
         _LIVE_INSTANCES[self.func] -= 1
         if not _LIVE_INSTANCES[self.func]:
             self.teardown_component()
+            self._subscription.__exit__()
         super().__exit__(exc_type, exc_val, exc_tb)
 
 
@@ -184,7 +191,7 @@ class Queue:
             return json.loads(body)
 
 
-def publish(routing_key, channel=None, **message):
+def publish_pika(routing_key, channel=None, **message):
     channel = channel or new_channel()
     channel.confirm_delivery()
     for retry in retries(200, SHORT_TIMEOUT, pika.exceptions.UnroutableError):
@@ -241,17 +248,70 @@ class ComponentFailure(Exception):
     pass
 
 
+def publish(payload: dict, routing_key: str):
+    with kombu.pools.producers[CONNECTION].acquire() as producer:
+        producer = cast(kombu.Producer, producer)
+        producer.publish(json.dumps(payload), routing_key=str(PubTopic(routing_key)), exchange=EXCHANGE, serializer="raw")
+
+
+class PubSub:
+    def __init__(self, name: str, pubtopic: str, *subtopics: str):
+        self.name = name
+        self.pubtopic = pubtopic
+        self.subtopics = subtopics
+
+    def put(self, data: dict):
+        self._pub_queue.put(data)
+
+    def get(self, block=True, timeout=None):
+        self._sub_queue.get(block=block, timeout=timeout)
+
+    def __enter__(self):
+        self._pub_queue = KombuQueue(self.pubtopic)
+        self._pub_queue.__enter__()
+        self._sub_queue = KombuQueue(*self.subtopics)
+        self._sub_queue.__enter__()
+
+    def __exit__(self, *exc_info):
+        self._pub_queue.__exit__()
+        self._sub_queue.__exit__()
+
+
+class KombuQueue:
+    def __init__(self, routing_key):
+        self.name = f"test_queue:{routing_key}"
+        self.routing_key = routing_key
+
+    def put(self, data: dict):
+        self._queue.put(json.dumps(data))
+
+    def get(self, block=True, timeout=None) -> Message:
+        amqp_message = self._queue.get(block=block, timeout=timeout)
+        return decodes(amqp_message.body)
+
+    def __enter__(self):
+        self._channel: Channel = CONNECTION.channel()
+        print(self.routing_key)
+        print(str(PubTopic(self.routing_key)))
+        queue = kombu.Queue(self.name, exchange=EXCHANGE, routing_key=str(PubTopic(self.routing_key)), auto_delete=True, no_ack=True)
+        self._queue = kombu.simple.SimpleQueue(self._channel, queue, serializer="raw")
+        return self
+
+    def __exit__(self, *exc_info):
+        self._channel.__exit__()
+
+
 class propagate_errors:
     def __init__(self):
         self._queue = kombu.Queue("test_error_queue", exchange=EXCHANGE, routing_key="#", auto_delete=True, no_ack=True)
 
     def __enter__(self):
-        self._channel = CONNECTION.channel()
+        self._channel: Channel = CONNECTION.channel()
         self._consumer = kombu.Consumer(self._channel, queues=[self._queue], callbacks=[self._handle_message])
         self._consumer.consume()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, *exc_info):
         self._consumer.close()
         self._channel.close()
 
@@ -260,3 +320,5 @@ class propagate_errors:
         ergo_msg = decodes(body)
         if ergo_msg.error:
             raise ComponentFailure(ergo_msg.traceback)
+
+

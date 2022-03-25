@@ -68,7 +68,7 @@ class HttpGatewayServer:
         try:
             amqp_message = aio_pika.Message(body=encodes(message).encode("utf-8"))
             routing_key = str(PubTopic(message.key))
-            await self._exchange.publish(amqp_message, routing_key)
+            await self._exchange.publish_pika(amqp_message, routing_key)
             async with self._rpc_return_ready[correlation_id]:
                 await self._rpc_return_ready[correlation_id].wait()
             yield self._rpc_return_values.pop(correlation_id)
