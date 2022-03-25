@@ -97,6 +97,7 @@ setup(
         'jsons',
         'quart',
         'kombu',
+        'jinja2>=3.0,<3.1',  # 3.1.0 removes jinja2.escape, which Quart implicitly requires as of 2022/03/25
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',  # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
