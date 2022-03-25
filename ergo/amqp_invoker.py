@@ -60,7 +60,7 @@ class AmqpInvoker(Invoker):
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
-        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
+        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=True)
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"

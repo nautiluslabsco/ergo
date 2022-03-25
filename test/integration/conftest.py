@@ -1,6 +1,7 @@
 import logging
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
-from test.integration.utils.amqp import propagate_errors
+from test.integration.utils.amqp import propagate_errors, EXCHANGE, CONNECTION
+import kombu
 
 import pytest
 import requests
@@ -18,6 +19,13 @@ def amqp_broker():
 def propagate_amqp_errors():
     with propagate_errors():
         yield
+
+
+# @pytest.fixture(scope="function", autouse=True)
+# def setup_broker():
+#     with CONNECTION.channel() as channel:
+#         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=channel)
+#         exchange.delete()
 
 
 @pytest.fixture()

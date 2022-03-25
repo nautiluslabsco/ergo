@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component, KombuQueue, publish, CONNECTION
+from test.integration.utils.amqp import ComponentFailure, amqp_component, propagate_errors
 
 import pytest
 
@@ -12,13 +12,6 @@ def teardown_module():
     while True:
         print("sleeping")
         time.sleep(1000)
-
-
-# @pytest.fixture(scope="function", autouse=True)
-# def manage_connection():
-#     CONNECTION.revive()
-#     yield
-#     CONNECTION.release()
 
 
 
@@ -116,10 +109,11 @@ def assert_false():
 
 
 @amqp_component(assert_false)
-def test_error_path(component):
-    with pytest.raises(ComponentFailure):
-        component.send()
-        component.propagate_error()
+def test_error_path():
+    component = amqp_component(assert_false)
+    with propagate_errors(), component:
+        with pytest.raises(ComponentFailure):
+            component.rpc(inactivity_timeout=None)
 
 
 """
