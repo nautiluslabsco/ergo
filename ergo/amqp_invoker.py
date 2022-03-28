@@ -71,8 +71,8 @@ class AmqpInvoker(Invoker):
         self._handler_lock = threading.Lock()
 
     def start(self) -> int:
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
-        signal.signal(signal.SIGINT, self._handle_sigterm)
+        signal.signal(signal.SIGTERM, self._shutdown)
+        signal.signal(signal.SIGINT, self._shutdown)
         with self._connection:
             conn = self._connection
             consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT)
@@ -137,9 +137,9 @@ class AmqpInvoker(Invoker):
         with producers[self._connection].acquire(block=True) as conn:
             yield conn
 
-    def _handle_sigterm(self, signum, *_):
+    def _shutdown(self, signum, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._connection.close()
-        signal.signal(signal.SIGTERM, 0)
+        signal.signal(signum, 0)
         signal.raise_signal(signum)
