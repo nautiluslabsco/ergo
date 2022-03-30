@@ -20,7 +20,7 @@ class Message:
 
 
 def decodes(s: str) -> Message:
-    return decode(**jsons.loads(s))
+    return decode(**json.loads(s))
 
 
 def decode(**kwargs) -> Message:

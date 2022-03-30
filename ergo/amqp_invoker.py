@@ -85,6 +85,8 @@ class AmqpInvoker(Invoker):
                 except socket.timeout:
                     conn.heartbeat_check()
                 except conn.recoverable_connection_errors:
+                    if self._terminating.is_set():
+                        continue
                     logger.warning("connection closed. reviving.")
                     conn = self._connection.clone()
                     conn.ensure_connection()
@@ -101,8 +103,8 @@ class AmqpInvoker(Invoker):
         # there may be up to PREFETCH_COUNT _handle_message threads alive at a time, but we want them to execute
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
-            ergo_message = decodes(body)
             try:
+                ergo_message = decodes(body)
                 self._handle_message_inner(ergo_message)
             finally:
                 ack()
