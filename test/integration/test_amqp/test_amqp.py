@@ -16,9 +16,9 @@ def product(x, y):
 
 
 def test_product_amqp(propagate_amqp_errors):
-    with amqp_component(product, subtopic="my_topic") as component:
+    with amqp_component(product) as component:
         component.send(x=4, y=5)
-        assert component.consume(inactivity_timeout=None)["data"] == 20.0
+        assert component.consume(inactivity_timeout=None).data == 20.0
 
 
 """
@@ -42,13 +42,13 @@ product_instance = Product()
 def test_product_class():
     with amqp_component(Product) as component:
         result = component.rpc(x=4)
-    assert result["data"] == 8.0
+    assert result.data == 8.0
 
 
 def test_product_instance():
     with amqp_component(product_instance) as component:
         result = component.rpc(x=4)
-    assert result["data"] == 8.0
+    assert result.data == 8.0
 
 
 """
@@ -67,7 +67,7 @@ def return_two_dicts():
 def test_return_two_dicts():
     with amqp_component(return_two_dicts) as component:
         result = component.rpc()
-    assert result["data"] == return_two_dicts()
+    assert result.data == return_two_dicts()
 
 
 """
@@ -83,8 +83,8 @@ def yield_two_dicts():
 def test_yield_two_dicts():
     with amqp_component(yield_two_dicts) as component:
         component.send()
-        assert component.consume()["data"] == return_dict()
-        assert component.consume()["data"] == return_dict()
+        assert component.consume().data == return_dict()
+        assert component.consume().data == return_dict()
 
 
 """
@@ -132,4 +132,4 @@ def test_make_six(propagate_amqp_errors):
 
     with make_six_component, forward_component, double_component:
         make_six_component.send()
-        assert double_component.consume()["data"] == 6
+        assert double_component.consume().data == 6

@@ -24,7 +24,7 @@ def capitalize(data: str):
 def test_shout():
     shout_component = amqp_component(shout)
     with shout_component, amqp_component(capitalize, subtopic="capitalize"):
-        result = shout_component.rpc(message="hey")["data"]
+        result = shout_component.rpc(message="hey").data
         assert result == "HEY!"
 
 
@@ -77,7 +77,7 @@ def test_reply_to_scope():
         publish({}, "test_reply_to_scope")
         results = sorted([results_queue.get().data for _ in range(3)])
         assert results == ["a", "b", "c"]
-        assert c_d.consume()["data"] == "d"
+        assert c_d.consume().data == "d"
         with pytest.raises(Exception):
             results_queue.get(timeout=SHORT_TIMEOUT)
 

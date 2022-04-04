@@ -78,9 +78,8 @@ class AMQPComponent(FunctionComponent):
     def send(self, **payload):
         publish(payload, self.subtopic)
 
-    def consume(self, inactivity_timeout=LONG_TIMEOUT):
-        from dataclasses import asdict
-        return asdict(self._subscription.get(timeout=inactivity_timeout))
+    def consume(self, inactivity_timeout=LONG_TIMEOUT) -> Message:
+        return self._subscription.get(timeout=inactivity_timeout)
 
     def __enter__(self):
         super().__enter__()

@@ -1,7 +1,6 @@
 import logging
 from test.integration.start_rabbitmq_broker import start_rabbitmq_broker
-from test.integration.utils.amqp import propagate_errors, EXCHANGE, CONNECTION
-import kombu
+from test.integration.utils.amqp import propagate_errors
 
 import pytest
 import requests
