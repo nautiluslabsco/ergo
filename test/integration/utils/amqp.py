@@ -114,6 +114,7 @@ class AMQPComponent(FunctionComponent):
         #         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=channel)
         #         exchange.delete()
 
+
         # self._component_queue = ComponentQueue(self.queue_name)
         # self._component_queue.__enter__()
         if not _LIVE_INSTANCES[self.func]:
@@ -126,6 +127,7 @@ class AMQPComponent(FunctionComponent):
                     except amqp.exceptions.NotFound:
                         import time
                         time.sleep(SHORT_TIMEOUT)
+
                 channel.queue_purge(self.queue_name)
 
             self._subscription = Queue(self.pubtopic, name=f"test_subscription:{self.pubtopic}")
@@ -140,6 +142,9 @@ class AMQPComponent(FunctionComponent):
         self.instances.pop()
         _LIVE_INSTANCES[self.func] -= 1
         if not _LIVE_INSTANCES[self.func]:
+            # with CONNECTION.channel() as channel:
+            #     channel.queue_delete(self.queue_name)
+            #     channel.queue_delete(self.error_queue_name)
             # self._component_queue.__exit__()
             self._subscription.__exit__()
 

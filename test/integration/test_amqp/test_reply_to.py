@@ -21,12 +21,11 @@ def capitalize(data: str):
     return {"capitalized": data.upper()}
 
 
-@amqp_component(shout)
-@amqp_component(capitalize, subtopic="capitalize")
-def test_shout(components):
-    shout_component = components[0]
-    result = shout_component.rpc(message="hey")["data"]
-    assert result == "HEY!"
+def test_shout():
+    shout_component = amqp_component(shout)
+    with shout_component, amqp_component(capitalize, subtopic="capitalize"):
+        result = shout_component.rpc(message="hey")["data"]
+        assert result == "HEY!"
 
 
 """
@@ -75,8 +74,7 @@ def test_reply_to_scope():
     c_c = amqp_component(c, subtopic="c")
     c_d = amqp_component(d, subtopic="d")
     with results_queue, c_orchestrator, c_a, c_b, c_c, c_d:
-        # publish({}, "test_reply_to_scope")
-        c_orchestrator.send()
+        publish({}, "test_reply_to_scope")
         results = sorted([results_queue.get().data for _ in range(3)])
         assert results == ["a", "b", "c"]
         assert c_d.consume()["data"] == "d"
