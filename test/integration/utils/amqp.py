@@ -1,24 +1,18 @@
 from __future__ import annotations
 
-import amqp.exceptions
 import contextlib
-import inspect
 import json
 import pathlib
-import socket
-from functools import wraps
-from test.integration.utils import FunctionComponent, retries
-from typing import Callable, Dict, List, Optional, Iterable, cast
-import kombu
-import kombu.simple
-import kombu.pools
-from amqp import Channel
+import time
 from functools import lru_cache
+from test.integration.utils import FunctionComponent
+from typing import Callable, Dict, List, Optional
 
-import pika
-import pika.exceptions
-import pytest
-from pika.adapters.blocking_connection import BlockingChannel
+import amqp.exceptions
+import kombu
+import kombu.pools
+import kombu.simple
+from amqp import Channel
 
 from ergo.topic import SubTopic
 
@@ -27,19 +21,14 @@ try:
 except ImportError:
     from typing import Generator
 
-from collections import defaultdict
-
-from ergo.topic import PubTopic
 from ergo.message import Message, decodes
-
+from ergo.topic import PubTopic
 
 AMQP_HOST = "amqp://guest:guest@localhost:5672/%2F"
 CONNECTION = kombu.Connection(AMQP_HOST)
 EXCHANGE = "amq.topic"  # use a pre-declared exchange that we kind bind to while the ergo runtime is booting
-# EXCHANGE = "my_exchange"
 SHORT_TIMEOUT = 0.01
 LONG_TIMEOUT = 5
-_LIVE_INSTANCES: Dict = defaultdict(int)
 
 
 class AMQPComponent(FunctionComponent):
@@ -87,30 +76,8 @@ class AMQPComponent(FunctionComponent):
         super().__enter__()
 
         self.instances.append(self)
-        # if not sum(_LIVE_INSTANCES.values()):
-        #     with CONNECTION.channel() as channel:
-        #         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=channel)
-        #         exchange.delete()
-
-
-        # self._component_queue = ComponentQueue(self.queue_name)
-        # self._component_queue.__enter__()
-        if not _LIVE_INSTANCES[self.func]:
-            # with CONNECTION.channel() as channel:
-            #     channel = cast(Channel, channel)
-            #     while True:
-            #         try:
-            #             self._component_queue.queue_declare(channel=channel, passive=True)
-            #             break
-            #         except amqp.exceptions.NotFound:
-            #             import time
-            #             time.sleep(SHORT_TIMEOUT)
-            #
-            #     channel.queue_purge(self.queue_name)
-
-            self._subscription = Queue(self.pubtopic, name=f"test:subscription:{self.pubtopic}")
-            self._subscription.__enter__()
-        _LIVE_INSTANCES[self.func] += 1
+        self._subscription = Queue(self.pubtopic, name=f"test:subscription:{self.pubtopic}")
+        self._subscription.__enter__()
 
         return self
 
@@ -118,34 +85,21 @@ class AMQPComponent(FunctionComponent):
         super().__exit__(exc_type, exc_val, exc_tb)
 
         self.instances.pop()
-        _LIVE_INSTANCES[self.func] -= 1
         with CONNECTION.channel() as channel:
             channel.queue_delete(self.queue_name)
             channel.queue_delete(self.error_queue_name)
-
-        if not _LIVE_INSTANCES[self.func]:
-            # with CONNECTION.channel() as channel:
-                # channel.queue_delete(self.queue_name)
-                # channel.queue_delete(self.error_queue_name)
-            # self._component_queue.__exit__()
-            self._subscription.__exit__()
-
-
-amqp_component = AMQPComponent
+        self._subscription.__exit__()
 
 
 def publish(payload: dict, routing_key: str):
     with CONNECTION.channel() as channel:
-        _sync_amqp_instances(channel)
+        _await_components(channel)
         with kombu.Producer(channel, serializer="raw") as producer:
             producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)))
 
 
 @lru_cache()
-def _sync_amqp_instances(channel: Channel):
-    # for instance in AMQPComponent.instances:
-        # instance._synchronize(channel)
-
+def _await_components(channel: Channel):
     queue_names = {instance.queue_name for instance in AMQPComponent.instances}
     for queue_name in queue_names:
         _await_queue(channel, queue_name)
@@ -157,7 +111,6 @@ def _await_queue(channel: Channel, queue_name):
             channel.queue_declare(queue_name, passive=True)
             break
         except amqp.exceptions.NotFound:
-            import time
             time.sleep(SHORT_TIMEOUT)
 
     channel.queue_purge(queue_name)
@@ -182,12 +135,6 @@ class Queue:
         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
         self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
         self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
-        # self._consumer = kombu.Consumer(self._channel, [self._spec], no_ack=True)
-        # if self._kombu_opts.get("durable"):
-        #     while True:
-        #         _, _, consumers = self._channel.queue_declare(self.name, passive=True)
-        #         if consumers:
-        #             break
         return self
 
     def __exit__(self, *exc_info):

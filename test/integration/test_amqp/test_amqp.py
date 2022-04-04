@@ -1,10 +1,8 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component
+from test.integration.utils.amqp import AMQPComponent, ComponentFailure
 
 import pytest
 
 from ergo.context import Context
-
-
 
 """
 test_product
@@ -16,7 +14,7 @@ def product(x, y):
 
 
 def test_product_amqp():
-    with amqp_component(product) as component:
+    with AMQPComponent(product) as component:
         component.send({"x": 4, "y": 5})
         assert component.consume(timeout=None).data == 20.0
 
@@ -40,13 +38,13 @@ product_instance = Product()
 
 
 def test_product_class():
-    with amqp_component(Product) as component:
+    with AMQPComponent(Product) as component:
         result = component.rpc({"x": 4})
     assert result.data == 8.0
 
 
 def test_product_instance():
-    with amqp_component(product_instance) as component:
+    with AMQPComponent(product_instance) as component:
         result = component.rpc({"x": 4})
     assert result.data == 8.0
 
@@ -65,7 +63,7 @@ def return_two_dicts():
 
 
 def test_return_two_dicts():
-    with amqp_component(return_two_dicts) as component:
+    with AMQPComponent(return_two_dicts) as component:
         result = component.rpc({})
     assert result.data == return_two_dicts()
 
@@ -81,7 +79,7 @@ def yield_two_dicts():
 
 
 def test_yield_two_dicts():
-    with amqp_component(yield_two_dicts) as component:
+    with AMQPComponent(yield_two_dicts) as component:
         component.send({})
         assert component.consume().data == return_dict()
         assert component.consume().data == return_dict()
@@ -97,7 +95,7 @@ def assert_false():
 
 
 def test_error_path(propagate_amqp_errors):
-    component = amqp_component(assert_false)
+    component = AMQPComponent(assert_false)
     with component:
         with pytest.raises(ComponentFailure):
             component.rpc({})
@@ -116,7 +114,7 @@ def make_six(context: Context):
     return {"recipient": "double_in", "x": 3}
 
 
-def forward(context, data):
+def forward(context: Context, data):
     context.pubtopic = data.pop("recipient")
     return data
 
@@ -126,9 +124,9 @@ def double(x: float):
 
 
 def test_make_six():
-    make_six_component = amqp_component(make_six, subtopic="make_six")
-    forward_component = amqp_component(forward, subtopic="forward")
-    double_component = amqp_component(double, subtopic="double_in", pubtopic="double_out")
+    make_six_component = AMQPComponent(make_six, subtopic="make_six")
+    forward_component = AMQPComponent(forward, subtopic="forward")
+    double_component = AMQPComponent(double, subtopic="double_in", pubtopic="double_out")
 
     with make_six_component, forward_component, double_component:
         make_six_component.send({})

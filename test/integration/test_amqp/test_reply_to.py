@@ -1,7 +1,7 @@
-import pytest
-
-from test.integration.utils.amqp import amqp_component, Queue, publish, SHORT_TIMEOUT
+from test.integration.utils.amqp import SHORT_TIMEOUT, AMQPComponent, Queue, publish
 from typing import List, Optional
+
+import pytest
 
 from ergo.context import Context
 
@@ -22,8 +22,8 @@ def capitalize(data: str):
 
 
 def test_shout():
-    shout_component = amqp_component(shout)
-    with shout_component, amqp_component(capitalize, subtopic="capitalize"):
+    shout_component = AMQPComponent(shout)
+    with shout_component, AMQPComponent(capitalize, subtopic="capitalize"):
         result = shout_component.rpc({"message": "hey"}).data
         assert result == "HEY!"
 
@@ -68,11 +68,11 @@ def d(context: Context):
 
 def test_reply_to_scope():
     results_queue = Queue("my_results")
-    c_orchestrator = amqp_component(orchestrator, subtopic="test_reply_to_scope")
-    c_a = amqp_component(a, subtopic="a")
-    c_b = amqp_component(b, subtopic="b")
-    c_c = amqp_component(c, subtopic="c")
-    c_d = amqp_component(d, subtopic="d")
+    c_orchestrator = AMQPComponent(orchestrator, subtopic="test_reply_to_scope")
+    c_a = AMQPComponent(a, subtopic="a")
+    c_b = AMQPComponent(b, subtopic="b")
+    c_c = AMQPComponent(c, subtopic="c")
+    c_d = AMQPComponent(d, subtopic="d")
     with results_queue, c_orchestrator, c_a, c_b, c_c, c_d:
         publish({}, "test_reply_to_scope")
         results = sorted([results_queue.consume().data for _ in range(3)])
@@ -105,9 +105,9 @@ def fibonacci_filter(i=None):
 
 
 def test_fibonacci():
-    orchestrator_component = amqp_component(fibonacci_orchestrator, subtopic="start", pubtopic="iterate")
-    iterator_component = amqp_component(fibonacci_iterator, subtopic="iterate", pubtopic="iterate")
-    filter_component = amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
+    orchestrator_component = AMQPComponent(fibonacci_orchestrator, subtopic="start", pubtopic="iterate")
+    iterator_component = AMQPComponent(fibonacci_iterator, subtopic="iterate", pubtopic="iterate")
+    filter_component = AMQPComponent(fibonacci_filter, subtopic="filter", pubtopic="next")
     results_queue = Queue("next")
     with orchestrator_component, iterator_component, filter_component, results_queue:
         publish({}, "start")
@@ -153,10 +153,10 @@ node_d = Node('d')
 def test_traverse_tree():
     queue = Queue("tree.path")
     with (
-        amqp_component(node_a, subtopic='tree.traverse', pubtopic='tree.path'),
-        amqp_component(node_b, subtopic='b'),
-        amqp_component(node_c, subtopic='c'),
-        amqp_component(node_d, subtopic='d'),
+        AMQPComponent(node_a, subtopic='tree.traverse', pubtopic='tree.path'),
+        AMQPComponent(node_b, subtopic='b'),
+        AMQPComponent(node_c, subtopic='c'),
+        AMQPComponent(node_d, subtopic='d'),
         queue,
     ):
         publish({}, "tree.traverse")

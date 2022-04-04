@@ -11,6 +11,3 @@ class HttpGateway(Component):
             "host": AMQP_HOST,
             "exchange": EXCHANGE,
         }
-
-
-http_gateway = HttpGateway

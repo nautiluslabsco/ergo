@@ -1,8 +1,8 @@
-from test.integration.utils.amqp import amqp_component
+from test.integration.utils.amqp import AMQPComponent
+from typing import Optional
 
 from ergo.context import Context
 from ergo.scope import Scope
-from typing import Optional
 
 """
 test_simple_scope
@@ -16,7 +16,7 @@ def simple_scope(context: Context):
 
 
 def test_simple_scope():
-    with amqp_component(simple_scope) as component:
+    with AMQPComponent(simple_scope) as component:
         component.send({})
         scopes = [component.consume().scope for _ in range(2)]
         initial_scope, new_scope = sorted(scopes, key=scope_depth)
@@ -41,8 +41,8 @@ def downstream_scope(context: Context):
 
 
 def test_downstream_scope():
-    downstream_component = amqp_component(downstream_scope, subtopic="upstream_scope_pub")
-    upstream_component = amqp_component(upstream_scope, pubtopic="upstream_scope_pub")
+    downstream_component = AMQPComponent(downstream_scope, subtopic="upstream_scope_pub")
+    upstream_component = AMQPComponent(upstream_scope, pubtopic="upstream_scope_pub")
     with downstream_component, upstream_component:
         upstream_component.send({})
         upstream_stacks = [upstream_component.consume().scope for _ in range(2)]
@@ -72,7 +72,7 @@ def nested_scope(context: Context):
 
 
 def test_nested_scope():
-    with amqp_component(nested_scope) as component:
+    with AMQPComponent(nested_scope) as component:
         component.send({})
         stacks = [component.consume().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
@@ -94,7 +94,7 @@ def closing_scope(context: Context):
 
 
 def test_closing_scope():
-    with amqp_component(closing_scope) as component:
+    with AMQPComponent(closing_scope) as component:
         component.send({})
         stacks = [component.consume().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
@@ -132,9 +132,9 @@ def retrieve_inner_scope_data(context: Context):
 
 
 def test_store_and_retrieve_scope_data():
-    store_component = amqp_component(store_data)
-    retrieve_outer_scope_data_component = amqp_component(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
-    retrieve_inner_scope_data_component = amqp_component(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
+    store_component = AMQPComponent(store_data)
+    retrieve_outer_scope_data_component = AMQPComponent(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
+    retrieve_inner_scope_data_component = AMQPComponent(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
     with store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component:
         store_component.send({})
         assert retrieve_outer_scope_data_component.consume().data == "outer scope data"
