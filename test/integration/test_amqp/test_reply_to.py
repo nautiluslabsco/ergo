@@ -1,6 +1,6 @@
 import pytest
 
-from test.integration.utils.amqp import amqp_component, Queue
+from test.integration.utils.amqp import amqp_component, Queue, publish
 from typing import List, Optional
 
 from ergo.context import Context
@@ -67,19 +67,19 @@ def d(context: Context):
     return "d"
 
 
-@amqp_component(orchestrator, subtopic="test_reply_to_scope")
-@amqp_component(a, subtopic="a")
-@amqp_component(b, subtopic="b")
-@amqp_component(c, subtopic="c")
-@amqp_component(d, subtopic="d")
-def test_reply_to_scope(components):
+def test_reply_to_scope():
     results_queue = Queue("my_results")
-    publish_pika("test_reply_to_scope")
-    results = sorted([results_queue.consume()["data"] for _ in range(3)])
-    assert results == ["a", "b", "c"]
-    *_, component_d = components
-    assert component_d.consume()["data"] == "d"
-    assert results_queue.consume(inactivity_timeout=0.1) is None
+    c_orchestrator = amqp_component(orchestrator, subtopic="test_reply_to_scope")
+    c_a = amqp_component(a, subtopic="a")
+    c_b = amqp_component(b, subtopic="b")
+    c_c = amqp_component(c, subtopic="c")
+    c_d = amqp_component(d, subtopic="d")
+    with c_orchestrator, c_a, c_b, c_c, c_d:
+        publish({}, "test_reply_to_scope")
+        results = sorted([results_queue.get()["data"] for _ in range(3)])
+        assert results == ["a", "b", "c"]
+        assert c_d.consume()["data"] == "d"
+        assert results_queue.get() is None
 
 
 """
@@ -110,7 +110,7 @@ def test_fibonacci():
     filter_component = amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
     results_queue = Queue("next")
     with orchestrator_component, iterator_component, filter_component, results_queue:
-        from test.integration.utils.amqp import publish
+        # orchestrator_component.send()
         publish({}, "start")
         results = [results_queue.get().data for _ in range(10)]
         assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]

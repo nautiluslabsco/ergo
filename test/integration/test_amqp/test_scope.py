@@ -129,11 +129,11 @@ def retrieve_inner_scope_data(context: Context):
     return data
 
 
-@amqp_component(store_data)
-@amqp_component(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
-@amqp_component(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
-def test_store_and_retrieve_scope_data(components):
-    store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component = components
-    store_component.send()
-    assert retrieve_outer_scope_data_component.consume()["data"] == "outer scope data"
-    assert retrieve_inner_scope_data_component.consume()["data"] == "inner scope data"
+def test_store_and_retrieve_scope_data():
+    store_component = amqp_component(store_data)
+    retrieve_outer_scope_data_component = amqp_component(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
+    retrieve_inner_scope_data_component = amqp_component(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
+    with store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component:
+        store_component.send()
+        assert retrieve_outer_scope_data_component.consume()["data"] == "outer scope data"
+        assert retrieve_inner_scope_data_component.consume()["data"] == "inner scope data"

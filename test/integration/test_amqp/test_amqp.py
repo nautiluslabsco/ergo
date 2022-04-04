@@ -1,17 +1,17 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component, propagate_errors
+from test.integration.utils.amqp import ComponentFailure, amqp_component, propagate_errors, publish
 
 import pytest
 
 from ergo.context import Context
 
 
-@pytest.fixture(scope="session")
-def teardown_module():
-    yield
-    import time
-    while True:
-        print("sleeping")
-        time.sleep(1000)
+# @pytest.fixture(scope="session")
+# def teardown_module():
+#     yield
+#     import time
+#     while True:
+#         print("sleeping")
+#         time.sleep(1000)
 
 
 
@@ -25,10 +25,10 @@ def product(x, y):
 
 
 def test_product_amqp(propagate_amqp_errors):
-    with amqp_component(product) as component:
+    with amqp_component(product, subtopic="my_topic") as component:
         # component.send({"x": 4, "y": 5})
         component.send(x=4, y=5)
-        return
+        # return
         assert component.consume(inactivity_timeout=None)["data"] == 20.0
         # assert component.rpc({"x": 4, "y": 5}).data == 20.0
 

@@ -57,7 +57,7 @@ class AMQPComponent(FunctionComponent):
         handler_module = pathlib.Path(self.handler_path).with_suffix("").name
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
-
+        self._component_queue = kombu.Queue(name=self.queue_name, exchange=EXCHANGE, routing_key=str(SubTopic(self.subtopic)))
 
     @property
     def namespace(self):
@@ -76,7 +76,11 @@ class AMQPComponent(FunctionComponent):
         return self.consume(inactivity_timeout=inactivity_timeout)
 
     def send(self, **payload):
-        publish(payload, self.subtopic)
+        with CONNECTION.channel() as channel:
+            with kombu.Producer(channel, serializer="raw") as producer:
+                # producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=self._component_queue.routing_key, declare=[self._component_queue])
+                producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=self._component_queue.routing_key)
+        # publish(payload, self.subtopic)
         # self._component_queue.put(payload)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
@@ -111,10 +115,18 @@ class AMQPComponent(FunctionComponent):
 
         with CONNECTION.channel() as channel:
             channel = cast(Channel, channel)
-            try:
-                channel.queue_purge(self.queue_name)
-            except amqp.exceptions.NotFound:
-                pass
+            while True:
+                try:
+                    self._component_queue.queue_declare(channel=channel, passive=True)
+                    break
+                except amqp.exceptions.NotFound:
+                    import time
+                    time.sleep(SHORT_TIMEOUT)
+            channel.queue_purge(self.queue_name)
+            # try:
+            #     channel.queue_purge(self.queue_name)
+            # except amqp.exceptions.NotFound:
+            #     pass
 
         self.instances.append(self)
         # if not sum(_LIVE_INSTANCES.values()):
