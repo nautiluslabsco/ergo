@@ -71,11 +71,11 @@ class AMQPComponent(FunctionComponent):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, inactivity_timeout=LONG_TIMEOUT, **payload):
-        self.send(**payload)
+    def rpc(self, payload: Dict, inactivity_timeout=LONG_TIMEOUT):
+        self.send(payload)
         return self.consume(inactivity_timeout=inactivity_timeout)
 
-    def send(self, **payload):
+    def send(self, payload: Dict):
         publish(payload, self.subtopic)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT) -> Message:
@@ -174,7 +174,7 @@ class ComponentQueue(Queue):
         super().__init__(routing_key, auto_delete=False, durable=True)
 
 
-class propagate_errors:
+class propagate_errors(contextlib.ContextDecorator):
     def __init__(self):
         self._queue = kombu.Queue("test:propagate_errors_queue", exchange=EXCHANGE, routing_key="#", auto_delete=True, no_ack=True)
 

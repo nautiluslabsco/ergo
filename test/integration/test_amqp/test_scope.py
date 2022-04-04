@@ -16,7 +16,7 @@ def simple_scope(context: Context):
 
 def test_simple_scope():
     with amqp_component(simple_scope) as component:
-        component.send()
+        component.send({})
         scopes = [component.consume().scope for _ in range(2)]
         initial_scope, new_scope = sorted(scopes, key=scope_depth)
         assert initial_scope.parent is None
@@ -43,7 +43,7 @@ def test_downstream_scope():
     downstream_component = amqp_component(downstream_scope, subtopic="upstream_scope_pub")
     upstream_component = amqp_component(upstream_scope, pubtopic="upstream_scope_pub")
     with downstream_component, upstream_component:
-        upstream_component.send()
+        upstream_component.send({})
         upstream_stacks = [upstream_component.consume().scope for _ in range(2)]
         upstream_stacks = sorted(upstream_stacks, key=scope_depth)
         downstream_stacks = [downstream_component.consume().scope for _ in range(2)]
@@ -72,7 +72,7 @@ def nested_scope(context: Context):
 
 def test_nested_scope():
     with amqp_component(nested_scope) as component:
-        component.send()
+        component.send({})
         stacks = [component.consume().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
         assert scope_depth(stacks[0]) == 2
@@ -94,7 +94,7 @@ def closing_scope(context: Context):
 
 def test_closing_scope():
     with amqp_component(closing_scope) as component:
-        component.send()
+        component.send({})
         stacks = [component.consume().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
         assert scope_depth(stacks[0]) == 1
@@ -135,6 +135,6 @@ def test_store_and_retrieve_scope_data():
     retrieve_outer_scope_data_component = amqp_component(retrieve_outer_scope_data, subtopic="retrieve_outer_scope_data_sub", pubtopic="retrieve_outer_scope_data_pub")
     retrieve_inner_scope_data_component = amqp_component(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
     with store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component:
-        store_component.send()
+        store_component.send({})
         assert retrieve_outer_scope_data_component.consume().data == "outer scope data"
         assert retrieve_inner_scope_data_component.consume().data == "inner scope data"
