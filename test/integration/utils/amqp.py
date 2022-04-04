@@ -71,15 +71,15 @@ class AMQPComponent(FunctionComponent):
             ns["pubtopic"] = self.pubtopic
         return ns
 
-    def rpc(self, payload: Dict, inactivity_timeout=LONG_TIMEOUT):
+    def rpc(self, payload: Dict, timeout=LONG_TIMEOUT):
         self.send(payload)
-        return self.consume(inactivity_timeout=inactivity_timeout)
+        return self.consume(timeout=timeout)
 
     def send(self, payload: Dict):
         publish(payload, self.subtopic)
 
-    def consume(self, inactivity_timeout=LONG_TIMEOUT) -> Message:
-        return self._subscription.consume(timeout=inactivity_timeout)
+    def consume(self, timeout=LONG_TIMEOUT) -> Message:
+        return self._subscription.consume(timeout=timeout)
 
     def __enter__(self):
         super().__enter__()

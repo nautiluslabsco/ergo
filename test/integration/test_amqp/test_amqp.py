@@ -18,7 +18,7 @@ def product(x, y):
 def test_product_amqp():
     with amqp_component(product) as component:
         component.send({"x": 4, "y": 5})
-        assert component.consume(inactivity_timeout=None).data == 20.0
+        assert component.consume(timeout=None).data == 20.0
 
 
 """
