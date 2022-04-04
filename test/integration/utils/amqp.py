@@ -76,12 +76,7 @@ class AMQPComponent(FunctionComponent):
         return self.consume(inactivity_timeout=inactivity_timeout)
 
     def send(self, **payload):
-        with CONNECTION.channel() as channel:
-            with kombu.Producer(channel, serializer="raw") as producer:
-                # producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=self._component_queue.routing_key, declare=[self._component_queue])
-                producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=self._component_queue.routing_key)
-        # publish(payload, self.subtopic)
-        # self._component_queue.put(payload)
+        publish(payload, self.subtopic)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT):
         from dataclasses import asdict
@@ -113,21 +108,6 @@ class AMQPComponent(FunctionComponent):
     def __enter__(self):
         super().__enter__()
 
-        with CONNECTION.channel() as channel:
-            channel = cast(Channel, channel)
-            while True:
-                try:
-                    self._component_queue.queue_declare(channel=channel, passive=True)
-                    break
-                except amqp.exceptions.NotFound:
-                    import time
-                    time.sleep(SHORT_TIMEOUT)
-            channel.queue_purge(self.queue_name)
-            # try:
-            #     channel.queue_purge(self.queue_name)
-            # except amqp.exceptions.NotFound:
-            #     pass
-
         self.instances.append(self)
         # if not sum(_LIVE_INSTANCES.values()):
         #     with CONNECTION.channel() as channel:
@@ -137,6 +117,17 @@ class AMQPComponent(FunctionComponent):
         # self._component_queue = ComponentQueue(self.queue_name)
         # self._component_queue.__enter__()
         if not _LIVE_INSTANCES[self.func]:
+            with CONNECTION.channel() as channel:
+                channel = cast(Channel, channel)
+                while True:
+                    try:
+                        self._component_queue.queue_declare(channel=channel, passive=True)
+                        break
+                    except amqp.exceptions.NotFound:
+                        import time
+                        time.sleep(SHORT_TIMEOUT)
+                channel.queue_purge(self.queue_name)
+
             self._subscription = Queue(self.pubtopic, name=f"test_subscription:{self.pubtopic}")
             self._subscription.__enter__()
         _LIVE_INSTANCES[self.func] += 1
@@ -172,16 +163,6 @@ class Queue:
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
 
-        self._channel: Channel = CONNECTION.channel()
-        exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
-        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(PubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
-        self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
-        if kombu_opts.get("durable"):
-            while True:
-                _, _, consumers = self._channel.queue_declare(self.name, passive=True)
-                if consumers:
-                    break
-
     def put(self, data: dict):
         self._queue.put(json.dumps(data), declare=[self._spec])
 
@@ -190,6 +171,15 @@ class Queue:
         return decodes(amqp_message.body)
 
     def __enter__(self):
+        self._channel: Channel = CONNECTION.channel()
+        exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
+        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
+        self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
+        # if self._kombu_opts.get("durable"):
+        #     while True:
+        #         _, _, consumers = self._channel.queue_declare(self.name, passive=True)
+        #         if consumers:
+        #             break
         return self
 
     def __exit__(self, *exc_info):

@@ -1,6 +1,6 @@
 import pytest
 
-from test.integration.utils.amqp import amqp_component, Queue, publish
+from test.integration.utils.amqp import amqp_component, Queue, publish, SHORT_TIMEOUT
 from typing import List, Optional
 
 from ergo.context import Context
@@ -74,12 +74,14 @@ def test_reply_to_scope():
     c_b = amqp_component(b, subtopic="b")
     c_c = amqp_component(c, subtopic="c")
     c_d = amqp_component(d, subtopic="d")
-    with c_orchestrator, c_a, c_b, c_c, c_d:
-        publish({}, "test_reply_to_scope")
-        results = sorted([results_queue.get()["data"] for _ in range(3)])
+    with results_queue, c_orchestrator, c_a, c_b, c_c, c_d:
+        # publish({}, "test_reply_to_scope")
+        c_orchestrator.send()
+        results = sorted([results_queue.get().data for _ in range(3)])
         assert results == ["a", "b", "c"]
         assert c_d.consume()["data"] == "d"
-        assert results_queue.get() is None
+        with pytest.raises(Exception):
+            results_queue.get(timeout=SHORT_TIMEOUT)
 
 
 """
@@ -110,7 +112,6 @@ def test_fibonacci():
     filter_component = amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
     results_queue = Queue("next")
     with orchestrator_component, iterator_component, filter_component, results_queue:
-        # orchestrator_component.send()
         publish({}, "start")
         results = [results_queue.get().data for _ in range(10)]
         assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
@@ -151,13 +152,25 @@ node_c = Node('c')
 node_d = Node('d')
 
 
-@amqp_component(node_a, subtopic='tree.traverse', pubtopic='tree.path')
-@amqp_component(node_b, subtopic='b')
-@amqp_component(node_c, subtopic='c')
-@amqp_component(node_d, subtopic='d')
-def test_traverse_tree(components):
+def test_traverse_tree():
     queue = Queue("tree.path")
-    publish_pika("tree.traverse")
-    results = [queue.consume()['data']['path'] for _ in range(2)]
-    results = sorted(results)
-    assert results == ['a.b.c', 'a.b.d']
+    with (
+        amqp_component(node_a, subtopic='tree.traverse', pubtopic='tree.path'),
+        amqp_component(node_b, subtopic='b'),
+        amqp_component(node_c, subtopic='c'),
+        amqp_component(node_d, subtopic='d'),
+        queue,
+    ):
+        publish({}, "tree.traverse")
+        results = [queue.get().data['path'] for _ in range(2)]
+        results = sorted(results)
+        assert results == ['a.b.c', 'a.b.d']
+
+
+# @pytest.fixture(scope="session", autouse=True)
+# def teardown_module():
+#     yield
+#     import time
+#     while True:
+#         print("sleeping")
+#         time.sleep(1000)
