@@ -1,3 +1,5 @@
+import pytest
+
 from test.integration.utils.amqp import Queue, amqp_component, publish
 
 from ergo.context import Context
@@ -26,13 +28,13 @@ def test_bind_data_to_my_param():
     results = Queue(routing_key=component.pubtopic)
     with component, results:
         publish({"foo": "bar"}, component.subtopic)
-        assert results.get().data == {"foo": "bar"}
+        assert results.consume().data == {"foo": "bar"}
         publish({"data": {"foo": "bar"}}, component.subtopic)
-        assert results.get().data == {"foo": "bar"}
+        assert results.consume().data == {"foo": "bar"}
         publish({"data": "foo"}, component.subtopic)
-        assert results.get().data == "foo"
+        assert results.consume().data == "foo"
         publish({"something_else": "bar"}, component.subtopic)
-        assert results.get().data == {"something_else": "bar"}
+        assert results.consume().data == {"something_else": "bar"}
 
 
 def test_bind_data_index_foo_to_my_param():
@@ -51,14 +53,14 @@ def test_bind_data_index_foo_to_my_param():
     errors = Queue(routing_key=component.error_queue_name)
     with component, results, errors:
         publish({"foo": "bar"}, component.subtopic)
-        assert results.get().data == "bar"
+        assert results.consume().data == "bar"
         publish({"data": {"foo": "bar"}}, component.subtopic)
-        assert results.get().data == "bar"
+        assert results.consume().data == "bar"
         publish({"data": "foo"}, component.subtopic)
-        error_result = errors.get()
+        error_result = errors.consume()
         assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]
         publish({"something_else": "bar"}, component.subtopic)
-        error_result = errors.get()
+        error_result = errors.consume()
         assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]
 
 
@@ -72,9 +74,9 @@ def test_dont_bind_data():
     errors = Queue(routing_key=component.error_queue_name)
     with component, results, errors:
         publish({"data": {"my_param": "bar"}}, component.subtopic)
-        assert results.get().data == "bar"
+        assert results.consume().data == "bar"
         publish({"my_param": "bar"}, component.subtopic)
-        assert results.get().data == "bar"
+        assert results.consume().data == "bar"
         publish({"something_else": "bar"}, component.subtopic)
-        error_result = errors.get()
+        error_result = errors.consume()
         assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]

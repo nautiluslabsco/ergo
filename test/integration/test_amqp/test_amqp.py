@@ -96,7 +96,7 @@ def assert_false():
     assert False
 
 
-def test_error_path():
+def test_error_path(propagate_amqp_errors):
     component = amqp_component(assert_false)
     with component:
         with pytest.raises(ComponentFailure):

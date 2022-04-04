@@ -79,7 +79,7 @@ class AMQPComponent(FunctionComponent):
         publish(payload, self.subtopic)
 
     def consume(self, inactivity_timeout=LONG_TIMEOUT) -> Message:
-        return self._subscription.get(timeout=inactivity_timeout)
+        return self._subscription.consume(timeout=inactivity_timeout)
 
     def __enter__(self):
         super().__enter__()
@@ -144,10 +144,7 @@ class Queue:
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
 
-    def put(self, data: dict):
-        self._queue.put(json.dumps(data), declare=[self._spec])
-
-    def get(self, block=True, timeout=None) -> Message:
+    def consume(self, block=True, timeout=None) -> Message:
         amqp_message = self._queue.get(block=block, timeout=timeout)
         return decodes(amqp_message.body)
 

@@ -75,11 +75,11 @@ def test_reply_to_scope():
     c_d = amqp_component(d, subtopic="d")
     with results_queue, c_orchestrator, c_a, c_b, c_c, c_d:
         publish({}, "test_reply_to_scope")
-        results = sorted([results_queue.get().data for _ in range(3)])
+        results = sorted([results_queue.consume().data for _ in range(3)])
         assert results == ["a", "b", "c"]
         assert c_d.consume().data == "d"
         with pytest.raises(Exception):
-            results_queue.get(timeout=SHORT_TIMEOUT)
+            results_queue.consume(timeout=SHORT_TIMEOUT)
 
 
 """
@@ -111,7 +111,7 @@ def test_fibonacci():
     results_queue = Queue("next")
     with orchestrator_component, iterator_component, filter_component, results_queue:
         publish({}, "start")
-        results = [results_queue.get().data for _ in range(10)]
+        results = [results_queue.consume().data for _ in range(10)]
         assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
@@ -160,7 +160,7 @@ def test_traverse_tree():
         queue,
     ):
         publish({}, "tree.traverse")
-        results = [queue.get().data['path'] for _ in range(2)]
+        results = [queue.consume().data['path'] for _ in range(2)]
         results = sorted(results)
         assert results == ['a.b.c', 'a.b.d']
 

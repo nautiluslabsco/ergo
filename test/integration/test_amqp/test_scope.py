@@ -2,6 +2,7 @@ from test.integration.utils.amqp import amqp_component
 
 from ergo.context import Context
 from ergo.scope import Scope
+from typing import Optional
 
 """
 test_simple_scope
@@ -101,7 +102,7 @@ def test_closing_scope():
         assert scope_depth(stacks[1]) == 2
 
 
-def scope_depth(scope: Scope) -> int:
+def scope_depth(scope: Optional[Scope]) -> int:
     if scope is None:
         return 0
     return 1 + scope_depth(scope.parent)
