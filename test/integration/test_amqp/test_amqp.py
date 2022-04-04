@@ -26,11 +26,8 @@ def product(x, y):
 
 def test_product_amqp(propagate_amqp_errors):
     with amqp_component(product, subtopic="my_topic") as component:
-        # component.send({"x": 4, "y": 5})
         component.send(x=4, y=5)
-        # return
         assert component.consume(inactivity_timeout=None)["data"] == 20.0
-        # assert component.rpc({"x": 4, "y": 5}).data == 20.0
 
 
 """
@@ -51,15 +48,15 @@ class Product:
 product_instance = Product()
 
 
-@amqp_component(Product)
-def test_product_class(component):
-    result = component.rpc(x=4)
+def test_product_class():
+    with amqp_component(Product) as component:
+        result = component.rpc(x=4)
     assert result["data"] == 8.0
 
 
-@amqp_component(product_instance)
-def test_product_instance(component):
-    result = component.rpc(x=4)
+def test_product_instance():
+    with amqp_component(product_instance) as component:
+        result = component.rpc(x=4)
     assert result["data"] == 8.0
 
 
@@ -76,9 +73,9 @@ def return_two_dicts():
     return [return_dict(), return_dict()]
 
 
-@amqp_component(return_two_dicts)
-def test_return_two_dicts(component):
-    result = component.rpc()
+def test_return_two_dicts():
+    with amqp_component(return_two_dicts) as component:
+        result = component.rpc()
     assert result["data"] == return_two_dicts()
 
 
@@ -108,7 +105,6 @@ def assert_false():
     assert False
 
 
-@amqp_component(assert_false)
 def test_error_path():
     component = amqp_component(assert_false)
     with propagate_errors(), component:
@@ -138,14 +134,11 @@ def double(x: float):
     return 2 * x
 
 
-@amqp_component(make_six, subtopic="make_six")
-@amqp_component(forward, subtopic="forward")
-@amqp_component(double, subtopic="double_in", pubtopic="double_out")
-def test_make_six(components):
-    make_six_component, forward_component, double_component = components
-    make_six_component.send()
-    result = double_component.consume()
-    if not result:
-        make_six_component.propagate_error(inactivity_timeout=0.1)
-        forward_component.propagate_error(inactivity_timeout=0.1)
-    assert result["data"] == 6
+def test_make_six(propagate_amqp_errors):
+    make_six_component = amqp_component(make_six, subtopic="make_six")
+    forward_component = amqp_component(forward, subtopic="forward")
+    double_component = amqp_component(double, subtopic="double_in", pubtopic="double_out")
+
+    with make_six_component, forward_component, double_component:
+        make_six_component.send()
+        assert double_component.consume()["data"] == 6
