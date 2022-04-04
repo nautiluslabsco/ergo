@@ -82,29 +82,6 @@ class AMQPComponent(FunctionComponent):
         from dataclasses import asdict
         return asdict(self._subscription.get(timeout=inactivity_timeout))
 
-    def __call__(self, test):
-        params = inspect.signature(test).parameters
-
-        if "component" in params:
-
-            @wraps(test)
-            @pytest.mark.parametrize("component", [self])
-            def test_with_component(*args, component=None, **kwargs):
-                with self:
-                    return test(*args, component=component, **kwargs)
-
-            return test_with_component
-        if "components" in params:
-
-            @wraps(test)
-            @pytest.mark.parametrize("components", [AMQPComponent.instances])
-            def test_with_component(*args, components=None, **kwargs):
-                with self:
-                    return test(*args, components=components, **kwargs)
-
-            return test_with_component
-        return test
-
     def __enter__(self):
         super().__enter__()
 
@@ -164,7 +141,7 @@ class ComponentFailure(Exception):
 
 class Queue:
     def __init__(self, routing_key, name: Optional[str] = None, **kombu_opts):
-        self.name = name or routing_key
+        self.name = name or f"test:{routing_key}"
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
 
@@ -180,6 +157,7 @@ class Queue:
         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
         self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
         self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
+        # self._consumer = kombu.Consumer(self._channel, [self._spec], no_ack=True)
         # if self._kombu_opts.get("durable"):
         #     while True:
         #         _, _, consumers = self._channel.queue_declare(self.name, passive=True)
@@ -199,7 +177,7 @@ class ComponentQueue(Queue):
 
 class propagate_errors:
     def __init__(self):
-        self._queue = kombu.Queue("test_error_queue", exchange=EXCHANGE, routing_key="#", auto_delete=True, no_ack=True)
+        self._queue = kombu.Queue("test:propagate_errors_queue", exchange=EXCHANGE, routing_key="#", auto_delete=True, no_ack=True)
 
     def __enter__(self):
         self._channel: Channel = CONNECTION.channel()

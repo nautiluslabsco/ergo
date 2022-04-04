@@ -18,10 +18,11 @@ def double(sesh, x: int):
 
 
 @http_gateway()
-@amqp_component(product, subtopic="product")
-def test_double(components, http_session):
-    pool = ThreadPool(10)
-    actual = pool.map(partial(double, http_session), range(20))
+def test_double(http_session):
+    component = amqp_component(product, subtopic="product")
+    with component:
+        pool = ThreadPool(10)
+        actual = pool.map(partial(double, http_session), range(20))
     expected = [
         {0: 0.0},
         {1: 2.0},
@@ -58,7 +59,7 @@ def bar():
 
 @http_gateway()
 @amqp_component(bar, subtopic="bar")
-def test_gateway_routing(components, http_session):
+def test_gateway_routing(http_session):
     response = http_session.get("http://localhost/foo/bar")
     assert response.json()["data"] == "bar"
 
@@ -77,6 +78,6 @@ def yield_twice():
 
 @http_gateway()
 @amqp_component(yield_twice, subtopic="yield_twice")
-def test_yield_twice(components, http_session):
+def test_yield_twice(http_session):
     response = http_session.get("http://localhost/yield_twice")
     assert response.json()["data"] == 1

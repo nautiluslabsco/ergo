@@ -21,13 +21,6 @@ def propagate_amqp_errors():
         yield
 
 
-# @pytest.fixture(scope="function", autouse=True)
-# def setup_broker():
-#     with CONNECTION.channel() as channel:
-#         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=channel)
-#         exchange.delete()
-
-
 @pytest.fixture()
 def http_session():
     # requests need to retry on ConnectionError while our HTTP server boots.

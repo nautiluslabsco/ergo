@@ -5,15 +5,6 @@ import pytest
 from ergo.context import Context
 
 
-# @pytest.fixture(scope="session")
-# def teardown_module():
-#     yield
-#     import time
-#     while True:
-#         print("sleeping")
-#         time.sleep(1000)
-
-
 
 """
 test_product
@@ -89,11 +80,11 @@ def yield_two_dicts():
     yield return_dict()
 
 
-@amqp_component(yield_two_dicts)
-def test_yield_two_dicts(component):
-    component.send()
-    assert component.consume()["data"] == return_dict()
-    assert component.consume()["data"] == return_dict()
+def test_yield_two_dicts():
+    with amqp_component(yield_two_dicts) as component:
+        component.send()
+        assert component.consume()["data"] == return_dict()
+        assert component.consume()["data"] == return_dict()
 
 
 """
