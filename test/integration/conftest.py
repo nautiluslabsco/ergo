@@ -14,7 +14,7 @@ def amqp_broker():
     start_rabbitmq_broker()
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def propagate_amqp_errors():
     with propagate_errors():
         yield

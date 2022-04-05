@@ -126,7 +126,7 @@ class Queue:
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
 
-    def consume(self, block=True, timeout=None) -> Message:
+    def consume(self, block=True, timeout=LONG_TIMEOUT) -> Message:
         amqp_message = self._queue.get(block=block, timeout=timeout)
         return decodes(amqp_message.body)
 
@@ -166,5 +166,3 @@ class propagate_errors(contextlib.ContextDecorator):
         ergo_msg = decodes(body)
         if ergo_msg.error:
             raise ComponentFailure(ergo_msg.traceback)
-
-

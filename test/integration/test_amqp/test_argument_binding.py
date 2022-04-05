@@ -1,4 +1,6 @@
-from test.integration.utils.amqp import AMQPComponent, Queue, publish
+import pytest
+
+from test.integration.utils.amqp import AMQPComponent, Queue, publish, ComponentFailure
 
 from ergo.context import Context
 
@@ -54,12 +56,21 @@ def test_bind_data_index_foo_to_my_param():
         assert results.consume().data == "bar"
         publish({"data": {"foo": "bar"}}, component.subtopic)
         assert results.consume().data == "bar"
-        publish({"data": "foo"}, component.subtopic)
-        error_result = errors.consume()
-        assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]
-        publish({"something_else": "bar"}, component.subtopic)
-        error_result = errors.consume()
-        assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"data": "foo"}, component.subtopic)
+                results.consume()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise
+
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"something_else": "bar"}, component.subtopic)
+                results.consume()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise
 
 
 def test_dont_bind_data():
@@ -75,6 +86,10 @@ def test_dont_bind_data():
         assert results.consume().data == "bar"
         publish({"my_param": "bar"}, component.subtopic)
         assert results.consume().data == "bar"
-        publish({"something_else": "bar"}, component.subtopic)
-        error_result = errors.consume()
-        assert "missing 1 required positional argument: 'my_param'" in error_result.error["message"]
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"something_else": "bar"}, component.subtopic)
+                results.consume()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise
