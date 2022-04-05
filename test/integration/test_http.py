@@ -1,5 +1,5 @@
 import inspect
-from test.integration.utils.http import HttpComponent
+from test.integration.utils.http import HTTPComponent
 
 import pytest
 
@@ -8,7 +8,7 @@ def product(x, y):
     return float(x) * float(y)
 
 
-@HttpComponent(product)
+@HTTPComponent(product)
 def test_product(http_session):
     """tests the example function from the ergo README"""
     resp = http_session.get("http://localhost?x=4&y=5")
@@ -17,7 +17,7 @@ def test_product(http_session):
     assert result["data"] == 20.0
 
 
-@HttpComponent(product)
+@HTTPComponent(product)
 def test_product__post_request(http_session):
     resp = http_session.post("http://localhost?x=4&y=5")
     assert resp.status_code == 200
@@ -64,7 +64,7 @@ def yield_two_dicts():
 def test_return_data(getter, http_session):
     """assert that ergo flask response data preserves the type and dimensionality of the component function's return
     value"""
-    with HttpComponent(getter):
+    with HTTPComponent(getter):
         resp = http_session.get("http://localhost")
         assert resp.ok
         response = resp.json()

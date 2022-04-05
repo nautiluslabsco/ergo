@@ -1,7 +1,7 @@
 from test.integration.utils import FunctionComponent
 
 
-class HttpComponent(FunctionComponent):
+class HTTPComponent(FunctionComponent):
     @property
     def namespace(self):
         return {

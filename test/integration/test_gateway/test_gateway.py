@@ -1,7 +1,7 @@
 from functools import partial
 from multiprocessing.pool import ThreadPool
 from test.integration.utils.amqp import AMQPComponent
-from test.integration.utils.gateway import HttpGateway
+from test.integration.utils.gateway import HTTPGateway
 
 """
 test_double
@@ -17,7 +17,7 @@ def double(sesh, x: int):
     return {x: resp.json()["data"]}
 
 
-@HttpGateway()
+@HTTPGateway()
 def test_double(http_session):
     component = AMQPComponent(product, subtopic="product")
     with component:
@@ -57,7 +57,7 @@ def bar():
     return "bar"
 
 
-@HttpGateway()
+@HTTPGateway()
 @AMQPComponent(bar, subtopic="bar")
 def test_gateway_routing(http_session):
     response = http_session.get("http://localhost/foo/bar")
@@ -76,7 +76,7 @@ def yield_twice():
     yield 2
 
 
-@HttpGateway()
+@HTTPGateway()
 @AMQPComponent(yield_twice, subtopic="yield_twice")
 def test_yield_twice(http_session):
     response = http_session.get("http://localhost/yield_twice")
