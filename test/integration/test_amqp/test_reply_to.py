@@ -152,13 +152,11 @@ node_d = Node('d')
 
 def test_traverse_tree():
     queue = Queue("tree.path")
-    with (
-        AMQPComponent(node_a, subtopic='tree.traverse', pubtopic='tree.path'),
-        AMQPComponent(node_b, subtopic='b'),
-        AMQPComponent(node_c, subtopic='c'),
-        AMQPComponent(node_d, subtopic='d'),
-        queue,
-    ):
+    with AMQPComponent(node_a, subtopic='tree.traverse', pubtopic='tree.path'), \
+            AMQPComponent(node_b, subtopic='b'), \
+            AMQPComponent(node_c, subtopic='c'), \
+            AMQPComponent(node_d, subtopic='d'), \
+            queue:
         publish({}, "tree.traverse")
         results = [queue.consume().data['path'] for _ in range(2)]
         results = sorted(results)
