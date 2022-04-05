@@ -163,12 +163,3 @@ def test_traverse_tree():
         results = [queue.consume().data['path'] for _ in range(2)]
         results = sorted(results)
         assert results == ['a.b.c', 'a.b.d']
-
-
-# @pytest.fixture(scope="session", autouse=True)
-# def teardown_module():
-#     yield
-#     import time
-#     while True:
-#         print("sleeping")
-#         time.sleep(1000)

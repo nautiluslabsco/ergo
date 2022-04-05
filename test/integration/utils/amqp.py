@@ -49,6 +49,7 @@ class AMQPComponent(FunctionComponent):
         self.subtopic = subtopic or f"{handler_module}_{self.handler_name}_sub"
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
         self._component_queue = kombu.Queue(name=self.queue_name, exchange=EXCHANGE, routing_key=str(SubTopic(self.subtopic)))
+        self._in_context: bool = False
 
     @property
     def namespace(self):
@@ -67,23 +68,27 @@ class AMQPComponent(FunctionComponent):
         return self.consume(timeout=timeout)
 
     def send(self, payload: Dict):
+        self._check_context()
         publish(payload, self.subtopic)
 
     def consume(self, timeout=LONG_TIMEOUT) -> Message:
+        self._check_context()
         return self._subscription.consume(timeout=timeout)
 
-    def __enter__(self):
-        super().__enter__()
+    def _check_context(self):
+        assert self._in_context, "This method must be called from inside a 'with {this object}' statement."
 
+    def __enter__(self):
+        self._in_context = True
+        super().__enter__()
         self.instances.append(self)
         self._subscription = Queue(self.pubtopic, name=f"test:subscription:{self.pubtopic}")
         self._subscription.__enter__()
-
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self._in_context = False
         super().__exit__(exc_type, exc_val, exc_tb)
-
         self.instances.pop()
         with CONNECTION.channel() as channel:
             channel.queue_delete(self.queue_name)
@@ -116,21 +121,20 @@ def _await_queue(channel: Channel, queue_name):
     channel.queue_purge(queue_name)
 
 
-class ComponentFailure(Exception):
-    pass
-
-
 class Queue:
     def __init__(self, routing_key, name: Optional[str] = None, **kombu_opts):
         self.name = name or f"test:{routing_key}"
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
+        self._in_context: bool = False
 
-    def consume(self, block=True, timeout=None) -> Message:
+    def consume(self, block=True, timeout=LONG_TIMEOUT) -> Message:
+        assert self._in_context, "This method must be called from inside a 'with {this object}' statement."
         amqp_message = self._queue.get(block=block, timeout=timeout)
         return decodes(amqp_message.body)
 
     def __enter__(self):
+        self._in_context = True
         self._channel: Channel = CONNECTION.channel()
         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
         self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
@@ -138,13 +142,9 @@ class Queue:
         return self
 
     def __exit__(self, *exc_info):
+        self._in_context = False
         self._channel.queue_delete(self.name)
         self._channel.__exit__()
-
-
-class ComponentQueue(Queue):
-    def __init__(self, routing_key):
-        super().__init__(routing_key, auto_delete=False, durable=True)
 
 
 class propagate_errors(contextlib.ContextDecorator):
@@ -168,3 +168,5 @@ class propagate_errors(contextlib.ContextDecorator):
             raise ComponentFailure(ergo_msg.traceback)
 
 
+class ComponentFailure(Exception):
+    pass
