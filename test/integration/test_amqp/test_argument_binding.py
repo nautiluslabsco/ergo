@@ -73,8 +73,8 @@ def test_bind_data_index_foo_to_my_param():
 
 def test_dont_bind_data():
     """
-    Configuration contains no argument mapping. ergo will assume that `my_param` is supposed be a key in `data`, and will
-     raise TypeError if it doesn't find it there.
+    Configuration contains no argument mapping for `my_param`. ergo will assume that `my_param` is supposed be a key
+     in `data`, and will raise TypeError if it doesn't find it there.
     """
     component = AMQPComponent(handler_with_mapped_params, args={"my_context": "context"})
     results = Queue(routing_key=component.pubtopic)

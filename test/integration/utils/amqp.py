@@ -76,7 +76,7 @@ class AMQPComponent(FunctionComponent):
         return self._subscription.consume(timeout=timeout)
 
     def _check_context(self):
-        assert self._in_context, "This method must be called from inside a 'with {this object}' statement."
+        assert self._in_context, "This method must be called from inside a 'with' block."
 
     def __enter__(self):
         self._in_context = True
@@ -113,10 +113,12 @@ def _await_components(channel: Channel):
 def _await_queue(channel: Channel, queue_name):
     while True:
         try:
-            channel.queue_declare(queue_name, passive=True)
-            break
+            _, _, consumers = channel.queue_declare(queue_name, passive=True)
+            if consumers:
+                break
         except amqp.exceptions.NotFound:
-            time.sleep(SHORT_TIMEOUT)
+            pass
+        time.sleep(SHORT_TIMEOUT)
 
     channel.queue_purge(queue_name)
 
@@ -129,7 +131,7 @@ class Queue:
         self._in_context: bool = False
 
     def consume(self, block=True, timeout=LONG_TIMEOUT) -> Message:
-        assert self._in_context, "This method must be called from inside a 'with {this object}' statement."
+        assert self._in_context, "This method must be called from inside a 'with' block."
         amqp_message = self._queue.get(block=block, timeout=timeout)
         return decodes(amqp_message.body)
 

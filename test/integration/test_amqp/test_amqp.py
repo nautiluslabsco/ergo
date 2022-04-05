@@ -124,9 +124,9 @@ def double(x: float):
 
 
 def test_make_six():
-    make_six_component = AMQPComponent(make_six, subtopic="make_six")
+    make_six_component = AMQPComponent(make_six)
     forward_component = AMQPComponent(forward, subtopic="forward")
-    double_component = AMQPComponent(double, subtopic="double_in", pubtopic="double_out")
+    double_component = AMQPComponent(double, subtopic="double_in")
 
     with make_six_component, forward_component, double_component:
         make_six_component.send({})
