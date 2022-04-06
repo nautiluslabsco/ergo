@@ -4,7 +4,6 @@ import contextlib
 import json
 import pathlib
 import time
-from functools import lru_cache
 from test.integration.utils import FunctionComponent
 from typing import Callable, Dict, List, Optional
 
@@ -50,6 +49,7 @@ class AMQPComponent(FunctionComponent):
         self.pubtopic = pubtopic or f"{handler_module}_{self.handler_name}_pub"
         self._component_queue = kombu.Queue(name=self.queue_name, exchange=EXCHANGE, routing_key=str(SubTopic(self.subtopic)))
         self._in_context: bool = False
+        self._running: bool = False
 
     @property
     def namespace(self):
@@ -71,6 +71,24 @@ class AMQPComponent(FunctionComponent):
         self._check_context()
         publish(payload, self.subtopic)
 
+    def _await_startup(self, channel: Channel):
+        self._check_context()
+        if not self._running:
+            self._await_startup_inner(channel)
+            self._running = True
+
+    def _await_startup_inner(self, channel: Channel):
+        while True:
+            try:
+                _, _, consumers = channel.queue_declare(self.queue_name, passive=True)
+                if consumers:
+                    break
+            except amqp.exceptions.NotFound:
+                pass
+            time.sleep(SHORT_TIMEOUT)
+
+        channel.queue_purge(self.queue_name)
+
     def _check_context(self):
         assert self._in_context, "This method must be called from inside a 'with' block."
 
@@ -84,6 +102,7 @@ class AMQPComponent(FunctionComponent):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._in_context = False
+        self._running = False
         super().__exit__(exc_type, exc_val, exc_tb)
         self.instances.pop()
         with CONNECTION.channel() as channel:
@@ -94,29 +113,20 @@ class AMQPComponent(FunctionComponent):
 
 def publish(payload: dict, routing_key: str):
     with CONNECTION.channel() as channel:
-        _await_components(channel)
+        await_components(channel)
         with kombu.Producer(channel, serializer="raw") as producer:
             producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)))
 
 
-@lru_cache()
-def _await_components(channel: Channel):
-    queue_names = {instance.queue_name for instance in AMQPComponent.instances}
-    for queue_name in queue_names:
-        _await_queue(channel, queue_name)
-
-
-def _await_queue(channel: Channel, queue_name):
-    while True:
-        try:
-            _, _, consumers = channel.queue_declare(queue_name, passive=True)
-            if consumers:
-                break
-        except amqp.exceptions.NotFound:
-            pass
-        time.sleep(SHORT_TIMEOUT)
-
-    channel.queue_purge(queue_name)
+def await_components(channel: Optional[Channel]=None):
+    own_channel = channel is None
+    channel = channel or CONNECTION.channel()
+    try:
+        for instance in AMQPComponent.instances:
+            instance._await_startup(channel)
+    finally:
+        if own_channel:
+            channel.close()
 
 
 class Queue:

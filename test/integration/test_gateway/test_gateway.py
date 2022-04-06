@@ -1,6 +1,6 @@
 from functools import partial
 from multiprocessing.pool import ThreadPool
-from test.integration.utils.amqp import AMQPComponent
+from test.integration.utils.amqp import AMQPComponent, await_components
 from test.integration.utils.gateway import HTTPGateway
 
 """
@@ -21,6 +21,7 @@ def double(sesh, x: int):
 def test_double(http_session):
     component = AMQPComponent(product, subtopic="product")
     with component:
+        await_components()
         pool = ThreadPool(10)
         actual = pool.map(partial(double, http_session), range(20))
     expected = [
@@ -60,6 +61,7 @@ def bar():
 @HTTPGateway()
 @AMQPComponent(bar, subtopic="bar")
 def test_gateway_routing(http_session):
+    await_components()
     response = http_session.get("http://localhost/foo/bar")
     assert response.json()["data"] == "bar"
 
@@ -79,5 +81,6 @@ def yield_twice():
 @HTTPGateway()
 @AMQPComponent(yield_twice, subtopic="yield_twice")
 def test_yield_twice(http_session):
+    await_components()
     response = http_session.get("http://localhost/yield_twice")
     assert response.json()["data"] == 1
