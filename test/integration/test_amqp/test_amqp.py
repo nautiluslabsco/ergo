@@ -16,7 +16,7 @@ def product(x, y):
 def test_product_amqp():
     with AMQPComponent(product) as component:
         component.send({"x": 4, "y": 5})
-        assert component.consume(timeout=None).data == 20.0
+        assert component.output.get().data == 20.0
 
 
 """
@@ -81,8 +81,8 @@ def yield_two_dicts():
 def test_yield_two_dicts():
     with AMQPComponent(yield_two_dicts) as component:
         component.send({})
-        assert component.consume().data == return_dict()
-        assert component.consume().data == return_dict()
+        assert component.output.get().data == return_dict()
+        assert component.output.get().data == return_dict()
 
 
 """
@@ -130,4 +130,4 @@ def test_make_six():
 
     with make_six_component, forward_component, double_component:
         make_six_component.send({})
-        assert double_component.consume().data == 6
+        assert double_component.output.get().data == 6

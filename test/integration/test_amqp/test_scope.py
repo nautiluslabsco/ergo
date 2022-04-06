@@ -18,7 +18,7 @@ def simple_scope(context: Context):
 def test_simple_scope():
     with AMQPComponent(simple_scope) as component:
         component.send({})
-        scopes = [component.consume().scope for _ in range(2)]
+        scopes = [component.output.get().scope for _ in range(2)]
         initial_scope, new_scope = sorted(scopes, key=scope_depth)
         assert initial_scope.parent is None
         assert new_scope.parent == initial_scope
@@ -45,9 +45,9 @@ def test_downstream_scope():
     upstream_component = AMQPComponent(upstream_scope, pubtopic="upstream_scope_pub")
     with downstream_component, upstream_component:
         upstream_component.send({})
-        upstream_stacks = [upstream_component.consume().scope for _ in range(2)]
+        upstream_stacks = [upstream_component.output.get().scope for _ in range(2)]
         upstream_stacks = sorted(upstream_stacks, key=scope_depth)
-        downstream_stacks = [downstream_component.consume().scope for _ in range(2)]
+        downstream_stacks = [downstream_component.output.get().scope for _ in range(2)]
         downstream_stacks = sorted(downstream_stacks, key=scope_depth)
 
     assert scope_depth(upstream_stacks[0]) == 2
@@ -74,7 +74,7 @@ def nested_scope(context: Context):
 def test_nested_scope():
     with AMQPComponent(nested_scope) as component:
         component.send({})
-        stacks = [component.consume().scope for _ in range(2)]
+        stacks = [component.output.get().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
         assert scope_depth(stacks[0]) == 2
         assert scope_depth(stacks[1]) == 3
@@ -96,7 +96,7 @@ def closing_scope(context: Context):
 def test_closing_scope():
     with AMQPComponent(closing_scope) as component:
         component.send({})
-        stacks = [component.consume().scope for _ in range(2)]
+        stacks = [component.output.get().scope for _ in range(2)]
         stacks = sorted(stacks, key=scope_depth)
         assert scope_depth(stacks[0]) == 1
         assert scope_depth(stacks[1]) == 2
@@ -137,5 +137,5 @@ def test_store_and_retrieve_scope_data():
     retrieve_inner_scope_data_component = AMQPComponent(retrieve_inner_scope_data, subtopic="retrieve_inner_scope_data_sub", pubtopic="retrieve_inner_scope_data_pub")
     with store_component, retrieve_outer_scope_data_component, retrieve_inner_scope_data_component:
         store_component.send({})
-        assert retrieve_outer_scope_data_component.consume().data == "outer scope data"
-        assert retrieve_inner_scope_data_component.consume().data == "inner scope data"
+        assert retrieve_outer_scope_data_component.output.get().data == "outer scope data"
+        assert retrieve_inner_scope_data_component.output.get().data == "inner scope data"

@@ -65,15 +65,11 @@ class AMQPComponent(FunctionComponent):
 
     def rpc(self, payload: Dict, timeout=LONG_TIMEOUT):
         self.send(payload)
-        return self.consume(timeout=timeout)
+        return self.output.get(timeout=timeout)
 
     def send(self, payload: Dict):
         self._check_context()
         publish(payload, self.subtopic)
-
-    def consume(self, timeout=LONG_TIMEOUT) -> Message:
-        self._check_context()
-        return self._subscription.consume(timeout=timeout)
 
     def _check_context(self):
         assert self._in_context, "This method must be called from inside a 'with' block."
@@ -82,8 +78,8 @@ class AMQPComponent(FunctionComponent):
         self._in_context = True
         super().__enter__()
         self.instances.append(self)
-        self._subscription = Queue(self.pubtopic, name=f"test:subscription:{self.pubtopic}")
-        self._subscription.__enter__()
+        self.output = Queue(self.pubtopic, name=f"test:subscription:{self.pubtopic}")
+        self.output.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -93,7 +89,7 @@ class AMQPComponent(FunctionComponent):
         with CONNECTION.channel() as channel:
             channel.queue_delete(self.queue_name)
             channel.queue_delete(self.error_queue_name)
-        self._subscription.__exit__()
+        self.output.__exit__()
 
 
 def publish(payload: dict, routing_key: str):
@@ -130,7 +126,7 @@ class Queue:
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
         self._in_context: bool = False
 
-    def consume(self, block=True, timeout=LONG_TIMEOUT) -> Message:
+    def get(self, block=True, timeout=LONG_TIMEOUT) -> Message:
         assert self._in_context, "This method must be called from inside a 'with' block."
         amqp_message = self._queue.get(block=block, timeout=timeout)
         return decodes(amqp_message.body)

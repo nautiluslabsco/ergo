@@ -28,13 +28,13 @@ def test_bind_data_to_my_param():
     results = Queue(routing_key=component.pubtopic)
     with component, results:
         publish({"foo": "bar"}, component.subtopic)
-        assert results.consume().data == {"foo": "bar"}
+        assert results.get().data == {"foo": "bar"}
         publish({"data": {"foo": "bar"}}, component.subtopic)
-        assert results.consume().data == {"foo": "bar"}
+        assert results.get().data == {"foo": "bar"}
         publish({"data": "foo"}, component.subtopic)
-        assert results.consume().data == "foo"
+        assert results.get().data == "foo"
         publish({"something_else": "bar"}, component.subtopic)
-        assert results.consume().data == {"something_else": "bar"}
+        assert results.get().data == {"something_else": "bar"}
 
 
 def test_bind_data_index_foo_to_my_param():
@@ -52,20 +52,20 @@ def test_bind_data_index_foo_to_my_param():
     results = Queue(routing_key=component.pubtopic)
     with component, results:
         publish({"foo": "bar"}, component.subtopic)
-        assert results.consume().data == "bar"
+        assert results.get().data == "bar"
         publish({"data": {"foo": "bar"}}, component.subtopic)
-        assert results.consume().data == "bar"
+        assert results.get().data == "bar"
         with pytest.raises(ComponentFailure):
             try:
                 publish({"data": "foo"}, component.subtopic)
-                results.consume()
+                results.get()
             except Exception as e:
                 assert "missing 1 required positional argument: 'my_param'" in str(e)
                 raise
         with pytest.raises(ComponentFailure):
             try:
                 publish({"something_else": "bar"}, component.subtopic)
-                results.consume()
+                results.get()
             except Exception as e:
                 assert "missing 1 required positional argument: 'my_param'" in str(e)
                 raise
@@ -80,13 +80,13 @@ def test_dont_bind_data():
     results = Queue(routing_key=component.pubtopic)
     with component, results:
         publish({"data": {"my_param": "bar"}}, component.subtopic)
-        assert results.consume().data == "bar"
+        assert results.get().data == "bar"
         publish({"my_param": "bar"}, component.subtopic)
-        assert results.consume().data == "bar"
+        assert results.get().data == "bar"
         with pytest.raises(ComponentFailure):
             try:
                 publish({"something_else": "bar"}, component.subtopic)
-                results.consume()
+                results.get()
             except Exception as e:
                 assert "missing 1 required positional argument: 'my_param'" in str(e)
                 raise
