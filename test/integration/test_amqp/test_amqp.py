@@ -1,4 +1,4 @@
-from test.integration.utils.amqp import ComponentFailure, amqp_component
+from test.integration.utils.amqp import AMQPComponent, ComponentFailure
 
 import pytest
 
@@ -13,10 +13,10 @@ def product(x, y):
     return float(x) * float(y)
 
 
-@amqp_component(product)
-def test_product_amqp(component):
-    result = component.rpc(x=4, y=5)
-    assert result["data"] == 20.0
+def test_product_amqp():
+    with AMQPComponent(product) as component:
+        component.send({"x": 4, "y": 5})
+        assert component.output.get().data == 20.0
 
 
 """
@@ -37,16 +37,16 @@ class Product:
 product_instance = Product()
 
 
-@amqp_component(Product)
-def test_product_class(component):
-    result = component.rpc(x=4)
-    assert result["data"] == 8.0
+def test_product_class():
+    with AMQPComponent(Product) as component:
+        result = component.rpc({"x": 4})
+    assert result.data == 8.0
 
 
-@amqp_component(product_instance)
-def test_product_instance(component):
-    result = component.rpc(x=4)
-    assert result["data"] == 8.0
+def test_product_instance():
+    with AMQPComponent(product_instance) as component:
+        result = component.rpc({"x": 4})
+    assert result.data == 8.0
 
 
 """
@@ -62,10 +62,10 @@ def return_two_dicts():
     return [return_dict(), return_dict()]
 
 
-@amqp_component(return_two_dicts)
-def test_return_two_dicts(component):
-    result = component.rpc()
-    assert result["data"] == return_two_dicts()
+def test_return_two_dicts():
+    with AMQPComponent(return_two_dicts) as component:
+        result = component.rpc({})
+    assert result.data == return_two_dicts()
 
 
 """
@@ -78,11 +78,11 @@ def yield_two_dicts():
     yield return_dict()
 
 
-@amqp_component(yield_two_dicts)
-def test_yield_two_dicts(component):
-    component.send()
-    assert component.consume()["data"] == return_dict()
-    assert component.consume()["data"] == return_dict()
+def test_yield_two_dicts():
+    with AMQPComponent(yield_two_dicts) as component:
+        component.send({})
+        assert component.output.get().data == return_dict()
+        assert component.output.get().data == return_dict()
 
 
 """
@@ -94,11 +94,11 @@ def assert_false():
     assert False
 
 
-@amqp_component(assert_false)
-def test_error_path(component):
-    with pytest.raises(ComponentFailure):
-        component.send()
-        component.propagate_error()
+def test_error_path():
+    component = AMQPComponent(assert_false)
+    with component:
+        with pytest.raises(ComponentFailure):
+            component.rpc({})
 
 
 """
@@ -114,7 +114,7 @@ def make_six(context: Context):
     return {"recipient": "double_in", "x": 3}
 
 
-def forward(context, data):
+def forward(context: Context, data):
     context.pubtopic = data.pop("recipient")
     return data
 
@@ -123,14 +123,11 @@ def double(x: float):
     return 2 * x
 
 
-@amqp_component(make_six, subtopic="make_six")
-@amqp_component(forward, subtopic="forward")
-@amqp_component(double, subtopic="double_in", pubtopic="double_out")
-def test_make_six(components):
-    make_six_component, forward_component, double_component = components
-    make_six_component.send()
-    result = double_component.consume()
-    if not result:
-        make_six_component.propagate_error(inactivity_timeout=0.1)
-        forward_component.propagate_error(inactivity_timeout=0.1)
-    assert result["data"] == 6
+def test_make_six():
+    make_six_component = AMQPComponent(make_six)
+    forward_component = AMQPComponent(forward, subtopic="forward")
+    double_component = AMQPComponent(double, subtopic="double_in")
+
+    with make_six_component, forward_component, double_component:
+        make_six_component.send({})
+        assert double_component.output.get().data == 6

@@ -2,7 +2,7 @@ from test.integration.utils import Component
 from test.integration.utils.amqp import AMQP_HOST, EXCHANGE
 
 
-class HttpGateway(Component):
+class HTTPGateway(Component):
     _ergo_command = "gateway"
 
     @property
@@ -11,6 +11,3 @@ class HttpGateway(Component):
             "host": AMQP_HOST,
             "exchange": EXCHANGE,
         }
-
-
-http_gateway = HttpGateway

@@ -7,6 +7,3 @@ class HTTPComponent(FunctionComponent):
         return {
             "protocol": "http",
         }
-
-
-http_component = HTTPComponent

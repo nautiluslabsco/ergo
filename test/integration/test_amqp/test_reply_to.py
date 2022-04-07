@@ -1,5 +1,7 @@
-from test.integration.utils.amqp import Queue, amqp_component, publish
+from test.integration.utils.amqp import SHORT_TIMEOUT, AMQPComponent, Queue, publish
 from typing import List, Optional
+
+import pytest
 
 from ergo.context import Context
 
@@ -19,12 +21,11 @@ def capitalize(data: str):
     return {"capitalized": data.upper()}
 
 
-@amqp_component(shout)
-@amqp_component(capitalize, subtopic="capitalize")
-def test_shout(components):
-    shout_component = components[0]
-    result = shout_component.rpc(message="hey")["data"]
-    assert result == "HEY!"
+def test_shout():
+    shout_component = AMQPComponent(shout)
+    with shout_component, AMQPComponent(capitalize, subtopic="capitalize"):
+        result = shout_component.rpc({"message": "hey"}).data
+        assert result == "HEY!"
 
 
 """
@@ -65,19 +66,20 @@ def d(context: Context):
     return "d"
 
 
-@amqp_component(orchestrator, subtopic="test_reply_to_scope")
-@amqp_component(a, subtopic="a")
-@amqp_component(b, subtopic="b")
-@amqp_component(c, subtopic="c")
-@amqp_component(d, subtopic="d")
-def test_reply_to_scope(components):
+def test_reply_to_scope():
     results_queue = Queue("my_results")
-    publish("test_reply_to_scope")
-    results = sorted([results_queue.consume()["data"] for _ in range(3)])
-    assert results == ["a", "b", "c"]
-    *_, component_d = components
-    assert component_d.consume()["data"] == "d"
-    assert results_queue.consume(inactivity_timeout=0.1) is None
+    c_orchestrator = AMQPComponent(orchestrator, subtopic="test_reply_to_scope")
+    c_a = AMQPComponent(a, subtopic="a")
+    c_b = AMQPComponent(b, subtopic="b")
+    c_c = AMQPComponent(c, subtopic="c")
+    c_d = AMQPComponent(d, subtopic="d")
+    with results_queue, c_orchestrator, c_a, c_b, c_c, c_d:
+        publish({}, "test_reply_to_scope")
+        results = sorted([results_queue.get().data for _ in range(3)])
+        assert results == ["a", "b", "c"]
+        assert c_d.output.get().data == "d"
+        with pytest.raises(Exception):
+            results_queue.get(timeout=SHORT_TIMEOUT)
 
 
 """
@@ -94,21 +96,23 @@ def fibonacci_orchestrator(context: Context):
 
 
 def fibonacci_iterator(i=0, j=1):
-    return {"i": j, "j": i + j}
+    if j < 100:
+        return {"i": j, "j": i + j}
 
 
-def fibonacci_filter(i):
+def fibonacci_filter(i=None):
     return i
 
 
-@amqp_component(fibonacci_orchestrator, subtopic="start", pubtopic="iterate")
-@amqp_component(fibonacci_iterator, subtopic="iterate", pubtopic="iterate")
-@amqp_component(fibonacci_filter, subtopic="filter", pubtopic="next")
-def test_fibonacci(components):
+def test_fibonacci():
+    orchestrator_component = AMQPComponent(fibonacci_orchestrator, subtopic="start", pubtopic="iterate")
+    iterator_component = AMQPComponent(fibonacci_iterator, subtopic="iterate", pubtopic="iterate")
+    filter_component = AMQPComponent(fibonacci_filter, subtopic="filter", pubtopic="next")
     results_queue = Queue("next")
-    publish("start")
-    results = [results_queue.consume()["data"] for _ in range(10)]
-    assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+    with orchestrator_component, iterator_component, filter_component, results_queue:
+        publish({}, "start")
+        results = [results_queue.get().data for _ in range(10)]
+        assert results == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
 """
@@ -146,13 +150,14 @@ node_c = Node('c')
 node_d = Node('d')
 
 
-@amqp_component(node_a, subtopic='tree.traverse', pubtopic='tree.path')
-@amqp_component(node_b, subtopic='b')
-@amqp_component(node_c, subtopic='c')
-@amqp_component(node_d, subtopic='d')
-def test_traverse_tree(components):
+def test_traverse_tree():
     queue = Queue("tree.path")
-    publish("tree.traverse")
-    results = [queue.consume()['data']['path'] for _ in range(2)]
-    results = sorted(results)
-    assert results == ['a.b.c', 'a.b.d']
+    with AMQPComponent(node_a, subtopic='tree.traverse', pubtopic='tree.path'), \
+            AMQPComponent(node_b, subtopic='b'), \
+            AMQPComponent(node_c, subtopic='c'), \
+            AMQPComponent(node_d, subtopic='d'), \
+            queue:
+        publish({}, "tree.traverse")
+        results = [queue.get().data['path'] for _ in range(2)]
+        results = sorted(results)
+        assert results == ['a.b.c', 'a.b.d']

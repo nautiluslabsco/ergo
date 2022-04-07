@@ -1,4 +1,6 @@
-from test.integration.utils.amqp import Queue, amqp_component, publish
+from test.integration.utils.amqp import AMQPComponent, ComponentFailure, Queue, publish
+
+import pytest
 
 from ergo.context import Context
 
@@ -12,8 +14,7 @@ def handler_with_mapped_params(my_context: Context, my_param):
     return my_param
 
 
-@amqp_component(handler_with_mapped_params, args={"my_param": "data", "my_context": "context"})
-def test_bind_data_to_my_param(component):
+def test_bind_data_to_my_param():
     """
     Component configuration contains
 
@@ -23,19 +24,20 @@ def test_bind_data_to_my_param(component):
 
     ergo should bind the full payload to `my_param`
     """
+    component = AMQPComponent(handler_with_mapped_params, args={"my_param": "data", "my_context": "context"})
     results = Queue(routing_key=component.pubtopic)
-    publish(component.subtopic, foo="bar")
-    assert results.consume()["data"] == {"foo": "bar"}
-    publish(component.subtopic, data={"foo": "bar"})
-    assert results.consume()["data"] == {"foo": "bar"}
-    publish(component.subtopic, data="foo")
-    assert results.consume()["data"] == "foo"
-    publish(component.subtopic, something_else="bar")
-    assert results.consume()["data"] == {"something_else": "bar"}
+    with component, results:
+        publish({"foo": "bar"}, component.subtopic)
+        assert results.get().data == {"foo": "bar"}
+        publish({"data": {"foo": "bar"}}, component.subtopic)
+        assert results.get().data == {"foo": "bar"}
+        publish({"data": "foo"}, component.subtopic)
+        assert results.get().data == "foo"
+        publish({"something_else": "bar"}, component.subtopic)
+        assert results.get().data == {"something_else": "bar"}
 
 
-@amqp_component(handler_with_mapped_params, args={"my_param": "data.foo", "my_context": "context"})
-def test_bind_data_index_foo_to_my_param(component):
+def test_bind_data_index_foo_to_my_param():
     """
     Component configuration contains
 
@@ -46,35 +48,45 @@ def test_bind_data_index_foo_to_my_param(component):
     ergo should search `message.data` for a "foo" key, and bind its value to `my_param`. If it doesn't find
     one, it should raise TypeError for a missing 'my_param' argument.
     """
-
+    component = AMQPComponent(handler_with_mapped_params, args={"my_param": "data.foo", "my_context": "context"})
     results = Queue(routing_key=component.pubtopic)
-    errors = Queue(routing_key=component.error_queue_name)
-    publish(component.subtopic, foo="bar")
-    assert results.consume()["data"] == "bar"
-    publish(component.subtopic, data={"foo": "bar"})
-    assert results.consume()["data"] == "bar"
-    publish(component.subtopic, data="foo")
-    error_result = errors.consume()
-    assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
-    publish(component.subtopic, something_else="bar")
-    error_result = errors.consume()
-    assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
-    publish(component.subtopic, foo="bar", something_else="something else")
-    assert results.consume()["data"] == "bar"
+    with component, results:
+        publish({"foo": "bar"}, component.subtopic)
+        assert results.get().data == "bar"
+        publish({"data": {"foo": "bar"}}, component.subtopic)
+        assert results.get().data == "bar"
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"data": "foo"}, component.subtopic)
+                results.get()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"something_else": "bar"}, component.subtopic)
+                results.get()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise
 
 
-@amqp_component(handler_with_mapped_params, args={"my_context": "context"})
-def test_dont_bind_data(component):
+def test_dont_bind_data():
     """
-    Configuration contains no argument mapping. ergo will assume that `my_param` is supposed be a key in `data`, and will
-     raise TypeError if it doesn't find it there.
+    Configuration contains no argument mapping for `my_param`. ergo will assume that `my_param` is supposed be a key
+     in `data`, and will raise TypeError if it doesn't find it there.
     """
+    component = AMQPComponent(handler_with_mapped_params, args={"my_context": "context"})
     results = Queue(routing_key=component.pubtopic)
-    errors = Queue(routing_key=component.error_queue_name)
-    publish(component.subtopic, data={"my_param": "bar"})
-    assert results.consume()["data"] == "bar"
-    publish(component.subtopic, my_param="bar")
-    assert results.consume()["data"] == "bar"
-    publish(component.subtopic, something_else="bar")
-    error_result = errors.consume()
-    assert "missing 1 required positional argument: 'my_param'" in error_result["error"]["message"]
+    with component, results:
+        publish({"data": {"my_param": "bar"}}, component.subtopic)
+        assert results.get().data == "bar"
+        publish({"my_param": "bar"}, component.subtopic)
+        assert results.get().data == "bar"
+        with pytest.raises(ComponentFailure):
+            try:
+                publish({"something_else": "bar"}, component.subtopic)
+                results.get()
+            except Exception as e:
+                assert "missing 1 required positional argument: 'my_param'" in str(e)
+                raise

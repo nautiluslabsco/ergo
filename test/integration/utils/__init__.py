@@ -14,22 +14,29 @@ from ergo.ergo_cli import ErgoCli
 
 class ComponentInstance:
     def __init__(self, ergo_command: str, *configs: Dict):
-        self.config_files = []
-        for config in configs:
-            config_file = tempfile.NamedTemporaryFile(mode="w")
-            config_file.write(yaml.dump(config))
-            config_file.seek(0)
-            self.config_files.append(config_file)
-        args = tuple(cf.name for cf in self.config_files)
-        self.process = multiprocessing.Process(target=getattr(ErgoCli(), ergo_command), args=args)
+        self.process = multiprocessing.Process(target=ergo_subprocess_target, args=(ergo_command, configs))
 
     def __enter__(self):
         self.process.start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        for config_file in self.config_files:
-            config_file.close()
         self.process.terminate()
+        self.process.join()
+
+
+def ergo_subprocess_target(ergo_command, configs):
+    config_files = []
+    for config in configs:
+        config_file = tempfile.NamedTemporaryFile(mode="w")
+        config_file.write(yaml.dump(config))
+        config_file.seek(0)
+        config_files.append(config_file)
+    args = tuple(cf.name for cf in config_files)
+    try:
+        getattr(ErgoCli(), ergo_command)(*args)
+    finally:
+        for config_file in config_files:
+            config_file.close()
 
 
 def retries(n: int, backoff_seconds: float, *retry_errors: Type[Exception]):
