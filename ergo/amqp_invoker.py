@@ -51,7 +51,7 @@ class AmqpInvoker(Invoker):
 
         self.url = set_param(host, 'heartbeat', str(heartbeat)) if heartbeat else host
         self.exchange_name = self._invocable.config.exchange
-        self.queue_name = self._invocable.config.func
+        self.queue_name = self._invocable.config.func.replace("/", ":")
 
     def start(self) -> int:
         """
@@ -106,7 +106,7 @@ class AmqpInvoker(Invoker):
                     data_in.set('traceback', str(err))
                     data_in.unset('context')
                     message = aio_pika.Message(body=str(data_in).encode())
-                    routing_key = f'{self.queue_name}_error'
+                    routing_key = f'{self.queue_name}:error'
                     await self.publish(channel_pool, message, routing_key)
 
         return connection
@@ -128,10 +128,10 @@ class AmqpInvoker(Invoker):
             # This simply refreshes the handle
             exchange = await channel.get_exchange(name=self.exchange_name, ensure=False)
             queue = await channel.declare_queue(name=self.queue_name)
-            queue_error = await channel.declare_queue(name=f'{self.queue_name}_error')
+            queue_error = await channel.declare_queue(name=f'{self.queue_name}:error')
 
             await queue.bind(exchange=exchange, routing_key=str(self._invocable.config.subtopic))
-            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}_error')
+            await queue_error.bind(exchange=exchange, routing_key=f'{self.queue_name}:error')
 
             async with queue.iterator() as iter:
                 async for message in iter:
