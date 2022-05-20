@@ -40,9 +40,9 @@ class Context:
     def exit_scope(self):
         self._scope = self._scope.parent
 
-    def retrieve(self, key: str) -> Any:
+    def retrieve(self, key: str) -> Optional[Any]:
         if self._scope:
-            return self._scope.data[key]
+            return self._scope.data.get(key)
 
     def store(self, key: str, value: Any):
         if self._scope:
