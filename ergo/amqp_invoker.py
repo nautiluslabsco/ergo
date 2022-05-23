@@ -60,7 +60,7 @@ class AmqpInvoker(Invoker):
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
-        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=True)
+        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
@@ -104,10 +104,10 @@ class AmqpInvoker(Invoker):
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
             try:
+                ack()
                 ergo_message = decodes(body)
                 self._handle_message_inner(ergo_message)
             finally:
-                ack()
                 self._pending_invocations.release()
 
     def _handle_message_inner(self, message_in: Message):
