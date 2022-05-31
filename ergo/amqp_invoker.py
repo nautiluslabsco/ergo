@@ -55,12 +55,12 @@ class AmqpInvoker(Invoker):
 
         heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
         self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
-        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=True, auto_delete=False)
+        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=False, auto_delete=False)
 
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
-        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=True)
+        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
