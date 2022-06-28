@@ -19,8 +19,6 @@ from ergo.message import Message, decodes, encodes
 from ergo.topic import PubTopic, SubTopic
 from ergo.util import extract_from_stack, instance_id
 
-import sys
-
 logger = logging.getLogger(__name__)
 
 PREFETCH_COUNT = 1
@@ -63,6 +61,8 @@ class AmqpInvoker(Invoker):
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
         self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False, channel=self._connection.channel())
+        print('bindings', dir(self._component_queue))
+        print('bindings', self._component_queue.as_dict)
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
