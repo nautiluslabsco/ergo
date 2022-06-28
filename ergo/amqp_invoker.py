@@ -20,6 +20,7 @@ from ergo.topic import PubTopic, SubTopic
 from ergo.util import extract_from_stack, instance_id
 
 import sys
+
 logger = logging.getLogger(__name__)
 
 PREFETCH_COUNT = 1
@@ -30,21 +31,26 @@ DEFAULT_HEARTBEAT = 60  # seconds.
 
 def set_param(host: str, param_key: str, param_val: str) -> str:
     """Overwrite a param in a host string w a new value."""
-    uri, new_param = urlparse(host), f'{param_key}={param_val}'
-    params = [p for p in uri.query.split('&') if param_key not in p] + [new_param]
-    return uri._replace(query='&'.join(params)).geturl()
+    uri, new_param = urlparse(host), f"{param_key}={param_val}"
+    params = [p for p in uri.query.split("&") if param_key not in p] + [new_param]
+    return uri._replace(query="&".join(params)).geturl()
 
 
 def make_error_output(err: Exception) -> Dict[str, str]:
     """Make a more digestible error output."""
     orig = err.__context__ or err
     err_output = {
-        'type': type(orig).__name__,
-        'message': str(orig),
+        "type": type(orig).__name__,
+        "message": str(orig),
     }
     filename, lineno, function_name = extract_from_stack(orig)
     if None not in (filename, lineno, function_name):
-        err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}
+        err_output = {
+            **err_output,
+            "file": filename,
+            "line": lineno,
+            "func": function_name,
+        }
     return err_output
 
 
@@ -55,17 +61,40 @@ class AmqpInvoker(Invoker):
         super().__init__(invocable)
 
         heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
-        self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
-        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=True, auto_delete=False)
+        self._connection = kombu.Connection(
+            self._invocable.config.host, heartbeat=heartbeat
+        )
+        self._exchange = kombu.Exchange(
+            name=self._invocable.config.exchange,
+            type="topic",
+            durable=True,
+            auto_delete=False,
+        )
 
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
-        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False, channel=self._connection.channel())
+        self._component_queue = kombu.Queue(
+            name=component_queue_name,
+            exchange=self._exchange,
+            routing_key=str(SubTopic(self._invocable.config.subtopic)),
+            durable=False,
+            channel=self._connection.channel(),
+        )
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
-        self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
+        self._instance_queue = kombu.Queue(
+            name=instance_queue_name,
+            exchange=self._exchange,
+            routing_key=str(SubTopic(instance_id())),
+            auto_delete=True,
+        )
         error_queue_name = f"{component_queue_name}:error"
-        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=error_queue_name, durable=False)
+        self._error_queue = kombu.Queue(
+            name=error_queue_name,
+            exchange=self._exchange,
+            routing_key=error_queue_name,
+            durable=False,
+        )
         self._terminating = threading.Event()
         self._pending_invocations = threading.Semaphore()
         self._handler_lock = threading.Lock()
@@ -75,7 +104,11 @@ class AmqpInvoker(Invoker):
         signal.signal(signal.SIGINT, self._shutdown)
         with self._connection:
             conn = self._connection
-            consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT, accept=["json"])
+            consumer: kombu.Consumer = conn.Consumer(
+                queues=[self._component_queue, self._instance_queue],
+                prefetch_count=PREFETCH_COUNT,
+                accept=["json"],
+            )
             consumer.register_callback(self._start_handle_message_thread)
             consumer.consume()
 
@@ -120,7 +153,7 @@ class AmqpInvoker(Invoker):
             dt = datetime.datetime.now(datetime.timezone.utc)
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
-            message_in.scope.metadata['timestamp'] = dt.isoformat()
+            message_in.scope.metadata["timestamp"] = dt.isoformat()
             self._publish(message_in, self._error_queue.name)
 
     def _publish(self, ergo_message: Message, routing_key: str):
@@ -142,7 +175,9 @@ class AmqpInvoker(Invoker):
 
     def _shutdown(self, signum, *_):
         self._terminating.set()
-        self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
+        self._pending_invocations.acquire(
+            blocking=True, timeout=TERMINATION_GRACE_PERIOD
+        )
         self._component_queue.queue_unbind()
         self._connection.close()
         signal.signal(signum, 0)
