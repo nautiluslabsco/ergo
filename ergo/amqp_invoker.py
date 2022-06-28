@@ -144,7 +144,9 @@ class AmqpInvoker(Invoker):
     def _shutdown(self, signum, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
-        self._component_queue.queue_unbind()
+        consumer_count = self._component_queue.queue_declare()[2]
+        if consumer_count <= 1:
+            self._component_queue.queue_unbind()
         self._connection.close()
         signal.signal(signum, 0)
         signal.raise_signal(signum)
