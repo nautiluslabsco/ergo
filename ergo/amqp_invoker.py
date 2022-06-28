@@ -20,6 +20,7 @@ from ergo.topic import PubTopic, SubTopic
 from ergo.util import extract_from_stack, instance_id
 
 import sys
+
 logger = logging.getLogger(__name__)
 
 PREFETCH_COUNT = 1
