@@ -61,9 +61,7 @@ class AmqpInvoker(Invoker):
         super().__init__(invocable)
 
         heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
-        self._connection = kombu.Connection(
-            self._invocable.config.host, heartbeat=heartbeat
-        )
+        self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
         self._exchange = kombu.Exchange(
             name=self._invocable.config.exchange,
             type="topic",
@@ -175,9 +173,7 @@ class AmqpInvoker(Invoker):
 
     def _shutdown(self, signum, *_):
         self._terminating.set()
-        self._pending_invocations.acquire(
-            blocking=True, timeout=TERMINATION_GRACE_PERIOD
-        )
+        self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._component_queue.queue_unbind()
         self._connection.close()
         signal.signal(signum, 0)
