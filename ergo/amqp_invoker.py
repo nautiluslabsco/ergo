@@ -56,7 +56,7 @@ class AmqpInvoker(Invoker):
 
         heartbeat = self._invocable.config.heartbeat or DEFAULT_HEARTBEAT
         self._connection = kombu.Connection(self._invocable.config.host, heartbeat=heartbeat)
-        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=False, auto_delete=False)
+        self._exchange = kombu.Exchange(name=self._invocable.config.exchange, type="topic", durable=True, auto_delete=False)
 
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
