@@ -61,8 +61,6 @@ class AmqpInvoker(Invoker):
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
         self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False, channel=self._connection.channel())
-        print('bindings', dir(self._component_queue))
-        print('bindings', self._component_queue.as_dict)
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
@@ -82,6 +80,9 @@ class AmqpInvoker(Invoker):
 
             while not self._terminating.is_set():
                 try:
+                    # lazy load binding
+                    # to prevent unbinding all consumers w same subtopic at shutdown
+                    self._component_queue.queue_bind(channel=self._connection.channel())
                     # wait up to 1s for the next message before sending a heartbeat
                     conn.drain_events(timeout=1)
                 except socket.timeout:
@@ -144,9 +145,7 @@ class AmqpInvoker(Invoker):
     def _shutdown(self, signum, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
-        consumer_count = self._component_queue.queue_declare()[2]
-        if consumer_count <= 1:
-            self._component_queue.queue_unbind()
+        self._component_queue.queue_unbind()
         self._connection.close()
         signal.signal(signum, 0)
         signal.raise_signal(signum)
