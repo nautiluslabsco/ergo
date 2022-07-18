@@ -60,12 +60,11 @@ class AmqpInvoker(Invoker):
         component_queue_name = f"{self._invocable.config.func}".replace("/", ":")
         if component_queue_name.startswith(":"):
             component_queue_name = component_queue_name[1:]
-        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False)
+        self._component_queue = kombu.Queue(name=component_queue_name, exchange=self._exchange, routing_key=str(SubTopic(self._invocable.config.subtopic)), durable=False, channel=self._connection.channel())
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
         self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=error_queue_name, durable=False)
-
         self._terminating = threading.Event()
         self._pending_invocations = threading.Semaphore()
         self._handler_lock = threading.Lock()
@@ -78,8 +77,12 @@ class AmqpInvoker(Invoker):
             consumer: kombu.Consumer = conn.Consumer(queues=[self._component_queue, self._instance_queue], prefetch_count=PREFETCH_COUNT, accept=["json"])
             consumer.register_callback(self._start_handle_message_thread)
             consumer.consume()
+
             while not self._terminating.is_set():
                 try:
+                    # lazy load binding
+                    # to prevent unbinding all consumers w same subtopic at shutdown
+                    self._component_queue.queue_bind(channel=self._connection.channel())
                     # wait up to 1s for the next message before sending a heartbeat
                     conn.drain_events(timeout=1)
                 except socket.timeout:
@@ -142,6 +145,7 @@ class AmqpInvoker(Invoker):
     def _shutdown(self, signum, *_):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
+        self._component_queue.queue_unbind()
         self._connection.close()
         signal.signal(signum, 0)
         signal.raise_signal(signum)
