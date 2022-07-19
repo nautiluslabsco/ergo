@@ -4,6 +4,24 @@ import pytest
 
 from ergo.context import Context
 
+
+"""
+test_bind_falsey_argument
+
+Assert that ergo will correctly bind a falsey argument to a handler param.
+"""
+
+
+def simple_handler(x):
+    return x
+
+
+def test_bind_falsey_argument():
+    component = AMQPComponent(simple_handler)
+    with component:
+        assert component.rpc({"x": 0}).data is 0
+
+
 """
 These tests assert that ergo can correctly bind message data to a custom parameter using the `args` configuration attribute.
 """
