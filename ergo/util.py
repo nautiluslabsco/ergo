@@ -1,4 +1,6 @@
 """Convenience Funcs for handling errors, logging, and monitoring."""
+import datetime
+
 import re
 import signal
 import sys
@@ -158,4 +160,4 @@ class defer_termination:
 
 @lru_cache(1)
 def instance_id() -> str:
-    return uniqueid()
+    return datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
