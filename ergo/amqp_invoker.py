@@ -146,6 +146,7 @@ class AmqpInvoker(Invoker):
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._component_queue.queue_unbind()
+        self._instance_queue.delete(nowait=True)
         self._connection.close()
         signal.signal(signum, 0)
         signal.raise_signal(signum)
