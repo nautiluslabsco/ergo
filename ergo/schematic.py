@@ -1,4 +1,5 @@
 """Summary."""
+import glob
 import os
 import sys
 from typing import Dict, Generator, List, Tuple, Union
@@ -50,14 +51,15 @@ def load_configs(folders: List[str]) -> List[Dict[str, Union[None, str, List[str
     configs = []
 
     for folder in folders:
-        for name in list_paths(folder):
-            try:
-                with open(f'{folder}/{name}/{name}.yaml', 'r', encoding='utf8') as stream:
+        yaml_files = glob.glob(os.path.join(folder, '**/*.y*ml'), recursive=True)
+        for yaml_file in yaml_files:
+            if not os.path.basename(yaml_file).startswith('serverless'):
+                with open(yaml_file, 'r', encoding='utf8') as stream:
                     config = yaml.safe_load(stream)
-                    config['name'] = name
-                    configs.append(config)
-            except FileNotFoundError:
-                pass
+                    if config and 'func' in config:
+                        component_name = yaml_file[len(os.path.normpath(folder)) + 1:].split('.')[0]
+                        config['name'] = component_name
+                        configs.append(config)
     return configs
 
 
@@ -127,24 +129,7 @@ def graph(folders: List[str]) -> None:  # pylint: disable=too-many-branches
     topics(dot, configs)
     derived_topics(dot, configs)
 
-    dot.render('.ergo.gv', view=True)
-
-
-def list_paths(path: str) -> List[str]:
-    """Summary.
-
-    Args:
-        path (str): Description
-
-    Returns:
-        List[str]: Description
-    """
-    ret = []
-    for file in os.listdir(path):
-        directory = os.path.join(path, file)
-        if os.path.isdir(directory):
-            ret.append(file)
-    return ret
+    dot.render('.ergo.gv', format='png', view=True)
 
 
 if __name__ == '__main__':
