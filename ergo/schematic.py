@@ -75,9 +75,9 @@ def topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[
     for config in configs:
         for topic_element in format_topic('pubtopic', config):
             dot.edge(format_component(config)[0], topic_element[0])
-            dot.node(*topic_element)
+            dot.node(*topic_element, shape='box')
         for topic_element in format_topic('subtopic', config):
-            dot.node(*topic_element)
+            dot.node(*topic_element, shape='box')
             dot.edge(topic_element[0], format_component(config)[0])
 
 
@@ -106,7 +106,7 @@ def components(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, L
         dot (graphviz.Digraph): Description
         configs (List[Dict[str, Union[None, str, List[str]]]]): Description
     """
-    dot.attr('node', shape='circle', width='1', color='#ffffff80', penwidth='2', fixedsize='true')
+    dot.attr('node', shape='circle', width='1', color='#ffffff80', penwidth='2')
 
     for config in configs:
         dot.node(*format_component(config))
