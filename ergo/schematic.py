@@ -53,10 +53,13 @@ def load_configs(folders: List[str]) -> List[Dict[str, Union[None, str, List[str
     for folder in folders:
         yaml_files = glob.glob(os.path.join(folder, '**/*.y*ml'), recursive=True)
         for yaml_file in yaml_files:
-            if not os.path.basename(yaml_file).startswith('serverless'):
+            if not os.path.basename(yaml_file).startswith('serverless'):  # skip serverless config files
                 with open(yaml_file, 'r', encoding='utf8') as stream:
                     config = yaml.safe_load(stream)
                     if config and 'func' in config:
+                        # example:
+                        # root_folder/api_connector/ship_dc/api_connector.yaml becomes
+                        # api_connector/ship_dc/api_connector
                         component_name = yaml_file[len(os.path.normpath(folder)) + 1:].split('.')[0]
                         config['name'] = component_name
                         configs.append(config)
