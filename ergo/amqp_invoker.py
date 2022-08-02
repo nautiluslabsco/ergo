@@ -107,10 +107,10 @@ class AmqpInvoker(Invoker):
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
             try:
+                ack()
                 ergo_message = decodes(body)
                 self._handle_message_inner(ergo_message)
             finally:
-                ack()
                 self._pending_invocations.release()
 
     def _handle_message_inner(self, message_in: Message):
