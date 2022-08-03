@@ -132,7 +132,7 @@ def graph(folders: List[str]) -> None:  # pylint: disable=too-many-branches
     topics(dot, configs)
     derived_topics(dot, configs)
 
-    dot.render('.ergo.gv', format='png', view=True)
+    dot.render('.ergo.gv', view=True)
 
 
 if __name__ == '__main__':
