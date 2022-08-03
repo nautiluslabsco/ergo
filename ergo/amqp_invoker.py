@@ -107,12 +107,13 @@ class AmqpInvoker(Invoker):
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
             try:
-                # we acknowledge message receipt eagerly, in order to support long running tasks that
-                # may exceed their broker's `consumer_timeout` setting (30m by default)
-                ack()
+                if self._invocable.config.acks_early:
+                    ack()
                 ergo_message = decodes(body)
                 self._handle_message_inner(ergo_message)
             finally:
+                if not self._invocable.config.acks_early:
+                    ack()
                 self._pending_invocations.release()
 
     def _handle_message_inner(self, message_in: Message):
