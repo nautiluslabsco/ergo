@@ -60,7 +60,8 @@ def load_configs(folders: List[str]) -> List[Dict[str, Union[None, str, List[str
                         # example:
                         # root_folder/api_connector/ship_dc/api_connector.yaml becomes
                         # api_connector/ship_dc/api_connector
-                        component_name = yaml_file[len(os.path.normpath(folder)) + 1 :].split('.')[0]
+                        folder_plus_path_separator_len = len(os.path.normpath(folder)) + 1
+                        component_name = yaml_file[folder_plus_path_separator_len:].split('.')[0]
                         config['name'] = component_name
                         configs.append(config)
     return configs
