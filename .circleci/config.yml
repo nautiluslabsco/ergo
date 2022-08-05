@@ -8,7 +8,7 @@ always_run: &always_run
 release_only: &release_only
   filters:
     tags:
-      only: /[0-9]+(\.[0-9]+)*\-alpha/
+      only: /[0-9]+(\.[0-9]+)*/
     branches:
       ignore: /.*/
 
@@ -90,7 +90,7 @@ jobs:
       - store_artifacts:
           path: htmlcov/
       - run:
-          name: Smoke Test Install 
+          name: Smoke Test Install
           command: |
             python --version
             sudo pip3 install circleci
