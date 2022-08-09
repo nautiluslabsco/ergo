@@ -37,7 +37,6 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            ulimit -n 1024
             make test
             codecov
       - run:
@@ -86,7 +85,6 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            ulimit -n 1024
             make test
             codecov
       - store_artifacts:
