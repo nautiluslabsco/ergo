@@ -25,3 +25,7 @@ test:
 	python test/integration/start_rabbitmq_broker.py
 	coverage run --omit src -m pytest -vv --timeout 30
 	coverage html
+
+lint:
+	./lint.sh
+
