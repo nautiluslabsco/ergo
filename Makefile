@@ -26,6 +26,9 @@ test:
 	coverage run --omit src -m pytest -vv --timeout 30
 	coverage html
 
+fix:
+	./scripts/fix.sh
+
 lint:
-	./lint.sh
+	./scripts/lint.sh
 
