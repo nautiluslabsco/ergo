@@ -1,6 +1,7 @@
 """Summary."""
 import datetime
 import logging
+import os
 import signal
 import socket
 import threading
@@ -150,5 +151,4 @@ class AmqpInvoker(Invoker):
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._component_queue.queue_unbind()
         self._connection.close()
-        signal.signal(signum, 0)
-        signal.raise_signal(signum)
+        os.kill(os.getpid(), 0)
