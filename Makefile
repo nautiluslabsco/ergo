@@ -12,7 +12,6 @@ clean:
 
 dev:
 	pip install -r dev-requirements.txt
-	pip install -e .
 
 docs:
 	$(MAKE) -C docs html

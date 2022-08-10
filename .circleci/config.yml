@@ -14,9 +14,8 @@ release_only: &release_only
       only: /[0-9]+(\.[0-9]+)*/
     branches:
       ignore: /.*/
-
 jobs:
-  build_verify_lint:
+  lint:
     docker:
       - image: cimg/python:3.7
       - image: rabbitmq:3.8.16-management-alpine
@@ -31,15 +30,8 @@ jobs:
       - run:
           name: Lint
           command: make lint
-      - run:
-          name: Test
-          command: |
-            make test
-            codecov
-      - store_artifacts:
-          path: htmlcov/
 
-  test-python-install:
+  test:
     parameters:
       version:
         type: string
@@ -125,21 +117,22 @@ jobs:
 workflows:
   build_and_deploy:
     jobs:
-      - build_verify_lint:
+      - lint:
           <<: *always_run
-      - test-python-install:
-          name: test-python-install-3.7
+      - test:
+          name: test-python-3.7
           version: "3.7"
-      - test-python-install:
-          name: test-python-install-3.8
+      - test:
+          name: test-python-3.8
           version: "3.8"
-      - test-python-install:
-          name: test-python-install-3.9
+      - test:
+          name: test-python-3.9
           version: "3.9"
-      - test-python-install:
-          name: test-python-install-3.10
+      - test:
+          name: test-python-3.10
           version: "3.10"
       - deploy:
           <<: *release_only
           requires:
-            - build_verify_lint
+            - lint
+            - test-python-3.7

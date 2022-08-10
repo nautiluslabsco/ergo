@@ -13,7 +13,7 @@ from ergo.scope import Scope
 class Message:
     data: Any = field(default=None)
     key: Optional[str] = None
-    log: List = field(default_factory=list)
+    log: List[Any] = field(default_factory=list)
     scope: Scope = field(default_factory=Scope)
     error: Optional[Dict[str, str]] = None
     traceback: Optional[str] = None
@@ -23,13 +23,14 @@ def decodes(s: str) -> Message:
     return decode(**json.loads(s))
 
 
-def decode(**kwargs) -> Message:
+def decode(**kwargs: Any) -> Message:
     # if kwargs includes `data`, assume this message was sent by an upstream component, and the other kwargs are
     #   metadata
     # otherwise, assume this message came from outside of ergo, and bind all kwargs to `data`.
     if "data" not in kwargs:
         kwargs = {"data": kwargs or None}
-    return jsons.load(kwargs, cls=Message)
+    ret: Message = jsons.load(kwargs, cls=Message)
+    return ret
 
 
 def encodes(data: Union[Message, Iterable[Message]]) -> str:
@@ -37,7 +38,7 @@ def encodes(data: Union[Message, Iterable[Message]]) -> str:
 
 
 class ErgoEncoder(json.JSONEncoder):
-    def default(self, o):
+    def default(self, o: Any) -> Any:
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
         return super().default(o)
