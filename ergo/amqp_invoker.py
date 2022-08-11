@@ -6,7 +6,7 @@ import signal
 import socket
 import threading
 from contextlib import contextmanager
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 from urllib.parse import urlparse
 
 import kombu
@@ -44,7 +44,7 @@ def make_error_output(err: Exception) -> Dict[str, str]:
     }
     filename, lineno, function_name = extract_from_stack(orig)
     if None not in (filename, lineno, function_name):
-        err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}
+        err_output = {**err_output, 'file': filename, 'line': lineno, 'func': function_name}  # type: ignore
     return err_output
 
 
@@ -98,12 +98,12 @@ class AmqpInvoker(Invoker):
                     consumer.consume()
         return 0
 
-    def _start_handle_message_thread(self, body: str, message: kombu.message.Message):
+    def _start_handle_message_thread(self, body: str, message: kombu.message.Message) -> None:
         # _handle_sigterm will wait for _handle_message to release this semaphore
         self._pending_invocations.acquire(blocking=False)
         threading.Thread(target=self._handle_message, args=(body, message.ack)).start()
 
-    def _handle_message(self, body: str, ack: Callable):
+    def _handle_message(self, body: str, ack: Callable[[], None]) -> None:
         # there may be up to PREFETCH_COUNT _handle_message threads alive at a time, but we want them to execute
         # sequentially to guarantee that messages are acknowledged in the order they're received
         with self._handler_lock:
@@ -117,7 +117,7 @@ class AmqpInvoker(Invoker):
                     ack()
                 self._pending_invocations.release()
 
-    def _handle_message_inner(self, message_in: Message):
+    def _handle_message_inner(self, message_in: Message) -> None:
         try:
             for message_out in self.invoke_handler(message_in):
                 routing_key = str(PubTopic(message_out.key))
@@ -129,7 +129,7 @@ class AmqpInvoker(Invoker):
             message_in.scope.metadata['timestamp'] = dt.isoformat()
             self._publish(message_in, self._error_queue.name)
 
-    def _publish(self, ergo_message: Message, routing_key: str):
+    def _publish(self, ergo_message: Message, routing_key: str) -> None:
         amqp_message = encodes(ergo_message).encode("utf-8")
         with self._producer() as producer:
             producer.publish(
@@ -146,7 +146,7 @@ class AmqpInvoker(Invoker):
         with producers[self._connection].acquire(block=True) as conn:
             yield conn
 
-    def _shutdown(self, signum, *_):
+    def _shutdown(self, signum: int, *_: Any) -> None:
         self._terminating.set()
         self._pending_invocations.acquire(blocking=True, timeout=TERMINATION_GRACE_PERIOD)
         self._component_queue.queue_unbind()

@@ -12,7 +12,6 @@ clean:
 
 dev:
 	pip install -r dev-requirements.txt
-	pip install -e .
 
 docs:
 	$(MAKE) -C docs html
@@ -25,3 +24,10 @@ test:
 	python test/integration/start_rabbitmq_broker.py
 	coverage run --omit src -m pytest -vv --timeout 30
 	coverage html
+
+fix:
+	./scripts/fix.sh
+
+lint:
+	./scripts/lint.sh
+

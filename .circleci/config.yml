@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  python: circleci/python@2.0.3
+
 always_run: &always_run
   filters:
     tags:
@@ -11,53 +14,24 @@ release_only: &release_only
       only: /[0-9]+(\.[0-9]+)*/
     branches:
       ignore: /.*/
-
 jobs:
-  build_verify_lint:
+  lint:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
       - image: rabbitmq:3.8.16-management-alpine
     steps:
       - checkout
       - setup_remote_docker:
           version: 19.03.13
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
+      - python/install-packages:
+          pkg-manager: pip
+          pip-dependency-file: dev-requirements.txt
+          cache-version: v1
       - run:
-          name: install python dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            make dev
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-          paths:
-            - "venv"
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            make test
-            codecov
-      - run:
-          name: "Enforce PEP8"
-          command: |
-            . venv/bin/activate
-            autopep8 --aggressive --aggressive --recursive ./ergo --diff --exit-code
-      - run:
-          name: "Enforce black style"
-          command: |
-            . venv/bin/activate
-            black -S --line-length 512 ./ergo --check --diff
-      - run:
-          name: "Enforce isort"
-          command: |
-            . venv/bin/activate
-            isort ./ergo/*.py -c
-      - store_artifacts:
-          path: htmlcov/
+          name: Lint
+          command: make lint
 
-  test-python-install:
+  test:
     parameters:
       version:
         type: string
@@ -143,21 +117,22 @@ jobs:
 workflows:
   build_and_deploy:
     jobs:
-      - build_verify_lint:
+      - lint:
           <<: *always_run
-      - test-python-install:
-          name: test-python-install-3.7
+      - test:
+          name: test-python-3.7
           version: "3.7"
-      - test-python-install:
-          name: test-python-install-3.8
+      - test:
+          name: test-python-3.8
           version: "3.8"
-      - test-python-install:
-          name: test-python-install-3.9
+      - test:
+          name: test-python-3.9
           version: "3.9"
-      - test-python-install:
-          name: test-python-install-3.10
+      - test:
+          name: test-python-3.10
           version: "3.10"
       - deploy:
           <<: *release_only
           requires:
-            - build_verify_lint
+            - lint
+            - test-python-3.7
