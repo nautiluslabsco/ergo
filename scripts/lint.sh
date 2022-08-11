@@ -21,7 +21,7 @@ isort $mod -c
 if [ $? -ne 0 ]; then printf "\e[1mFailed.\e[0m\n" ; exit_code=1; fi; printf "\n"
 
 printf "\e[1mType Checking (mypy) ...\e[0m\n"
-mypy --strict $mod
+mypy --strict --install-types $mod
 if [ $? -ne 0 ]; then printf "\e[1mFailed.\e[0m\n" ; exit_code=1; fi; printf "\n"
 
 printf "\e[1mComplexity check ...\e[0m\n"
