@@ -27,6 +27,7 @@ class Config:
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
         self._heartbeat: Optional[str] = config.get('heartbeat')
         self._args: Optional[dict] = config.get('args')
+        self._acks_early: Optional[bool] = config.get('acks_early')
 
     def copy(self):
         return copy.deepcopy(self)
@@ -129,3 +130,7 @@ class Config:
             TYPE: Description
         """
         return int(self._heartbeat) if self._heartbeat else None
+
+    @property
+    def acks_early(self) -> bool:
+        return self._acks_early or False

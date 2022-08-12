@@ -1,4 +1,5 @@
 """Summary."""
+import glob
 import os
 import sys
 from typing import Dict, Generator, List, Tuple, Union
@@ -50,14 +51,19 @@ def load_configs(folders: List[str]) -> List[Dict[str, Union[None, str, List[str
     configs = []
 
     for folder in folders:
-        for name in list_paths(folder):
-            try:
-                with open(f'{folder}/{name}/{name}.yaml', 'r', encoding='utf8') as stream:
+        yaml_files = glob.glob(os.path.join(folder, '**/*.y*ml'), recursive=True)
+        for yaml_file in yaml_files:
+            if not os.path.basename(yaml_file).startswith('serverless'):  # skip serverless config files
+                with open(yaml_file, 'r', encoding='utf8') as stream:
                     config = yaml.safe_load(stream)
-                    config['name'] = name
-                    configs.append(config)
-            except FileNotFoundError:
-                pass
+                    if config and 'func' in config:
+                        # example:
+                        # root_folder/api_connector/ship_dc/api_connector.yaml becomes
+                        # api_connector/ship_dc/api_connector
+                        folder_plus_path_separator_len = len(os.path.normpath(folder)) + 1
+                        component_name = yaml_file[folder_plus_path_separator_len:].split('.')[0]
+                        config['name'] = component_name
+                        configs.append(config)
     return configs
 
 
@@ -73,9 +79,9 @@ def topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[
     for config in configs:
         for topic_element in format_topic('pubtopic', config):
             dot.edge(format_component(config)[0], topic_element[0])
-            dot.node(*topic_element)
+            dot.node(*topic_element, shape='box')
         for topic_element in format_topic('subtopic', config):
-            dot.node(*topic_element)
+            dot.node(*topic_element, shape='box')
             dot.edge(topic_element[0], format_component(config)[0])
 
 
@@ -104,7 +110,7 @@ def components(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, L
         dot (graphviz.Digraph): Description
         configs (List[Dict[str, Union[None, str, List[str]]]]): Description
     """
-    dot.attr('node', shape='circle', width='1', color='#ffffff80', penwidth='2', fixedsize='true')
+    dot.attr('node', shape='circle', width='1', color='#ffffff80', penwidth='2')
 
     for config in configs:
         dot.node(*format_component(config))
@@ -128,23 +134,6 @@ def graph(folders: List[str]) -> None:  # pylint: disable=too-many-branches
     derived_topics(dot, configs)
 
     dot.render('.ergo.gv', view=True)
-
-
-def list_paths(path: str) -> List[str]:
-    """Summary.
-
-    Args:
-        path (str): Description
-
-    Returns:
-        List[str]: Description
-    """
-    ret = []
-    for file in os.listdir(path):
-        directory = os.path.join(path, file)
-        if os.path.isdir(directory):
-            ret.append(file)
-    return ret
 
 
 if __name__ == '__main__':

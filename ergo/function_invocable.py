@@ -133,7 +133,9 @@ class FunctionInvocable:
         for param, default in self._params.items():
             # ergo's canonical name for this param, which the configuration may have a custom mapping for
             ergo_param_name = self.config.args.get(param, param)
-            argument = pydash.get(exposed_data, ergo_param_name) or pydash.get(exposed_data, f"{DATA_KEY}.{ergo_param_name}") or default
+            argument = pydash.get(exposed_data, ergo_param_name, MissingArgument)
+            if argument is MissingArgument:
+                argument = pydash.get(exposed_data, f"{DATA_KEY}.{ergo_param_name}", default)
             # MissingArgument indicates that `param` is a positional parameter that we've failed to bind an argument
             # to, either because no argument was provided or because one was given the wrong name.
             if argument is not MissingArgument:

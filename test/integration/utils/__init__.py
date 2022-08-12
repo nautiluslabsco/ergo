@@ -20,7 +20,7 @@ class ComponentInstance:
         self.process.start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.process.terminate()
+        self.process.kill()
         self.process.join()
 
 
