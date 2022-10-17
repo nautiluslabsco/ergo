@@ -28,6 +28,7 @@ class Context:
 
     def __init__(self, message: Message, config: Config):
         self.pubtopic: str = config.pubtopic
+        self.error_pubtopic: Optional[str] = config.error_pubtopic
         self._scope = message.scope
 
     @property

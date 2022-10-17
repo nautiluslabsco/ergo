@@ -117,7 +117,7 @@ class FunctionInvocable:
                     scope.reply_to = envelope.reply_to
                 elif scope.reply_to:
                     key = f"{key}.{scope.reply_to}"
-                yield Message(data=data_out, scope=scope, key=key)
+                yield Message(data=data_out, scope=scope, key=key, error_key=self.config.error_pubtopic)
 
         except BaseException as err:
             raise Exception(print_exc_plus()) from err
