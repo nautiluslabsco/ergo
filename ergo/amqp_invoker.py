@@ -124,9 +124,12 @@ class AmqpInvoker(Invoker):
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
             message_in.scope.metadata['timestamp'] = dt.isoformat()
+            print('publishing to error queue...')
             self._publish(message_in, self._error_queue.name)
-            if message_out.error_key is not None:
-                self._publish(message_in, str(PubTopic(message_out.error_key)))
+            print('finished publishing to error queue')
+            if self._invocable.config.error_pubtopic is not None:
+                print(f'publishing to error_pubtopic {self._invocable.config.error_pubtopic}...')
+                self._publish(message_in, str(PubTopic(self._invocable.config.error_pubtopic)))
 
     def _publish(self, ergo_message: Message, routing_key: str) -> None:
         amqp_message = encodes(ergo_message).encode("utf-8")

@@ -13,7 +13,6 @@ from ergo.scope import Scope
 class Message:
     data: Any = field(default=None)
     key: Optional[str] = None
-    error_key: Optional[str] = None
     log: List[Any] = field(default_factory=list)
     scope: Scope = field(default_factory=Scope)
     error: Optional[Dict[str, str]] = None

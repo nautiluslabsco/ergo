@@ -130,7 +130,8 @@ def await_components(channel: Optional[Channel]=None):
 
 
 class Queue:
-    def __init__(self, routing_key, name: Optional[str] = None, **kombu_opts):
+    def __init__(self, routing_key: Optional[str] = None, name: Optional[str] = None, **kombu_opts):
+        assert routing_key is not None or name is not None, 'routing_key and name cannot both be missing'
         self.name = name or f"test:{routing_key}"
         self.routing_key = routing_key
         self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
