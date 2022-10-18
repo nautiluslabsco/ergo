@@ -65,7 +65,7 @@ class AmqpInvoker(Invoker):
         instance_queue_name = f"{component_queue_name}:{instance_id()}"
         self._instance_queue = kombu.Queue(name=instance_queue_name, exchange=self._exchange, routing_key=str(SubTopic(instance_id())), auto_delete=True)
         error_queue_name = f"{component_queue_name}:error"
-        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=error_queue_name, durable=False, auto_delete=True)
+        self._error_queue = kombu.Queue(name=error_queue_name, exchange=self._exchange, routing_key=error_queue_name, durable=False)
 
         self._terminating = threading.Event()
         self._pending_invocations = threading.Semaphore()
@@ -124,11 +124,8 @@ class AmqpInvoker(Invoker):
             message_in.error = make_error_output(err)
             message_in.traceback = str(err)
             message_in.scope.metadata['timestamp'] = dt.isoformat()
-            print('publishing to error queue...')
             self._publish(message_in, self._error_queue.name)
-            print('finished publishing to error queue')
             if self._invocable.config.error_pubtopic is not None:
-                print(f'publishing to error_pubtopic {self._invocable.config.error_pubtopic}...')
                 self._publish(message_in, str(PubTopic(self._invocable.config.error_pubtopic)))
 
     def _publish(self, ergo_message: Message, routing_key: str) -> None:

@@ -134,7 +134,9 @@ class Queue:
         assert routing_key is not None or name is not None, 'routing_key and name cannot both be missing'
         self.name = name or f"test:{routing_key}"
         self.routing_key = routing_key
-        self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
+        if 'auto_delete' not in kombu_opts:
+            kombu_opts['auto_delete'] = True
+        self._kombu_opts = {"durable": False, **kombu_opts}
         self._in_context: bool = False
 
     def get(self, block=True, timeout=LONG_TIMEOUT) -> Message:
