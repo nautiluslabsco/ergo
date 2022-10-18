@@ -1,8 +1,16 @@
-from test.integration.utils.amqp import AMQPComponent
+from test.integration.utils.amqp import AMQPComponent, propagate_errors
 from typing import Optional
+import pytest
 
 from ergo.context import Context
 from ergo.scope import Scope
+
+
+@pytest.fixture(autouse=True)
+def propagate_amqp_errors():
+    with propagate_errors():
+        yield
+
 
 """
 test_simple_scope

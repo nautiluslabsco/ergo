@@ -1,9 +1,16 @@
-from test.integration.utils.amqp import SHORT_TIMEOUT, AMQPComponent, Queue, publish
+from test.integration.utils.amqp import SHORT_TIMEOUT, AMQPComponent, Queue, publish, propagate_errors
 from typing import List, Optional
 
 import pytest
 
 from ergo.context import Context
+
+
+@pytest.fixture(autouse=True)
+def propagate_amqp_errors():
+    with propagate_errors():
+        yield
+
 
 """
 test_shout
