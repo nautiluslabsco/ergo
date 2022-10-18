@@ -146,7 +146,11 @@ class Queue:
         self._in_context = True
         self._channel: Channel = CONNECTION.channel()
         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
-        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
+        if self.routing_key:
+            routing_key = str(SubTopic(self.routing_key))
+        else:
+            routing_key = None
+        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=routing_key, no_ack=True, **self._kombu_opts)
         self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
         return self
 
