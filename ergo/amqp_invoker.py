@@ -125,6 +125,8 @@ class AmqpInvoker(Invoker):
             message_in.traceback = str(err)
             message_in.scope.metadata['timestamp'] = dt.isoformat()
             self._publish(message_in, self._error_queue.name)
+            if self._invocable.config.error_pubtopic is not None:
+                self._publish(message_in, str(PubTopic(self._invocable.config.error_pubtopic)))
 
     def _publish(self, ergo_message: Message, routing_key: str) -> None:
         amqp_message = encodes(ergo_message).encode("utf-8")

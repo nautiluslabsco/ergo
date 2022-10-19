@@ -1,5 +1,6 @@
 """Summary."""
 import glob
+import itertools
 import os
 import sys
 from typing import Dict, Generator, List, Tuple, Union
@@ -80,6 +81,9 @@ def topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, str, List[
         for topic_element in format_topic('pubtopic', config):
             dot.edge(format_component(config)[0], topic_element[0])
             dot.node(*topic_element, shape='box')
+        for topic_element in format_topic('error_pubtopic', config):
+            dot.edge(format_component(config)[0], topic_element[0])
+            dot.node(*topic_element, shape='octagon')
         for topic_element in format_topic('subtopic', config):
             dot.node(*topic_element, shape='box')
             dot.edge(topic_element[0], format_component(config)[0])
@@ -94,7 +98,10 @@ def derived_topics(dot: graphviz.Digraph, configs: List[Dict[str, Union[None, st
     """
     for pub in configs:
         for sub in configs:
-            for pub_topic in format_topic('pubtopic', pub):
+            for pub_topic in itertools.chain(
+                format_topic('pubtopic', pub),
+                format_topic('error_pubtopic', pub),
+            ):
                 for sub_topic in format_topic('subtopic', sub):
                     if sub_topic[0] == pub_topic[0]:
                         continue

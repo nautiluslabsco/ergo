@@ -1,7 +1,15 @@
 from functools import partial
 from multiprocessing.pool import ThreadPool
-from test.integration.utils.amqp import AMQPComponent, await_components
+from test.integration.utils.amqp import AMQPComponent, await_components, propagate_errors
 from test.integration.utils.gateway import HTTPGateway
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def propagate_amqp_errors():
+    with propagate_errors():
+        yield
+
 
 """
 test_double

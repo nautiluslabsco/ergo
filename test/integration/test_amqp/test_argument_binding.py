@@ -1,8 +1,14 @@
-from test.integration.utils.amqp import AMQPComponent, ComponentFailure, Queue, publish
+from test.integration.utils.amqp import AMQPComponent, ComponentFailure, Queue, publish, propagate_errors
 
 import pytest
 
 from ergo.context import Context
+
+
+@pytest.fixture(autouse=True)
+def propagate_amqp_errors():
+    with propagate_errors():
+        yield
 
 
 """

@@ -130,10 +130,13 @@ def await_components(channel: Optional[Channel]=None):
 
 
 class Queue:
-    def __init__(self, routing_key, name: Optional[str] = None, **kombu_opts):
+    def __init__(self, routing_key: Optional[str] = None, name: Optional[str] = None, **kombu_opts):
+        assert routing_key is not None or name is not None, 'routing_key and name cannot both be missing'
         self.name = name or f"test:{routing_key}"
         self.routing_key = routing_key
-        self._kombu_opts = {"auto_delete": True, "durable": False, **kombu_opts}
+        if 'auto_delete' not in kombu_opts:
+            kombu_opts['auto_delete'] = True
+        self._kombu_opts = {"durable": False, **kombu_opts}
         self._in_context: bool = False
 
     def get(self, block=True, timeout=LONG_TIMEOUT) -> Message:
@@ -145,7 +148,11 @@ class Queue:
         self._in_context = True
         self._channel: Channel = CONNECTION.channel()
         exchange = kombu.Exchange(EXCHANGE, type="topic", channel=self._channel)
-        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=str(SubTopic(self.routing_key)), no_ack=True, **self._kombu_opts)
+        if self.routing_key:
+            routing_key = str(SubTopic(self.routing_key))
+        else:
+            routing_key = None
+        self._spec = kombu.Queue(self.name, exchange=exchange, routing_key=routing_key, no_ack=True, **self._kombu_opts)
         self._queue = kombu.simple.SimpleQueue(self._channel, self._spec, serializer="raw")
         return self
 

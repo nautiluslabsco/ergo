@@ -12,3 +12,4 @@ requests
 docker
 pytest
 pytest-timeout
+importlib-metadata==4.13.0

@@ -22,6 +22,7 @@ class Config:
         self._namespace: Optional[str] = config.get('namespace', 'local')
         self._pubtopic: str = config.get('pubtopic')
         self._subtopic: str = config.get('subtopic')
+        self._error_pubtopic: Optional[str] = config.get('error_pubtopic')
         self._host: Optional[str] = config.get('host')
         self._exchange: Optional[str] = config.get('exchange')
         self._protocol: str = config.get('protocol', 'stack')  # http, amqp, stdio, stack
@@ -85,6 +86,15 @@ class Config:
             TYPE: Description
         """
         self._pubtopic = val
+
+    @property
+    def error_pubtopic(self) -> Optional[str]:
+        """Summary.
+
+        Returns:
+            TYPE: Description
+        """
+        return self._error_pubtopic
 
     @property
     def func(self) -> Optional[str]:
