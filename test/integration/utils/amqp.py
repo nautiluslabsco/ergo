@@ -180,7 +180,7 @@ class propagate_errors(contextlib.ContextDecorator):
     def _handle_message(body: str, _):
         ergo_msg = decodes(body)
         if ergo_msg.error:
-            raise ComponentFailure(ergo_msg.traceback)
+            raise ComponentFailure(ergo_msg.error['traceback'])
 
 
 class ComponentFailure(Exception):

@@ -23,8 +23,6 @@ from ergo.util import instance_id, print_exc_plus
 DATA_KEY = "data"
 CONTEXT_KEY = "context"
 ERROR_KEY = "error"
-EXTRA_ERROR_INFO_KEY = "extra_error_info"
-TRACEBACK_KEY = "traceback"
 
 
 class FunctionInvocable:
@@ -124,8 +122,8 @@ class FunctionInvocable:
 
         except BaseException as invoke_err:
             err = Exception(print_exc_plus())
-            if hasattr(invoke_err, 'extra_error_info'):
-                setattr(err, 'extra_error_info', invoke_err.extra_error_info)
+            if hasattr(invoke_err, 'extra_info'):
+                setattr(err, 'extra_info', invoke_err.extra_info)
             raise err from invoke_err
 
     def assemble_arguments(self, message: Message, context: Context) -> dict:
@@ -139,8 +137,6 @@ class FunctionInvocable:
             CONTEXT_KEY: context,
             DATA_KEY: message.data,
             ERROR_KEY: message.error,
-            EXTRA_ERROR_INFO_KEY: message.extra_error_info,
-            TRACEBACK_KEY: message.traceback,
         }
         for param, default in self._params.items():
             # ergo's canonical name for this param, which the configuration may have a custom mapping for

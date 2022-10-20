@@ -6,9 +6,9 @@ from test.integration.utils.amqp import AMQPComponent, Queue, publish
 
 
 class MyException(Exception):
-    def __init__(self, error_message: str, extra_error_info: Dict[str, Any]):
+    def __init__(self, error_message: str, extra_info: Dict[str, Any]):
         super().__init__(self, error_message)
-        self.extra_error_info = extra_error_info
+        self.extra_info = extra_info
 
 
 def function_with_error():
@@ -25,8 +25,8 @@ def check_error_message(error_message):
     assert isinstance(error_message, Message)
     assert error_message.error['type'] == 'MyException'
     assert 'my error message' in error_message.error['message']
-    assert error_message.extra_error_info['int_info'] == 123
-    assert error_message.extra_error_info['str_info'] == 'onetwothree'
+    assert error_message.error['extra_info']['int_info'] == 123
+    assert error_message.error['extra_info']['str_info'] == 'onetwothree'
 
 
 def test_extra_error_info():
