@@ -22,6 +22,9 @@ from ergo.util import instance_id, print_exc_plus
 
 DATA_KEY = "data"
 CONTEXT_KEY = "context"
+ERROR_KEY = "error"
+EXTRA_ERROR_INFO_KEY = "extra_error_info"
+TRACEBACK_KEY = "traceback"
 
 
 class FunctionInvocable:
@@ -119,8 +122,11 @@ class FunctionInvocable:
                     key = f"{key}.{scope.reply_to}"
                 yield Message(data=data_out, scope=scope, key=key)
 
-        except BaseException as err:
-            raise Exception(print_exc_plus()) from err
+        except BaseException as invoke_err:
+            err = Exception(print_exc_plus())
+            if hasattr(invoke_err, 'extra_error_info'):
+                setattr(err, 'extra_error_info', invoke_err.extra_error_info)
+            raise err from invoke_err
 
     def assemble_arguments(self, message: Message, context: Context) -> dict:
         """
@@ -129,7 +135,13 @@ class FunctionInvocable:
         """
         kwargs = {}
         # this is the complete collection of data that this invoker's handler has access to
-        exposed_data = {CONTEXT_KEY: context, DATA_KEY: message.data}
+        exposed_data = {
+            CONTEXT_KEY: context,
+            DATA_KEY: message.data,
+            ERROR_KEY: message.error,
+            EXTRA_ERROR_INFO_KEY: message.extra_error_info,
+            TRACEBACK_KEY: message.traceback,
+        }
         for param, default in self._params.items():
             # ergo's canonical name for this param, which the configuration may have a custom mapping for
             ergo_param_name = self.config.args.get(param, param)

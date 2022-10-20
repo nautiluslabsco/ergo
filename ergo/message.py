@@ -16,6 +16,7 @@ class Message:
     log: List[Any] = field(default_factory=list)
     scope: Scope = field(default_factory=Scope)
     error: Optional[Dict[str, str]] = None
+    extra_error_info: Optional[Dict[str, Any]] = None
     traceback: Optional[str] = None
 
 

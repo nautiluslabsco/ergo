@@ -122,6 +122,7 @@ class AmqpInvoker(Invoker):
         except Exception as err:  # pylint: disable=broad-except
             dt = datetime.datetime.now(datetime.timezone.utc)
             message_in.error = make_error_output(err)
+            message_in.extra_error_info = getattr(err, 'extra_error_info', None)
             message_in.traceback = str(err)
             message_in.scope.metadata['timestamp'] = dt.isoformat()
             self._publish(message_in, self._error_queue.name)
