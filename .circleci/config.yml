@@ -34,7 +34,7 @@ jobs:
         type: string
         default: latest
     docker:
-      - image: circleci/python:<< parameters.version >>
+      - image: cimg/python:<< parameters.version >>
       - image: rabbitmq:3.8.16-management-alpine
     steps:
       - checkout
@@ -67,13 +67,13 @@ jobs:
             sudo pip3 install circleci
   integration:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
     steps:
       - run: It works!
       - run: echo $RUN_EXTRA_TESTS
   deploy:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
     steps:
       - checkout
       - restore_cache:
