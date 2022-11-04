@@ -34,13 +34,7 @@ class AMQPComponent(FunctionComponent):
     protocol = "amqp"
     instances: List[AMQPComponent] = []
 
-    def __init__(
-        self,
-        func: Callable,
-        subtopic: Optional[str] = None,
-        pubtopic: Optional[str] = None,
-        **manifest
-    ):
+    def __init__(self, func: Callable, subtopic: Optional[str] = None, pubtopic: Optional[str] = None, **manifest):
         super().__init__(func, **manifest)
         self.queue_name = f"{self.handler_path.replace('/', ':')[1:]}:{self.handler_name}"
         self.error_queue_name = f"{self.queue_name}:error"
@@ -118,7 +112,7 @@ def publish(payload: dict, routing_key: str):
             producer.publish(json.dumps(payload), exchange=EXCHANGE, routing_key=str(PubTopic(routing_key)))
 
 
-def await_components(channel: Optional[Channel]=None):
+def await_components(channel: Optional[Channel] = None):
     own_channel = channel is None
     channel = channel or CONNECTION.channel()
     try:
