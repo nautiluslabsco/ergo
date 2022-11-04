@@ -11,7 +11,7 @@ import amqp.exceptions
 import kombu
 import kombu.pools
 import kombu.simple
-from amqp import Channel
+from amqp.channel import Channel
 
 from ergo.topic import SubTopic
 
