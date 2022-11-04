@@ -45,7 +45,8 @@ jobs:
       - run:
           name: install python dependencies
           command: |
-            python3 -m venv venv
+            python -V
+            python -m venv venv
             . venv/bin/activate
             make dev
       - save_cache:
@@ -81,7 +82,7 @@ jobs:
       - run:
           name: install python dependencies
           command: |
-            python3 -m venv venv
+            python -m venv venv
             . venv/bin/activate
             make dev
       - save_cache:
@@ -91,7 +92,7 @@ jobs:
       - run:
           name: verify git tag vs. version
           command: |
-            python3 -m venv venv
+            python -m venv venv
             . venv/bin/activate
             python setup.py verify
       - run: # $PYPI_PASSWORD set in CircleCi > Settings > Environment variables
