@@ -23,25 +23,25 @@ jobs:
       - python/install-packages:
           pkg-manager: pip
           pip-dependency-file: dev-requirements.txt
-          cache-version: v1
+          cache-version: v2
       - run:
           name: Lint
           command: make lint
 
   test:
     parameters:
-      docker_image:
+      version:
         type: string
-        default: cimg/python:3.11.0
+        default: latest
     docker:
-      - image: << parameters.docker_image >>
+      - image: cimg/python:<< parameters.version >>
       - image: rabbitmq:3.8.16-management-alpine
     steps:
       - checkout
       - setup_remote_docker:
           version: 19.03.13
       - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
+          key: v2-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
       - run:
           name: install python dependencies
           command: |
@@ -49,7 +49,7 @@ jobs:
             . venv/bin/activate
             make dev
       - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
+          key: v2-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
           paths:
             - "venv"
       - run:
@@ -67,17 +67,17 @@ jobs:
             sudo pip3 install circleci
   integration:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
     steps:
       - run: It works!
       - run: echo $RUN_EXTRA_TESTS
   deploy:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
     steps:
       - checkout
       - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
+          key: v2-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
       - run:
           name: install python dependencies
           command: |
@@ -85,7 +85,7 @@ jobs:
             . venv/bin/activate
             make dev
       - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
+          key: v2-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
           paths:
             - "venv"
       - run:
@@ -110,7 +110,6 @@ jobs:
             . venv/bin/activate
             pip install twine
             twine upload dist/*
-
 workflows:
   build_and_deploy:
     jobs:
@@ -118,19 +117,19 @@ workflows:
           <<: *always_run
       - test:
           name: test-python-3.7
-          docker_image: "circleci/python:3.7"
+          version: "3.7"
       - test:
           name: test-python-3.8
-          docker_image: "circleci/python:3.8"
+          version: "3.8"
       - test:
           name: test-python-3.9
-          docker_image: "circleci/python:3.9"
+          version: "3.9"
       - test:
           name: test-python-3.10
-          docker_image: "circleci/python:3.10"
+          version: "3.10"
       - test:
           name: test-python-3.11
-          docker_image: "cimg/python:3.11"
+          version: "3.11"
       - deploy:
           <<: *release_only
           requires:
