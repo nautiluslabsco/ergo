@@ -1,3 +1,5 @@
+export PYTHONPATH := $(shell pwd)
+
 .PHONY: help clean dev docs package test
 
 help:
@@ -21,7 +23,6 @@ package:
 	python setup.py bdist_wheel
 
 test:
-	export PYTHONPATH=`pwd`
 	python test/integration/start_rabbitmq_broker.py
 	coverage run --omit src -m pytest -vv --timeout 60
 	coverage html
