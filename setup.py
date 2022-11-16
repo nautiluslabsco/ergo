@@ -90,7 +90,6 @@ setup(
         'pyYaml',
         'mypy_extensions',
         'aio-pika',
-        'retry',
         'aiomisc',
         'graphviz',
         'pydash',
