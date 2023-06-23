@@ -56,7 +56,7 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            make test
+            sudo -E make test
             codecov
       - store_artifacts:
           path: htmlcov/
