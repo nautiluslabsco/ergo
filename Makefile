@@ -22,7 +22,7 @@ package:
 
 test:
 	python test/integration/start_rabbitmq_broker.py
-	coverage run --omit src -m pytest -vv --timeout 60
+	sudo -E env PATH=${PATH} coverage run --omit src -m pytest -vv --timeout 60
 	coverage html
 
 fix:
@@ -30,4 +30,3 @@ fix:
 
 lint:
 	./scripts/lint.sh
-
