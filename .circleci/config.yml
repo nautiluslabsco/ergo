@@ -109,7 +109,10 @@ jobs:
           command: |
             . venv/bin/activate
             pip install twine
-            twine upload dist/*
+            # twine upload dist/*
+            # temporarily publish to internal pypi while we search for hansen's pypi password
+            twine upload --repository-url https://pypi.nautiluslabs.co/ -u $POETRY_HTTP_BASIC_NAUTILUS_USERNAME -p $POETRY_HTTP_BASIC_NAUTILUS_PASSWORD dist/*
+            twine upload --repository-url https://pypi-v2.nautiluslabs.co/ -u $POETRY_HTTP_BASIC_NAUTILUS_USERNAME -p $POETRY_HTTP_BASIC_NAUTILUS_PASSWORD dist/*
 
 workflows:
   build_and_deploy:
