@@ -9,6 +9,7 @@ always_run: &always_run
       only: /.*/
 
 release_only: &release_only
+  context: default-context
   filters:
     tags:
       only: /[0-9]+(\.[0-9]+)*/
