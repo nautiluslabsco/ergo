@@ -83,7 +83,6 @@ setup(
     install_requires=[  # dependencies
         'Click',
         'flask',
-        'falcon',
         'ansicolors',
         'click-default-group',
         'pika',
